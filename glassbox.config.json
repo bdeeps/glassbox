@@ -1,0 +1,110 @@
+{
+  "brand": "Glassbox",
+  "tagline": "See inside how things work.",
+  "pitch": "One open-source interactive explainer, every day. Play with it, break it, read the code.",
+  "domain": "glassbox.how",
+  "org": "glassboxhow",
+  "hubRepo": "glassboxhow.github.io",
+  "topic": "glassbox-box",
+  "startDate": "2026-09-26",
+  "handles": {
+    "instagram": "glassbox.how",
+    "youtube": "@glassboxhow",
+    "x": "glassboxhow",
+    "linkedin": ""
+  },
+  "hashtags": [
+    "glassbox",
+    "howitworks",
+    "explained",
+    "learnoninstagram",
+    "stem",
+    "opensource"
+  ],
+  "post": {
+    "time": "18:30",
+    "timezone": "Asia/Kolkata",
+    "youtubeCategoryId": "27",
+    "targets": [
+      {
+        "service": "instagram",
+        "kind": "reel"
+      },
+      {
+        "service": "instagram",
+        "kind": "carousel",
+        "offsetHours": 4
+      },
+      {
+        "service": "youtube",
+        "kind": "short"
+      },
+      {
+        "service": "youtube",
+        "kind": "video"
+      },
+      {
+        "service": "linkedin",
+        "kind": "video"
+      },
+      {
+        "service": "twitter",
+        "kind": "video"
+      },
+      {
+        "service": "threads",
+        "kind": "video"
+      },
+      {
+        "service": "tiktok",
+        "kind": "video"
+      }
+    ]
+  },
+  "fields": {
+    "optics": {
+      "label": "Light & Optics",
+      "color": "#ffb547"
+    },
+    "physics": {
+      "label": "Physics",
+      "color": "#7aa2ff"
+    },
+    "machines": {
+      "label": "Machines",
+      "color": "#ff7a59"
+    },
+    "computing": {
+      "label": "Computing",
+      "color": "#8ef0ff"
+    },
+    "internet": {
+      "label": "The Internet",
+      "color": "#5ce1a9"
+    },
+    "body": {
+      "label": "The Body",
+      "color": "#ff6b9a"
+    },
+    "nature": {
+      "label": "Nature",
+      "color": "#a3e635"
+    },
+    "space": {
+      "label": "Space",
+      "color": "#c49bff"
+    },
+    "money": {
+      "label": "Money & Markets",
+      "color": "#f5d547"
+    },
+    "security": {
+      "label": "Security & Trust",
+      "color": "#ff5c5c"
+    },
+    "ai": {
+      "label": "AI & Data",
+      "color": "#b8f2e6"
+    }
+  }
+}

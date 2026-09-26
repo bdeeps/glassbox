@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Glassbox Studio</title>
+<link rel="icon" href="/assets/icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&display=swap">
+<link rel="stylesheet" href="/assets/site.css">
+<link rel="stylesheet" href="/studio/studio.css">
+</head>
+<body class="studio">
+<header class="nav">
+  <a class="brand" href="/"><svg class="logo" viewBox="0 0 64 64" aria-hidden="true"><path d="M32 5 56 18v28L32 59 8 46V18Z" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/><circle cx="32" cy="31" r="7" fill="#8ef0ff"/></svg><span>Glassbox <b class="studio-tag">Studio</b></span></a>
+  <nav><span id="mode" class="mode"></span></nav>
+</header>
+
+<main class="st">
+  <section class="st-head">
+    <div>
+      <label class="lbl" for="box">Box</label>
+      <select id="box"></select>
+    </div>
+    <div class="st-status" id="status"></div>
+  </section>
+
+  <div class="tabs" role="tablist">
+    <button role="tab" class="tab on" data-tab="make">1 · Make</button>
+    <button role="tab" class="tab" data-tab="words">2 · Words</button>
+    <button role="tab" class="tab" data-tab="ship">3 · Ship</button>
+    <button role="tab" class="tab" data-tab="brand">Brand kit</button>
+  </div>
+
+  <!-- ------------------------------------------------ make -->
+  <section class="panel on" data-panel="make">
+    <div class="make">
+      <div class="preview-col">
+        <div class="preview"><canvas id="preview" width="540" height="960"></canvas><div class="empty" id="previewEmpty">The preview shows here while recording.</div></div>
+        <div class="bar"><i id="prog"></i></div>
+        <p class="hint" id="progText">Records the box's storyboard frame by frame: a 16:9 YouTube video, then a 9:16 Reel/Short, then the stills.</p>
+      </div>
+      <div class="make-side">
+        <div class="card-ish">
+          <h3>Record everything</h3>
+          <p class="hint">Uses the box's <code>window.glassbox.director</code>. Keep this tab in front while it runs, since background tabs are throttled.</p>
+          <label class="check"><input type="checkbox" id="optAudio" checked> Add the generated soundtrack</label>
+          <label class="check"><input type="checkbox" id="optVideo" checked> 16:9 YouTube video</label>
+          <label class="check"><input type="checkbox" id="optReel" checked> 9:16 Reel / Short</label>
+          <div class="row"><button class="btn primary" id="btnRecord">Record</button><button class="btn" id="btnStop" hidden>Stop</button></div>
+          <p class="warn" id="noDirector" hidden></p>
+        </div>
+        <div class="card-ish">
+          <h3>Storyboard</h3>
+          <ol class="scenes" id="scenes"></ol>
+        </div>
+      </div>
+    </div>
+    <h3 class="out-h">Outputs</h3>
+    <div class="outputs" id="outputs"><p class="hint">Nothing recorded yet. If this box was shipped before, its saved media loads here.</p></div>
+  </section>
+
+  <!-- ------------------------------------------------ words -->
+  <section class="panel" data-panel="words">
+    <div class="row between"><p class="hint">Drafts written from <code>glassbox.json</code> and the storyboard. Edit freely; they're saved into <code>post.json</code>.</p><button class="btn" id="btnRedraft">Redraft from manifest</button></div>
+    <div class="words" id="words"></div>
+  </section>
+
+  <!-- ------------------------------------------------ ship -->
+  <section class="panel" data-panel="ship">
+    <div class="ship">
+      <div class="card-ish">
+        <h3>When</h3>
+        <label class="lbl" for="when">Publish at (your local time)</label>
+        <input type="datetime-local" id="when">
+        <p class="hint">The Instagram carousel goes out a few hours later so it doesn't compete with the Reel.</p>
+        <h3 style="margin-top:22px">Where</h3>
+        <div id="targets" class="targets"></div>
+        <p class="hint">A target only posts if a matching channel is connected in Buffer.</p>
+      </div>
+      <div class="card-ish">
+        <h3>Save &amp; ship</h3>
+        <ol class="steps-list">
+          <li><b>Save to the box repo.</b> Writes the media and <code>post.json</code> into <code id="savePath">&lt;box&gt;/glassbox/</code>.</li>
+          <li><b>Dry run.</b> Shows the exact Buffer posts and checks the media URLs.</li>
+          <li><b>Ship it.</b> Commits and pushes <code>glassbox/</code>, waits for GitHub Pages, then schedules every post in Buffer.</li>
+        </ol>
+        <div class="row">
+          <button class="btn primary" id="btnSave">Save to repo</button>
+          <button class="btn" id="btnDry">Dry run</button>
+          <button class="btn" id="btnShip">Ship it</button>
+        </div>
+        <div class="row"><button class="btn ghost" id="btnZip">Download everything (.zip)</button></div>
+        <pre class="log" id="log" aria-live="polite"></pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- ------------------------------------------------ brand -->
+  <section class="panel" data-panel="brand">
+    <p class="hint">Channel artwork for setting up the accounts. The share card is used for the home page.</p>
+    <div class="outputs" id="brandOut"></div>
+  </section>
+</main>
+<script type="module" src="/studio/studio.js"></script>
+</body>
+</html>
