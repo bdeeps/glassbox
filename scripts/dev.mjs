@@ -8,7 +8,8 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { ROOT, config, localApps } from './lib/apps.mjs';
 import { pages } from './build.mjs';
-import { ship, loadEnv, checkLive, assetBase } from './lib/buffer.mjs';
+import { ship, loadEnv, checkLive, assetBase, channels } from './lib/buffer.mjs';
+import { active } from './lib/analytics.mjs';
 
 loadEnv();
 const run = promisify(execFile);
@@ -51,12 +52,20 @@ function inside(root, rel) {
   return p.startsWith(root) ? p : null;
 }
 
-const body = (req, limit = 400 * 1024 * 1024) => new Promise((ok, fail) => {
+const readBody = (req, limit = 400 * 1024 * 1024) => new Promise((ok, fail) => {
   const chunks = []; let n = 0;
   req.on('data', (c) => { n += c.length; if (n > limit) { fail(new Error('too large')); req.destroy(); } else chunks.push(c); });
   req.on('end', () => ok(Buffer.concat(chunks)));
   req.on('error', fail);
 });
+
+// Sets one KEY=value line in the git-ignored .env (removes it when value is empty).
+function writeEnv(key, value) {
+  const f = path.join(ROOT, '.env');
+  const lines = (fs.existsSync(f) ? fs.readFileSync(f, 'utf8') : '').split('\n').filter((l) => l && !l.startsWith(key + '='));
+  if (value) lines.push(`${key}=${value}`);
+  fs.writeFileSync(f, lines.join('\n') + '\n', { mode: 0o600 });
+}
 
 async function git(dir, ...args) {
   const { stdout } = await run('git', ['-C', dir, ...args]);
@@ -84,6 +93,50 @@ async function studioApi(req, res, url) {
     return send(res, 200, JSON.stringify({ dev: true, buffer: !!process.env.BUFFER_API_KEY, apps: out }), TYPES['.json']);
   }
 
+  // Settings: Buffer key (kept only in the git-ignored .env), posting defaults and
+  // analytics IDs (kept in glassbox.config.json, which is public).
+  if (action === 'settings' && req.method === 'GET') {
+    const key = process.env.BUFFER_API_KEY || '';
+    return send(res, 200, JSON.stringify({
+      buffer: { hasKey: !!key, hint: key ? `${key.slice(0, 4)}…${key.slice(-4)}` : '' },
+      post: config.post, analytics: config.analytics, active: active(),
+    }), TYPES['.json']);
+  }
+  if (action === 'settings' && req.method === 'POST') {
+    const body = JSON.parse((await readBody(req, 1e6)).toString() || '{}');
+    if (typeof body.bufferKey === 'string') {
+      const key = body.bufferKey.trim();
+      if (key && !/^[\w.-]{10,200}$/.test(key)) return send(res, 400, 'That does not look like a Buffer API key.');
+      writeEnv('BUFFER_API_KEY', key);
+      if (key) process.env.BUFFER_API_KEY = key; else delete process.env.BUFFER_API_KEY;
+    }
+    if (body.post) {
+      const { time, timezone, targets } = body.post;
+      if (time && !/^\d{2}:\d{2}$/.test(time)) return send(res, 400, 'time must be HH:MM');
+      if (time) config.post.time = time;
+      if (timezone) config.post.timezone = String(timezone).slice(0, 60);
+      if (Array.isArray(targets)) config.post.targets = targets.map((t) => ({ service: String(t.service), kind: String(t.kind), ...(t.offsetHours ? { offsetHours: Number(t.offsetHours) } : {}), ...(t.enabled === false ? { enabled: false } : {}) }));
+    }
+    if (body.analytics) {
+      const ga4 = String(body.analytics.ga4 || '').trim();
+      if (ga4 && !/^G-[A-Z0-9]{4,20}$/.test(ga4)) return send(res, 400, 'The Google Analytics ID looks like G-XXXXXXXXXX.');
+      config.analytics = { ...config.analytics, ga4, clicktrust: { ...config.analytics.clicktrust, snippet: String(body.analytics.clicktrust?.snippet || '').trim().slice(0, 20000), policyUrl: body.analytics.clicktrust?.policyUrl || config.analytics.clicktrust.policyUrl } };
+    }
+    fs.writeFileSync(path.join(ROOT, 'glassbox.config.json'), JSON.stringify(config, null, 2) + '\n');
+    // Boxes carry their own CSP, so keep it in step with the analytics hosts.
+    const synced = [];
+    if (body.analytics) for (const a of apps) { await run('node', [path.join(ROOT, 'scripts', 'readme.mjs'), a.slug]); synced.push(a.slug); }
+    return send(res, 200, JSON.stringify({ ok: true, synced, active: active() }), TYPES['.json']);
+  }
+  if (action === 'buffer' && slug === 'channels') {
+    try { return send(res, 200, JSON.stringify({ channels: await channels() }), TYPES['.json']); }
+    catch (e) { return send(res, 400, JSON.stringify({ error: e.message }), TYPES['.json']); }
+  }
+  if (action === 'posted') {
+    const f = path.join(ROOT, 'posted', `${slug}.json`);
+    return send(res, 200, fs.existsSync(f) ? fs.readFileSync(f, 'utf8') : 'null', TYPES['.json']);
+  }
+
   if (action === 'save' && req.method === 'POST') {
     if (!MEDIA_FILE.test(file || '')) return send(res, 400, 'bad file name');
     let dir;
@@ -94,7 +147,7 @@ async function studioApi(req, res, url) {
       dir = path.join(a.dir, 'glassbox');
     }
     fs.mkdirSync(dir, { recursive: true });
-    const buf = await body(req);
+    const buf = await readBody(req);
     fs.writeFileSync(path.join(dir, file), buf);
     return send(res, 200, JSON.stringify({ ok: true, path: path.join(dir, file), bytes: buf.length }), TYPES['.json']);
   }

@@ -2,6 +2,7 @@
 // client-rendered) so each carries its own share-card tags and works with
 // JavaScript switched off. Every asset is served from our own domain.
 import { config, SITE, esc } from './apps.mjs';
+import { csp } from './analytics.mjs';
 
 export const fmtDate = (d, opts = { day: 'numeric', month: 'short', year: 'numeric' }) => new Date(d + 'T12:00:00Z').toLocaleDateString('en-GB', { ...opts, timeZone: 'UTC' });
 export const addDays = (d, n) => { const t = new Date(d + 'T12:00:00Z'); t.setUTCDate(t.getUTCDate() + n); return t.toISOString().slice(0, 10); };
@@ -13,12 +14,8 @@ const H = config.handles;
 const REPO = `https://github.com/${config.org}/${config.hubRepo}`;
 const SUGGEST = `${REPO}/issues/new?template=box-idea.yml`;
 
-// Only our own origin, plus YouTube's no-cookie player, and only once someone presses play.
-const CSP = [
-  "default-src 'self'", "script-src 'self'", "style-src 'self' 'unsafe-inline'", "img-src 'self' data: blob:",
-  "media-src 'self' blob:", "font-src 'self'", "connect-src 'self'", "frame-src 'self' https://www.youtube-nocookie.com",
-  "object-src 'none'", "base-uri 'self'", "form-action 'none'",
-].join('; ');
+// Our own origin, the analytics services, and YouTube's no-cookie player after a click.
+const CSP = () => csp({ frames: ['https://www.youtube-nocookie.com'] });
 
 export const LOGO = `<svg class="logo" viewBox="0 0 64 64" aria-hidden="true"><path d="M32 5 56 18v28L32 59 8 46V18Z" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/><path d="M8 18l24 13 24-13M32 31v28" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round" opacity=".45"/><circle cx="32" cy="31" r="7" fill="var(--glow, #8ef0ff)"/></svg>`;
 const ICON = {
@@ -35,7 +32,7 @@ export function head({ title, description, url, image, type = 'website', extra =
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta http-equiv="Content-Security-Policy" content="${CSP}">
+<meta http-equiv="Content-Security-Policy" content="${CSP()}">
 <meta name="referrer" content="no-referrer">
 <title>${esc(title)}</title>
 <meta name="description" content="${esc(description)}">
@@ -56,6 +53,7 @@ ${H.x ? `<meta name="twitter:site" content="@${esc(H.x)}">` : ''}
 <link rel="preload" href="/assets/fonts/geist-latin-1.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/assets/fonts/fonts.css">
 <link rel="stylesheet" href="/assets/site.css">
+<script src="/assets/analytics.js" defer></script>
 ${extra}
 </head>
 <body class="${cls}"${style ? ` style="${style}"` : ''}>
@@ -81,13 +79,13 @@ export function footer() {
     <div class="foot-brand">
       <a class="brand" href="/">${LOGO}<span>${esc(config.brand)}</span></a>
       <p>${esc(config.tagline)} ${esc(config.pitch)}</p>
-      <p class="promise-line">No accounts. No cookies. No tracking. <a href="/privacy/">We collect nothing.</a></p>
+      <p class="promise-line">No accounts. No ads. Nothing sold. <a href="/privacy/">Exactly what we measure, and why.</a></p>
     </div>
     <div><h4>Explore</h4><a href="/#today">Today's box</a><a href="/#shelf">The shelf</a><a href="/concepts/">Concepts A–Z</a><a href="/#calendar">Calendar</a></div>
     <div><h4>Follow</h4>${H.youtube ? `<a href="https://youtube.com/${esc(H.youtube)}" rel="noopener" target="_blank">YouTube</a>` : ''}${H.instagram ? `<a href="https://instagram.com/${esc(H.instagram)}" rel="noopener" target="_blank">Instagram</a>` : ''}<a href="/feed.xml">RSS feed</a><a href="https://github.com/${esc(config.org)}" rel="noopener" target="_blank">GitHub</a></div>
     <div><h4>The small print</h4><a href="/privacy/">Privacy</a><a href="/terms/">Terms</a><a href="/terms/#licences">Licences</a><a href="${SUGGEST}" rel="noopener" target="_blank">Suggest a box</a></div>
   </div>
-  <p class="colophon">Code under ${esc(config.licenses.code)}. Words, images and videos under ${esc(config.licenses.content)}. Static files on GitHub Pages; fonts self-hosted. © ${new Date(config.policyDate).getUTCFullYear()} ${esc(config.owner)}.</p>
+  <p class="colophon">Code under ${esc(config.licenses.code)}. Words, images and videos under ${esc(config.licenses.content)}. Static files on GitHub Pages; fonts self-hosted; visits measured with Google Analytics, bots detected with ClickTrust. © ${new Date(config.policyDate).getUTCFullYear()} ${esc(config.owner)}.</p>
 </footer>
 <div class="palette" id="palette" hidden>
   <div class="palette-card" role="dialog" aria-modal="true" aria-label="Search">
@@ -260,12 +258,12 @@ ${nav()}
   </section>
 
   <section class="promise">
-    <div class="promise-head"><p class="eyebrow">Our promise</p><h2>A glass box has<br><em>nothing to hide</em>.</h2><p class="lede">Not in how things work, not in our code, and not in what we do with you. We do nothing with you, because we collect nothing.</p></div>
+    <div class="promise-head"><p class="eyebrow">Our promise</p><h2>A glass box has<br><em>nothing to hide</em>.</h2><p class="lede">Not in how things work, not in our code, and not in what we measure. We count visits with Google Analytics and filter out bots with ClickTrust, and we tell you exactly what that means.</p></div>
     <ul class="promise-list">
       <li><b>No accounts</b><span>Nothing to sign up for, ever.</span></li>
-      <li><b>No cookies</b><span>Not ours, not anyone else's.</span></li>
-      <li><b>No tracking</b><span>No analytics, pixels, ads or fingerprinting.</span></li>
-      <li><b>No third parties</b><span>Every file, font included, comes from this domain.</span></li>
+      <li><b>No ads, nothing sold</b><span>Your visit is never sold or used for advertising.</span></li>
+      <li><b>Two analytics tools, named</b><span>Google Analytics for visits, ClickTrust for bots. Nothing else.</span></li>
+      <li><b>Privacy signals respected</b><span>Send Global Privacy Control or Do Not Track and Google Analytics stays off.</span></li>
       <li><b>Open source</b><span>Every box's code is public under ${esc(config.licenses.code)}.</span></li>
       <li><b>Free to reuse</b><span>Explanations, images and videos under ${esc(config.licenses.content)}.</span></li>
     </ul>
@@ -343,7 +341,7 @@ ${nav()}
   <section class="ex-fork">
     <div>
       <h2>Fork it. Teach with it.</h2>
-      <p>This box is plain HTML, CSS and JavaScript. No build step, no accounts, no tracking. The code is ${esc(config.licenses.code)}. The words, images and videos are ${esc(config.licenses.content)}, so you can reuse them anywhere if you credit <b>“${esc(config.brand)}, ${esc(config.domain)}/e/${esc(a.slug)}”</b>.</p>
+      <p>This box is plain HTML, CSS and JavaScript, with no build step and no accounts. Run it yourself and it sends nothing anywhere. The code is ${esc(config.licenses.code)}. The words, images and videos are ${esc(config.licenses.content)}, so you can reuse them anywhere if you credit <b>“${esc(config.brand)}, ${esc(config.domain)}/e/${esc(a.slug)}”</b>.</p>
     </div>
     <div>
       <pre class="cmd"><code>git clone ${esc(a.repo)}.git</code><button class="copy" data-copy="git clone ${esc(a.repo)}.git">Copy</button></pre>

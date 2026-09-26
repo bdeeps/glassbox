@@ -29,10 +29,10 @@ A box is any static HTML5 app in its own repo. To join the shelf and get videos 
 
 ## 2. Relative paths, no third parties, and the bar
 
-Glassbox promises visitors that no page contacts another website. So a box must:
+Glassbox promises visitors that the only outside services are the site's own analytics, which `/bar.js` loads. So a box must:
 
 - **self-host** its fonts and libraries (put them in `fonts/` and `vendor/`, with their licence files);
-- carry a **Content Security Policy** meta tag limiting everything to `'self'` (an inline import map needs its `sha256-` hash in `script-src`; `npm run check` prints the right one);
+- carry a **Content Security Policy** meta tag. `npm run readme -- <slug>` writes it from `glassbox.config.json`: `'self'`, the analytics hosts, and the `sha256-` hash of any inline import map. `npm run check` flags it when it's stale;
 - store nothing except in `localStorage`, and declare those keys in `storage`.
 
 

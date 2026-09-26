@@ -32,6 +32,7 @@
     <button role="tab" class="tab" data-tab="words">2 · Words</button>
     <button role="tab" class="tab" data-tab="ship">3 · Ship</button>
     <button role="tab" class="tab" data-tab="brand">Brand kit</button>
+    <button role="tab" class="tab" data-tab="settings" id="tabSettings">Settings</button>
   </div>
 
   <!-- ------------------------------------------------ make -->
@@ -94,6 +95,46 @@
         </div>
         <div class="row"><button class="btn ghost" id="btnZip">Download everything (.zip)</button></div>
         <pre class="log" id="log" aria-live="polite"></pre>
+        <h3 style="margin-top:22px">Posting history</h3>
+        <div id="history" class="history"><p class="hint">Not posted yet.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ------------------------------------------------ settings -->
+  <section class="panel" data-panel="settings">
+    <p class="hint" id="settingsNote">Settings only work on your local dev server. The public site is static and never holds keys.</p>
+    <div class="settings">
+      <div class="card-ish">
+        <h3>Buffer</h3>
+        <p class="hint">Create a key in Buffer → Settings → API. It's saved only in this repo's <code>.env</code>, which git ignores, and is never published.</p>
+        <p><span class="pill" id="keyState">…</span></p>
+        <label class="lbl" for="bufferKey">API key</label>
+        <input type="password" id="bufferKey" autocomplete="off" spellcheck="false" placeholder="Paste a new key to replace the saved one">
+        <div class="row"><button class="btn primary" id="btnSaveKey">Save key</button><button class="btn" id="btnChannels">Test &amp; list channels</button><button class="btn ghost" id="btnRemoveKey">Remove key</button></div>
+        <div id="channels" class="channels"></div>
+      </div>
+      <div class="card-ish">
+        <h3>Posting defaults</h3>
+        <div class="two">
+          <div><label class="lbl" for="postTime">Default time</label><input type="time" id="postTime"></div>
+          <div><label class="lbl" for="postTz">Time zone (for reference)</label><input type="text" id="postTz" placeholder="Asia/Kolkata"></div>
+        </div>
+        <label class="lbl" style="margin-top:16px">Where each box goes</label>
+        <div class="table-wrap"><table class="targets-table"><thead><tr><th>On</th><th>Target</th><th>Delay (hours)</th></tr></thead><tbody id="targetRows"></tbody></table></div>
+        <div class="row"><button class="btn primary" id="btnSavePost">Save posting defaults</button></div>
+      </div>
+      <div class="card-ish">
+        <h3>Analytics</h3>
+        <p class="hint">These IDs are public (they end up in every page), so they're kept in <code>glassbox.config.json</code>. Saving also rewrites each local box's Content Security Policy to allow exactly these services. The <a href="/privacy/" target="_blank">privacy page</a> already describes both.</p>
+        <label class="lbl" for="ga4">Google Analytics 4 measurement ID</label>
+        <input type="text" id="ga4" placeholder="G-XXXXXXXXXX" spellcheck="false">
+        <label class="lbl" for="ctSnippet" style="margin-top:14px">ClickTrust tracking snippet</label>
+        <textarea id="ctSnippet" spellcheck="false" placeholder="Paste the snippet from your ClickTrust account (the <script …> tag)"></textarea>
+        <label class="lbl" for="ctPolicy" style="margin-top:14px">ClickTrust privacy policy URL</label>
+        <input type="text" id="ctPolicy" spellcheck="false">
+        <div class="row"><button class="btn primary" id="btnSaveAnalytics">Save analytics</button></div>
+        <pre class="log" id="analyticsOut"></pre>
       </div>
     </div>
   </section>

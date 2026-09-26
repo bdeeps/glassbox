@@ -1,8 +1,13 @@
 // The Glassbox bar: a small pill every box loads with <script src="/bar.js" defer>.
-// It links the app back to its explainer and source. Lives in a shadow root so
-// it can't clash with the app's own CSS. Hidden when framed or recording.
+// It links the app back to its explainer and source, and loads the site's
+// analytics. Lives in a shadow root so it can't clash with the app's own CSS.
+// Does nothing when framed or recording.
 (() => {
   if (window.top !== window.self || /[?&]reel\b/.test(location.search) || document.getElementById('glassbox-bar')) return;
+  // The same analytics as the rest of glassbox.how (see /privacy/). Boxes don't load it themselves.
+  const a = document.createElement('script');
+  a.src = '/assets/analytics.js'; a.defer = true;
+  document.head.appendChild(a);
   const slug = location.pathname.split('/')[1];
   if (!slug) return;
   const KEY = 'glassbox.bar.min';

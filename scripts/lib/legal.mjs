@@ -28,44 +28,60 @@ ${footer()}`;
 
 export function privacy(apps) {
   const stored = apps.filter((a) => a.storage.length);
+  const ctUrl = config.analytics?.clicktrust?.policyUrl || 'https://clicktrust.cc';
   const storageRows = [
-    `<tr><td><code>glassbox.bar.min</code></td><td>Every box</td><td>Whether you collapsed the small Glassbox bar. Holds only “1” or “0”.</td></tr>`,
-    ...stored.flatMap((a) => a.storage.map((s) => `<tr><td><code>${esc(s.key)}</code></td><td><a href="${a.pageUrl}">No. ${a.no} · ${esc(a.title)}</a></td><td>${esc(s.what)}</td></tr>`)),
+    `<tr><td><code>_ga</code></td><td>Cookie · Google Analytics</td><td>A random ID that lets Google Analytics tell one visitor from another. Expires after 2 years.</td></tr>`,
+    `<tr><td><code>_ga_&lt;ID&gt;</code></td><td>Cookie · Google Analytics</td><td>Keeps track of the current visit (session). Expires after 2 years.</td></tr>`,
+    `<tr><td>ClickTrust identifiers</td><td>ClickTrust</td><td>ClickTrust may store a small identifier to recognise automated traffic across page views. See <a href="${esc(ctUrl)}" rel="noopener" target="_blank">ClickTrust's policy</a>.</td></tr>`,
+    `<tr><td><code>glassbox.bar.min</code></td><td>Local storage · every box</td><td>Whether you collapsed the small Glassbox bar. Holds only “1” or “0”. Never leaves your device.</td></tr>`,
+    ...stored.flatMap((a) => a.storage.map((s) => `<tr><td><code>${esc(s.key)}</code></td><td>Local storage · <a href="${a.pageUrl}">No. ${a.no} ${esc(a.title)}</a></td><td>${esc(s.what)} Never leaves your device.</td></tr>`)),
   ].join('');
   return doc({
     title: 'Privacy',
-    description: `${config.brand} collects no personal data: no accounts, cookies, analytics, ads or tracking. Here is exactly what happens when you visit.`,
+    description: `What ${config.brand} measures and why: Google Analytics for visits, ClickTrust for bot detection, and nothing else. No accounts, no ads, nothing sold.`,
     url: '/privacy/', eyebrow: 'The small print, in plain words', historyFile: 'legal.mjs',
-    lede: `${config.brand} does not collect, store, sell or share any information about you. This page explains exactly what happens when you visit, so you don't have to take our word for it.`,
+    lede: `A glass box shouldn't hide what it measures. ${config.brand} uses exactly two analytics services, <b>Google Analytics</b> to understand visits and <b>ClickTrust</b> to detect bots. This page explains what each one sees, why we use it, and how to opt out.`,
     summary: `<h2>The short version</h2><ul class="checks">
-      <li><b>No accounts, no forms.</b> There is nothing to sign up for and nowhere to type your details.</li>
-      <li><b>No cookies.</b> We set none, and no one else sets any through this site.</li>
-      <li><b>No analytics or tracking.</b> No Google Analytics, no pixels, no fingerprinting, no ad networks, no session recording.</li>
-      <li><b>No third-party requests.</b> Pages, fonts, scripts, images and videos all come from ${esc(config.domain)}. A YouTube player loads only if you press play on one.</li>
-      <li><b>Your progress stays on your device.</b> Some boxes save things like quiz scores in your own browser. They never leave it.</li>
-      <li><b>Our host keeps standard server logs</b>, which we cannot see (<a href="#hosting">details</a>).</li>
+      <li><b>No accounts, no forms, no ads.</b> There's nothing to sign up for, and we never sell or share data for advertising.</li>
+      <li><b>Google Analytics counts visits.</b> It tells us which boxes people use, roughly where from, on what kind of device, and how they found us. It sets two cookies. <a href="#analytics">Details</a></li>
+      <li><b>ClickTrust detects bots.</b> It looks at technical signals from each visit to tell real people from automated traffic, so our numbers stay honest and the site stays safe. <a href="#bots">Details</a></li>
+      <li><b>Your browser's privacy signals are respected.</b> If it sends Global Privacy Control or Do Not Track, Google Analytics doesn't load. <a href="#choices">Your choices</a></li>
+      <li><b>Nothing else talks to other sites.</b> Fonts, scripts, images and videos come from ${esc(config.domain)}. A YouTube player loads only if you press play on one.</li>
+      <li><b>Your progress stays on your device.</b> Quiz scores and similar things are kept in your own browser and never sent anywhere.</li>
     </ul>`,
     sections: [
-      ['who', 'Who we are', `<p>${esc(config.brand)} (${esc(config.domain)}) is a personal, non-commercial project by ${esc(config.owner)}. It publishes one interactive explainer (“box”) a day, with its source code. When this page says “we”, it means ${esc(config.owner)}.</p>`],
-      ['collect', 'What we collect', `<p><b>Nothing.</b> The site is a set of static files: HTML, CSS, JavaScript, images, fonts and videos. There is no server of ours, no database, no login and no form. We never receive your name, email, IP address, location, device details or what you click.</p>
-        <p>Because we hold no personal data, there is nothing for us to access, correct, export or delete on your behalf. Rights under laws such as the GDPR, the UK GDPR, India's DPDP Act or the CCPA/CPRA still protect you. They just have nothing of yours to act on here.</p>`],
-      ['hosting', 'Our host: GitHub Pages', `<p>The site is served by <b>GitHub Pages</b>, a service of GitHub, Inc. Like every web server, GitHub has to receive your IP address to send you a page. GitHub states that when a Pages site is visited, the visitor's IP address is logged and stored for security purposes. Those logs belong to GitHub. We have no access to them and receive no reports from them.</p>
-        <p>See <a href="https://docs.github.com/en/pages/getting-started-with-github-pages/about-github-pages#data-collection" rel="noopener" target="_blank">GitHub Pages: data collection</a> and the <a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement" rel="noopener" target="_blank">GitHub General Privacy Statement</a>.</p>`],
-      ['third-parties', 'No third-party requests', `<p>Most websites quietly load fonts, scripts and trackers from other companies, and each of those learns you visited. We don't. Our fonts (Geist, Instrument Serif and each box's own fonts) and libraries (such as three.js) are copied onto ${esc(config.domain)} and served from it.</p>
-        <p>We also enforce this technically. Every page carries a Content Security Policy that tells your browser to refuse connections to any other domain, except the YouTube player described below. You can check it yourself: open your browser's developer tools, look at the Network tab, and you will see only ${esc(config.domain)}.</p>
-        <p>Pages also send no “referrer”. When you follow a link from here to another site, your browser doesn't tell that site you came from ${esc(config.brand)}.</p>`],
-      ['storage', 'What stays on your device', `<p>A few features remember things <b>in your own browser</b> (its “local storage”) so they're still there next time. This data never leaves your device: nothing sends it to us or anyone else. It's not a cookie and it can't be read by other websites.</p>
-        <div class="table-wrap"><table><thead><tr><th>Key</th><th>Where</th><th>What it holds</th></tr></thead><tbody>${storageRows}</tbody></table></div>
-        <p>To clear it, use your browser's “clear site data” option for ${esc(config.domain)}. Private or incognito windows forget it automatically.</p>`],
-      ['video', 'Videos and YouTube', `<p>Our own videos (the 40-second clips on each page) are plain MP4 files served from ${esc(config.domain)}. Watching them tells no one anything.</p>
-        <p>Some pages may also offer the same video on YouTube. That player is <b>not loaded</b> until you press its play button. Only then does your browser connect to <code>youtube-nocookie.com</code>, Google's privacy-enhanced embed, and Google's <a href="https://policies.google.com/privacy" rel="noopener" target="_blank">privacy policy</a> applies to that player.</p>`],
-      ['links', 'Links to other sites', `<p>We link to YouTube, Instagram, GitHub and the original sources we learned from. Those sites have their own privacy policies, which apply once you're there. Following a link from us sends them no referrer.</p>`],
-      ['social', 'Our social media accounts', `<p>We publish short videos on platforms such as YouTube and Instagram, and schedule them with a tool called Buffer. No information about visitors to this website passes to those platforms or to Buffer. If you follow, like or comment on our posts there, that activity is public on that platform and governed by its privacy policy. Platforms show account owners (us) aggregated statistics such as view counts. We use those only to see which explainers people find useful.</p>`],
+      ['who', 'Who we are', `<p>${esc(config.brand)} (${esc(config.domain)}) is a personal, non-commercial project by ${esc(config.owner)}. It publishes one interactive explainer (“box”) a day, with its source code. When this page says “we”, it means ${esc(config.owner)}, who decides how the data described here is used.</p>`],
+      ['summary-table', 'Everything, in one table', `<div class="table-wrap"><table><thead><tr><th>Who</th><th>What they receive</th><th>Why</th><th>How long</th></tr></thead><tbody>
+          <tr><td><b>Google Analytics</b> (Google)</td><td>Pages viewed, clicks, scrolling and time on page; the site that referred you; approximate location (country and city, worked out from your IP address); device type, browser, operating system, screen size and language; a random visitor ID stored in a cookie.</td><td>To learn which explainers people find useful, so we can make better ones.</td><td>Up to 14 months, then deleted.</td></tr>
+          <tr><td><b>ClickTrust</b></td><td>Your IP address, browser and device characteristics (user agent, screen, settings), the page and referrer, and the timing of interactions.</td><td>To tell people from bots, scrapers and fake traffic. This keeps the numbers honest and protects the site.</td><td>As set out in <a href="${esc(ctUrl)}" rel="noopener" target="_blank">ClickTrust's policy</a>.</td></tr>
+          <tr><td><b>GitHub Pages</b> (our host)</td><td>Your IP address, logged by the server with every request.</td><td>To deliver the site and keep it secure.</td><td>Controlled by GitHub. We can't see these logs.</td></tr>
+          <tr><td><b>Us</b></td><td>Only the aggregated reports above. No names, no emails, no accounts, and nothing we could use to identify you.</td><td></td><td></td></tr>
+        </tbody></table></div>`],
+      ['analytics', 'Google Analytics: understanding visits', `<p>We use <b>Google Analytics 4</b>, a service from Google, to count visits and see how people use the site: which boxes they open, how long they stay, where they came from (a search, YouTube, Instagram, another site), and roughly where in the world they are.</p>
+        <p>We've switched off Google signals and ad personalisation, so this data isn't linked to Google accounts or used for advertising. Google Analytics 4 works out an approximate location from your IP address; Google states that GA4 doesn't log or store IP addresses. We never send Google your name, email or anything you type. Reports reach us as totals and trends, like “a thousand people opened CameraClear yesterday”, and don't identify individuals. We keep analytics data for 14 months.</p>
+        <p>Google processes this data for us. See <a href="https://support.google.com/analytics/answer/6004245" rel="noopener" target="_blank">how Google safeguards Analytics data</a> and the <a href="https://policies.google.com/privacy" rel="noopener" target="_blank">Google Privacy Policy</a>.</p>`],
+      ['bots', 'ClickTrust: detecting bots', `<p>A lot of web traffic isn't people. It's crawlers, scrapers and bots, some of them harmful. We use <b>ClickTrust</b> (<a href="${esc(ctUrl)}" rel="noopener" target="_blank">${esc(ctUrl.replace(/^https?:\/\//, ''))}</a>), an invalid-traffic detection service, to spot them.</p>
+        <p>To do that, ClickTrust looks at technical signals from each visit: your IP address, how your browser and device present themselves, and how the page is used (for example, whether interactions look human). It uses them only to judge whether a visit is genuine, which keeps our visitor numbers honest and helps protect the site from abuse. It isn't used for advertising, to build a profile of you, or to identify who you are.</p>
+        <p>Because this protects the site itself, ClickTrust runs even when your browser asks not to be tracked.</p>`],
+      ['cookies', "Cookies and what's stored on your device", `<div class="table-wrap"><table><thead><tr><th>Name</th><th>Type · set by</th><th>What it does</th></tr></thead><tbody>${storageRows}</tbody></table></div>
+        <p>To clear them, use your browser's “clear site data” option for ${esc(config.domain)}. Private or incognito windows forget them automatically.</p>`],
+      ['choices', 'Your choices', `<ul>
+          <li><b>Send a privacy signal.</b> If your browser sends <a href="https://globalprivacycontrol.org" rel="noopener" target="_blank">Global Privacy Control</a> or Do Not Track, Google Analytics doesn't load at all.</li>
+          <li><b>Opt out of Google Analytics everywhere</b> with <a href="https://tools.google.com/dlpage/gaoptout" rel="noopener" target="_blank">Google's opt-out browser add-on</a>.</li>
+          <li><b>Block or delete cookies</b> in your browser settings, or use a content blocker. The site works fully without them.</li>
+          <li><b>Use the boxes offline.</b> Every box is open source. Clone it and run it on your own computer, and no analytics run at all.</li>
+        </ul>`],
+      ['basis', "Why we're allowed to (legal basis)", `<p>If you're in the European Economic Area or the United Kingdom, the law asks us to say why we process this data. For bot detection it's our <b>legitimate interest</b> in keeping the site secure and its statistics accurate. For Google Analytics it's our legitimate interest in understanding which explainers are useful, with the opt-outs above always available. Where the law requires your consent for analytics cookies, we'll ask for it first.</p>
+        <p>You have the right to ask about, correct, delete or object to the processing of your personal data, and to complain to your data protection authority. Because we only see aggregated reports, we usually can't tell which data is yours. Tell us what you need and we'll help, including with deletion requests to Google and ClickTrust.</p>`],
+      ['sharing', 'Who else gets data', `<p>Only the three services above: Google, ClickTrust and GitHub. They process data on our behalf or to deliver the site, and may do so outside your country. We never sell personal data, never share it for advertising, and never combine it with other sources to identify you.</p>`],
+      ['video', 'Videos and YouTube', `<p>Our own videos (the 40-second clips on each page) are MP4 files served from ${esc(config.domain)}. Some pages also offer the video on YouTube. That player is <b>not loaded</b> until you press its play button. Only then does your browser connect to <code>youtube-nocookie.com</code>, Google's privacy-enhanced embed, and Google's <a href="https://policies.google.com/privacy" rel="noopener" target="_blank">privacy policy</a> applies to that player.</p>`],
+      ['security', 'How we keep this in check', `<p>Every page carries a Content Security Policy: a rule that tells your browser to refuse connections to anything except ${esc(config.domain)}, Google Analytics and ClickTrust (plus the YouTube player once you press play). You can check it yourself: open your browser's developer tools, look at the Network tab, and you'll see only those. Fonts and libraries are hosted on our own domain, so nobody else learns you visited just because a page needed a font. Pages send no “referrer”, so the sites we link to aren't told you came from us.</p>
+        <p>The site is served only over HTTPS. If you find a security problem, please ${contact()}.</p>`],
+      ['social', 'Our social media accounts', `<p>We publish short videos on platforms such as YouTube and Instagram, and schedule them with a tool called Buffer. No data about visitors to this website passes to those platforms or to Buffer. If you follow, like or comment on our posts there, that's governed by the platform's own privacy policy. Platforms show us aggregated statistics such as view counts.</p>`],
       ['contact-you', 'If you contact us', `<p>If you ${contact()}, we'll see whatever you choose to send, such as your GitHub username or email address. We use it only to reply, and we never add you to a list. GitHub issues are public, so don't put anything private in one.</p>`],
-      ['children', 'Children', `<p>${esc(config.brand)} is made to be safe for curious people of any age. Because we collect no personal data from anyone, we collect none from children either. No account, consent screen or age check is needed to use it.</p>`],
-      ['security', 'Security', `<p>The site is served only over HTTPS. It runs no server code of ours that could be breached, and it holds no data about you that could leak. If you find a security problem, please ${contact()}.</p>`],
-      ['changes', 'Changes to this policy', `<p>If how the site works ever changes in a way that affects privacy, we'll update this page before the change goes live and change its date at the top. Because the site's source is public, <a href="${HISTORY('legal.mjs')}" rel="noopener" target="_blank">every past version of this policy</a> is visible, word for word. We will never quietly start collecting data. If we ever wanted to, this page would say so first, clearly.</p>`],
-      ['contact', 'Contact', `<p>Questions about privacy? Please ${contact()}.</p>`],
+      ['children', 'Children', `<p>${esc(config.brand)} is a general-audience site. It isn't directed at children under 13, and we don't knowingly collect personal information from them. Parents and teachers are welcome to use the boxes with children. A box cloned and run locally sends no data at all.</p>`],
+      ['changes', 'Changes to this policy', `<p>If what we measure changes, we'll update this page before the change goes live and change the date at the top. Because the site's source is public, <a href="${HISTORY('legal.mjs')}" rel="noopener" target="_blank">every past version of this policy</a> is visible, word for word. We'll never add a tracker without listing it here first.</p>`],
+      ['contact', 'Contact', `<p>Questions about privacy, or a request about your data? Please ${contact()}.</p>`],
     ],
   });
 }
@@ -78,7 +94,7 @@ export function terms() {
     url: '/terms/', eyebrow: 'The small print, in plain words', historyFile: 'legal.mjs',
     lede: `${config.brand} is free to use, and almost everything on it is free to reuse. These terms explain the few rules and limits.`,
     summary: `<h2>The short version</h2><ul class="checks">
-      <li><b>It's free.</b> No account, no payment, no ads.</li>
+      <li><b>It's free.</b> No account, no payment, no ads. What we measure is in the <a href="/privacy/">privacy policy</a>.</li>
       <li><b>Reuse the code</b> under the ${esc(L.code)} licence.</li>
       <li><b>Reuse the explanations, images and videos</b> under ${esc(L.content)}. Just credit ${esc(config.brand)}.</li>
       <li><b>Explainers simplify.</b> They're for learning, not professional advice.</li>
@@ -86,7 +102,7 @@ export function terms() {
     </ul>`,
     sections: [
       ['agreement', 'Using the site', `<p>These terms cover ${esc(config.domain)}, including every box served under it, and the ${esc(config.brand)} repositories at <a href="https://github.com/${esc(config.org)}" rel="noopener" target="_blank">github.com/${esc(config.org)}</a>. Using the site means you accept them. If you don't, please don't use it. ${esc(config.brand)} is run by ${esc(config.owner)} as a personal, non-commercial project.</p>
-        <p>You can use the site freely, at any age, without an account. How we handle (or rather, don't handle) data is in the <a href="/privacy/">privacy policy</a>.</p>`],
+        <p>You can use the site freely, at any age, without an account. What we measure, and why, is in the <a href="/privacy/">privacy policy</a>.</p>`],
       ['licences', 'Licences: what you may reuse', `<p>We want these explainers to spread, so they're openly licensed.</p>
         <div class="table-wrap"><table><thead><tr><th>What</th><th>Licence</th><th>What that means</th></tr></thead><tbody>
           <tr><td>Source code of every box and of this site</td><td><a href="https://opensource.org/licenses/MIT" rel="noopener" target="_blank">${esc(L.code)}</a></td><td>Use, copy, change and share it, commercially too. Keep the copyright and licence notice. Each repository's <code>LICENSE</code> file is the binding text.</td></tr>

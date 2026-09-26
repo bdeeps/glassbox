@@ -1,5 +1,6 @@
 // Progressive enhancements for every hub page. Every page works without this
-// file. Nothing here stores or sends anything about the visitor.
+// file. Nothing here stores or sends anything about the visitor (analytics
+// live separately in /assets/analytics.js).
 (() => {
   const root = document.documentElement;
   root.classList.add('js');
@@ -27,7 +28,7 @@
     { kind: 'Pages', title: 'The shelf', sub: 'Every box so far', url: '/#shelf' },
     { kind: 'Pages', title: 'Concepts A–Z', sub: 'Every term we define', url: '/concepts/' },
     { kind: 'Pages', title: 'Calendar', sub: 'One box a day, for a year', url: '/#calendar' },
-    { kind: 'Pages', title: 'Privacy', sub: 'We collect nothing, and here is how', url: '/privacy/' },
+    { kind: 'Pages', title: 'Privacy', sub: 'What we measure and why', url: '/privacy/' },
     { kind: 'Pages', title: 'Terms and licences', sub: 'MIT code, CC BY 4.0 explanations', url: '/terms/' },
   ];
   async function loadIndex() {

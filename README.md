@@ -9,8 +9,8 @@
 <p align="center">
   <a href="LICENSE"><img alt="Code: MIT" src="https://img.shields.io/badge/code-MIT-3fb950"></a>
   <a href="LICENSE-CONTENT.md"><img alt="Content: CC BY 4.0" src="https://img.shields.io/badge/content-CC%20BY%204.0-ef9421"></a>
-  <a href="https://glassbox.how/privacy/"><img alt="Tracking: none" src="https://img.shields.io/badge/tracking-none-555"></a>
-  <a href="https://glassbox.how/privacy/"><img alt="Third-party requests: none" src="https://img.shields.io/badge/third--party%20requests-none-555"></a>
+  <a href="https://glassbox.how/privacy/"><img alt="Privacy: explained" src="https://img.shields.io/badge/privacy-explained-555"></a>
+  <img alt="Ads: none" src="https://img.shields.io/badge/ads-none-555">
   <img alt="Dependencies: zero" src="https://img.shields.io/badge/npm%20dependencies-0-8ef0ff">
 </p>
 
@@ -21,7 +21,7 @@ This repository is the **hub**. It holds the website at [glassbox.how](https://g
 | ![Home page](docs/images/home.jpg) | ![An explainer page](docs/images/explainer.jpg) |
 | **Home.** Today's box opens from a black box into glass; search anything with <kbd>/</kbd>. | **Explainer.** The question, the 40-second video, six plain-language beats, key terms, the code. |
 | ![Concepts A–Z](docs/images/concepts.jpg) | ![Privacy](docs/images/privacy.jpg) |
-| **Concepts A–Z.** Every term across every box, each linked to where you can see it working. | **Privacy.** We collect nothing, and the page explains exactly how that is enforced. |
+| **Concepts A–Z.** Every term across every box, each linked to where you can see it working. | **Privacy.** Exactly what Google Analytics and ClickTrust see, why, and how to opt out. |
 
 ## Boxes so far
 
@@ -49,7 +49,7 @@ github.com/glassboxhow                        glassbox.how
 - **Every box is its own public repo** with GitHub Pages turned on. GitHub serves an org's project sites under the org site's custom domain, so `glassboxhow/cameraclear` appears at `glassbox.how/cameraclear/` with no proxy and no bill.
 - **The hub finds boxes by topic.** Any public repo in the org tagged `glassbox-box` with a `glassbox.json` joins the shelf. The build runs every two hours, on every push, or straight away when a box's `notify-hub` workflow pings it.
 - **Each box hosts its own media.** The studio writes the videos and images into the box's `glassbox/` folder, which keeps every repo far below GitHub's size limits. It also gives Buffer the public media URLs it needs.
-- **Nothing to track, nothing to leak.** Static files, self-hosted fonts and libraries, and a Content Security Policy on every page that only allows our own domain. There is no database, no account system and no analytics. See [Privacy](https://glassbox.how/privacy/).
+- **Measured in the open.** Visits are counted with Google Analytics and bots detected with ClickTrust. Both load from one generated file, `/assets/analytics.js`, and nothing else is allowed. Fonts and libraries are self-hosted, and every page's Content Security Policy only permits our domain and those two services. There is no database and no account system. See [Privacy](https://glassbox.how/privacy/).
 - **Zero npm dependencies.** The build, dev server and poster are plain Node 20. The site is plain HTML, CSS and JavaScript.
 
 ## The daily loop

@@ -28,7 +28,7 @@ async function boot() {
   dev = await fetch('/__studio/status').then((r) => (r.ok ? r.json() : null)).catch(() => null);
   $('#mode').textContent = dev ? 'local dev: saving + shipping on' : 'hosted: download only';
   $('#mode').classList.toggle('dev', !!dev);
-  if (!dev) ['#btnSave', '#btnDry', '#btnShip'].forEach((s) => ($(s).hidden = true));
+  if (!dev) ['#btnSave', '#btnDry', '#btnShip', '#tabSettings'].forEach((s) => ($(s).hidden = true));
   $('#box').innerHTML = idx.apps.map((a) => `<option value="${a.slug}">No. ${a.no} · ${esc(a.title)}: ${esc(a.question)}</option>`).join('');
   const want = new URLSearchParams(location.search).get('box');
   if (want && idx.apps.some((a) => a.slug === want)) $('#box').value = want;
@@ -37,6 +37,7 @@ async function boot() {
     $$('.tab').forEach((x) => x.classList.toggle('on', x === t));
     $$('.panel').forEach((p) => p.classList.toggle('on', p.dataset.panel === t.dataset.tab));
     if (t.dataset.tab === 'brand') renderBrand();
+    if (t.dataset.tab === 'settings') loadSettings();
   }));
   $('#btnRecord').addEventListener('click', record);
   $('#btnStop').addEventListener('click', () => { stopFlag = true; });
@@ -45,6 +46,7 @@ async function boot() {
   $('#btnDry').addEventListener('click', () => guard($('#btnDry'), () => ship(true)));
   $('#btnShip').addEventListener('click', () => guard($('#btnShip'), () => ship(false)));
   $('#btnZip').addEventListener('click', () => guard($('#btnZip'), downloadZip));
+  if (dev) wireSettings();
   await D.loadFonts();
   if (!canEncode()) $('#noDirector').hidden = false, ($('#noDirector').textContent = 'This browser cannot encode video. Use a recent Chrome or Edge.');
   if (idx.apps.length) await selectBox($('#box').value);
@@ -93,7 +95,7 @@ async function selectBox(slug) {
     }
   }
   caps = prev?.captions || draft(box, idx, scenes);
-  renderOutputs(); renderWords(); renderShip(prev);
+  renderOutputs(); renderWords(); renderShip(prev); renderHistory();
 }
 
 // Loads a box in an off-screen iframe (same origin) and waits for its director.
@@ -327,6 +329,7 @@ async function ship(dry) {
   const r = await fetch(`/__studio/ship/${box.slug}?dry=${dry ? 1 : 0}&mode=schedule`, { method: 'POST' });
   const reader = r.body.getReader(), dec = new TextDecoder();
   for (;;) { const { done, value } = await reader.read(); if (done) break; $('#log').textContent += dec.decode(value, { stream: true }); $('#log').scrollTop = 1e9; }
+  if (!dry) renderHistory();
 }
 
 async function downloadZip() {
@@ -338,6 +341,84 @@ async function downloadZip() {
   a.click();
   log(`Downloaded ${files.length} files.`);
 }
+
+async function renderHistory() {
+  if (!dev) return;
+  const h = await fetch(`/__studio/posted/${box.slug}`).then((r) => r.json()).catch(() => null);
+  $('#history').innerHTML = h?.results?.length
+    ? `<p class="hint">Sent to Buffer ${new Date(h.at).toLocaleString()} (${esc(h.mode)})</p>` + h.results.map((x) => `<div class="h"><span>${esc(TARGET_LABEL[x.target] || x.target)} → ${esc(x.channel)}</span>${x.error ? `<span class="err">✗ ${esc(x.error)}</span>` : `<span class="ok">✓ ${esc(x.status || 'queued')}${x.dueAt ? ' · ' + new Date(x.dueAt).toLocaleString() : ''}</span>`}</div>`).join('')
+    : '<p class="hint">Not posted yet.</p>';
+}
+
+// ---------------------------------------------------------------- settings (local dev only)
+async function loadSettings() {
+  if (!dev) return;
+  const st = await fetch('/__studio/settings').then((r) => r.json());
+  $('#keyState').textContent = st.buffer.hasKey ? `key saved · ${st.buffer.hint}` : 'no key saved';
+  $('#keyState').className = 'pill ' + (st.buffer.hasKey ? 'ok' : 'no');
+  $('#postTime').value = st.post.time || '18:30';
+  $('#postTz').value = st.post.timezone || '';
+  $('#targetRows').innerHTML = st.post.targets.map((t, i) => `<tr data-i="${i}" data-service="${esc(t.service)}" data-kind="${esc(t.kind)}">
+    <td><input type="checkbox" ${t.enabled === false ? '' : 'checked'} aria-label="Post ${esc(TARGET_LABEL[`${t.service}:${t.kind}`] || t.service)}"></td>
+    <td>${esc(TARGET_LABEL[`${t.service}:${t.kind}`] || `${t.service} ${t.kind}`)}</td>
+    <td><input type="number" min="0" max="72" step="1" value="${t.offsetHours || 0}"></td></tr>`).join('');
+  $('#ga4').value = st.analytics.ga4 || '';
+  $('#ctSnippet').value = st.analytics.clicktrust?.snippet || '';
+  $('#ctPolicy').value = st.analytics.clicktrust?.policyUrl || '';
+  showActive(st.active);
+}
+function showActive(a) {
+  $('#analyticsOut').textContent = [
+    `Google Analytics: ${a.ga4 ? 'on (' + a.ga4 + ')' : 'off'}`,
+    `ClickTrust: ${a.clicktrust ? 'on' : 'off'}${a.ct.hosts.length ? ' · talks to ' + a.ct.hosts.join(', ') : ''}`,
+    'Runs on the published site only, never on localhost.',
+  ].join('\n');
+}
+async function saveSettings(body) {
+  const r = await fetch('/__studio/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  if (!r.ok) throw new Error(await r.text());
+  const out = await r.json();
+  idx = await fetch('/apps.json').then((x) => x.json());
+  dev = await fetch('/__studio/status').then((x) => x.json());
+  return out;
+}
+function wireSettings() {
+  $('#btnSaveKey').addEventListener('click', () => guardS($('#btnSaveKey'), async () => {
+    const k = $('#bufferKey').value.trim();
+    if (!k) throw new Error('Paste a key first.');
+    await saveSettings({ bufferKey: k }); $('#bufferKey').value = ''; await loadSettings(); await listChannels();
+  }));
+  $('#btnRemoveKey').addEventListener('click', () => guardS($('#btnRemoveKey'), async () => {
+    if (!confirm('Remove the saved Buffer key from .env?')) return;
+    await saveSettings({ bufferKey: '' }); $('#channels').innerHTML = ''; await loadSettings();
+  }));
+  $('#btnChannels').addEventListener('click', () => guardS($('#btnChannels'), listChannels));
+  $('#btnSavePost').addEventListener('click', () => guardS($('#btnSavePost'), async () => {
+    const targets = $$('#targetRows tr').map((tr) => ({ service: tr.dataset.service, kind: tr.dataset.kind, enabled: tr.querySelector('[type=checkbox]').checked, offsetHours: +tr.querySelector('[type=number]').value || 0 }));
+    await saveSettings({ post: { time: $('#postTime').value, timezone: $('#postTz').value.trim(), targets } });
+    renderShip(null); flash($('#btnSavePost'), 'Saved ✓');
+  }));
+  $('#btnSaveAnalytics').addEventListener('click', () => guardS($('#btnSaveAnalytics'), async () => {
+    const out = await saveSettings({ analytics: { ga4: $('#ga4').value.trim(), clicktrust: { snippet: $('#ctSnippet').value, policyUrl: $('#ctPolicy').value.trim() } } });
+    showActive(out.active);
+    $('#analyticsOut').textContent += `\nUpdated the Content Security Policy in: ${out.synced.join(', ') || 'no local boxes'}.\nTo publish: commit and push the hub and each box repo.`;
+  }));
+}
+async function listChannels() {
+  $('#channels').innerHTML = '<p class="hint">Asking Buffer…</p>';
+  const r = await fetch('/__studio/buffer/channels').then((x) => x.json());
+  if (r.error) { $('#channels').innerHTML = `<p class="warn">${esc(r.error)}</p>`; return; }
+  const wanted = new Set(idx.post.targets.map((t) => t.service));
+  $('#channels').innerHTML = r.channels.length
+    ? r.channels.map((c) => `<div class="ch"><b>${esc(c.service)}</b> ${esc(c.displayName || c.name)}<small>${c.isQueuePaused ? 'queue paused' : wanted.has(c.service) ? 'will post' : 'not a target'}</small></div>`).join('')
+      + (() => { const miss = [...wanted].filter((s) => !r.channels.some((c) => c.service === s)); return miss.length ? `<p class="hint">Not connected in Buffer: ${miss.join(', ')}. Those targets are skipped.</p>` : ''; })()
+    : '<p class="warn">The key works, but no channels are connected in Buffer yet.</p>';
+}
+async function guardS(btn, fn) {
+  btn.disabled = true;
+  try { await fn(); } catch (e) { alert(e.message || e); } finally { btn.disabled = false; }
+}
+function flash(btn, msg) { const t = btn.textContent; btn.textContent = msg; setTimeout(() => (btn.textContent = t), 1600); }
 
 // ---------------------------------------------------------------- brand kit
 let brandDone = false;

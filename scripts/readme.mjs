@@ -5,7 +5,9 @@
 //   node scripts/readme.mjs <slug> [--meta]
 import fs from 'node:fs';
 import path from 'node:path';
+import crypto from 'node:crypto';
 import { config, SITE, localApps } from './lib/apps.mjs';
+import { csp, active } from './lib/analytics.mjs';
 
 const START = '<!-- glassbox:start -->', END = '<!-- glassbox:end -->';
 const [slug] = process.argv.slice(2).filter((a) => !a.startsWith('--'));
@@ -43,7 +45,7 @@ const block = [
   `  <a href="${page}"><img alt="${a.fieldLabel}" src="${badge('field', a.fieldLabel, a.color.slice(1))}"></a>`,
   `  <a href="LICENSE"><img alt="Code: ${config.licenses.code}" src="${badge('code', config.licenses.code, '3fb950')}"></a>`,
   `  <a href="LICENSE-CONTENT.md"><img alt="Content: ${config.licenses.content}" src="${badge('content', config.licenses.content, 'ef9421')}"></a>`,
-  `  <a href="#privacy"><img alt="No tracking" src="${badge('tracking', 'none', '555')}"></a>`,
+  `  <a href="#privacy"><img alt="Privacy: explained" src="${badge('privacy', 'explained', '555')}"></a>`,
   `</p>`,
   '',
   a.explainer.length ? `## In 60 seconds\n\n${a.explainer.map((b, i) => `${i + 1}. **${b.title}.** ${b.text}`).join('\n')}\n` : '',
@@ -66,10 +68,10 @@ const block = [
   ].filter((l, i, arr) => l !== '' || (arr[i - 1] && !arr[i - 1].startsWith('|'))).join('\n') + '\n' : '',
   '## Privacy',
   '',
-  `This box collects **nothing**: no accounts, no cookies, no analytics, no tracking, and no requests to other websites. Every file, including fonts and libraries, is served from ${config.domain}.`,
+  `This box has no accounts and no ads, and it ships its own fonts and libraries. When you run it yourself it sends nothing anywhere. On ${config.domain}, the site's \`/bar.js\` also loads ${config.brand}'s analytics: **Google Analytics** to count visits (skipped when your browser sends Global Privacy Control or Do Not Track) and **ClickTrust** to detect bots.`,
   '',
   a.storage.length ? `It remembers a few things **in your own browser only**, and never sends them anywhere:\n\n| Browser storage key | What it holds |\n|---|---|\n${a.storage.map((s) => `| \`${s.key}\` | ${s.what} |`).join('\n')}\n` : 'It stores nothing, not even in your browser.\n',
-  `The full policy is at [${config.domain}/privacy](${SITE}/privacy/).`,
+  `Exactly what each one sees is at [${config.domain}/privacy](${SITE}/privacy/).`,
   '',
   '## Licences',
   '',
@@ -106,6 +108,19 @@ The source code is licensed separately under the ${config.licenses.code} licence
 Third-party components keep their own licences, next to their files.
 The ${config.brand} name and logo are not covered by either licence.
 `);
+
+// The box's Content Security Policy: its own files, its inline import map (by
+// hash), and the site's analytics services. Kept in step with glassbox.config.json.
+const htmlPath = path.join(a.dir, 'index.html');
+if (fs.existsSync(htmlPath)) {
+  let html = fs.readFileSync(htmlPath, 'utf8');
+  const hashes = [...html.matchAll(/<script type="importmap">([\s\S]*?)<\/script>/g)].map((m) => crypto.createHash('sha256').update(m[1]).digest('base64'));
+  const meta = `<meta http-equiv="Content-Security-Policy" content="${csp({ scriptHashes: hashes })}">`;
+  html = /<meta http-equiv="Content-Security-Policy"[^>]*>/.test(html)
+    ? html.replace(/<meta http-equiv="Content-Security-Policy"[^>]*>/, meta)
+    : html.replace(/(<meta name="viewport"[^>]*>\n)/, `$1${meta}\n`);
+  fs.writeFileSync(htmlPath, html);
+}
 
 const pkgPath = path.join(a.dir, 'package.json');
 if (fs.existsSync(pkgPath)) {

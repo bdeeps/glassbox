@@ -18,8 +18,8 @@ The best ideas are about something people use every day but can't explain.
 ## Code changes
 
 - Keep it plain HTML, CSS and JavaScript, with no npm dependencies and no build step for boxes.
-- **No third-party requests.** Self-host fonts and libraries; `npm run check` fails if a box loads from a CDN. The privacy policy promises this.
-- **No data collection** of any kind: no analytics, cookies, forms or trackers. If a change would affect what the privacy page says, update `scripts/lib/legal.mjs` in the same pull request.
+- **No new third parties.** Self-host fonts and libraries; `npm run check` fails if a box loads from a CDN. The only outside services are the site's analytics (Google Analytics, ClickTrust), loaded centrally by `/assets/analytics.js`. Boxes never add their own.
+- **No new data collection** without updating `scripts/lib/legal.mjs` in the same pull request, so the privacy page always tells the truth.
 - Run `npm run check` and `npm run build` before opening a pull request.
 
 ## Licences

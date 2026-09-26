@@ -7,7 +7,7 @@
 
 ## Run it
 
-It's plain HTML, CSS and JavaScript. No build step, no dependencies, and it never contacts another website.
+It's plain HTML, CSS and JavaScript. No build step and no dependencies. Run locally, it contacts no other website.
 
 ```bash
 python3 -m http.server 8000

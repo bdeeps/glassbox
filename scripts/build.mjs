@@ -6,6 +6,7 @@ import path from 'node:path';
 import { ROOT, config, loadApps } from './lib/apps.mjs';
 import * as R from './lib/render.mjs';
 import * as L from './lib/legal.mjs';
+import { analyticsJs } from './lib/analytics.mjs';
 
 export function pages(apps) {
   const out = {
@@ -18,6 +19,7 @@ export function pages(apps) {
     'concepts/index.html': R.conceptsPage(apps),
     'privacy/index.html': L.privacy(apps),
     'terms/index.html': L.terms(),
+    'assets/analytics.js': analyticsJs(),
   };
   for (const a of apps) out[`e/${a.slug}/index.html`] = R.explainer(a, apps);
   return out;

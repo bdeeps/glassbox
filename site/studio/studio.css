@@ -4,7 +4,7 @@
 .st { padding: 28px 0 80px; }
 .st-head { display: flex; flex-wrap: wrap; gap: 20px; align-items: end; justify-content: space-between; }
 .lbl { display: block; font: 500 12px var(--mono); color: var(--dim); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 6px; }
-select, input[type="datetime-local"], textarea, input[type="text"] {
+select, input[type="datetime-local"], textarea, input[type="text"], input[type="password"], input[type="time"] {
   font: 400 15px var(--sans); color: var(--text); background: var(--ink2); border: 1px solid var(--line2); border-radius: 10px; padding: 10px 12px; min-height: 44px;
 }
 select { min-width: 280px; }
@@ -65,3 +65,19 @@ code { font: 400 .9em var(--mono); color: #cfe; }
 .log { min-height: 120px; max-height: 420px; overflow: auto; margin: 16px 0 0; padding: 14px; border-radius: 12px; background: #000; border: 1px solid var(--line); font: 400 13px/1.55 var(--mono); color: #cfe; white-space: pre-wrap; }
 .log:empty::before { content: 'Output appears here.'; color: var(--dim); }
 button:disabled { opacity: .45; cursor: not-allowed; transform: none !important; }
+
+.settings { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 16px; align-items: start; }
+.settings .card-ish + .card-ish { margin-top: 0; }
+.settings input[type="text"], .settings input[type="password"], .settings input[type="time"] { width: 100%; }
+.settings textarea { min-height: 120px; font: 400 13px var(--mono); }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.targets-table input[type="number"] { width: 70px; min-height: 36px; padding: 4px 8px; border-radius: 8px; border: 1px solid var(--line2); background: var(--ink2); color: var(--text); }
+.targets-table input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--glow); }
+.channels { display: grid; gap: 6px; margin-top: 14px; }
+.channels .ch { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line); font-size: 14px; }
+.channels .ch b { font-weight: 600; }
+.channels .ch small { margin-left: auto; font: 400 12px var(--mono); color: var(--dim); }
+.history { display: grid; gap: 6px; font-size: 14px; }
+.history .h { display: flex; gap: 10px; justify-content: space-between; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line); }
+.history .h .err { color: #ff6b6b; }
+.history .h .ok { color: #5ce1a9; }

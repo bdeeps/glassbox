@@ -113,5 +113,12 @@
       "label": "AI & Data",
       "color": "#b8f2e6"
     }
+  },
+  "analytics": {
+    "ga4": "",
+    "clicktrust": {
+      "snippet": "",
+      "policyUrl": "https://clicktrust.cc"
+    }
   }
 }
