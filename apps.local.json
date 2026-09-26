@@ -1,5 +1,7 @@
 {
   "apps": [
-    "../cameraclear"
+    "../cameraclear",
+    "../penclear",
+    "../cycleclear"
   ]
 }

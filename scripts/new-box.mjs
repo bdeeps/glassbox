@@ -1,6 +1,6 @@
 // Starts tomorrow's box: a new sibling repo from templates/box, numbered and
 // dated after the latest box, and registered in apps.local.json.
-//   npm run new -- <slug> "How does X work?" --field physics [--title "Name"]
+//   npm run new -- <slug> "How does X work?" --field physics [--title "Name"] [--kit 3d|plain]
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
@@ -9,6 +9,7 @@ import { ROOT, config, localApps } from './lib/apps.mjs';
 const args = process.argv.slice(2);
 const opt = (k) => { const i = args.indexOf(`--${k}`); return i >= 0 ? args.splice(i, 2)[1] : undefined; };
 const field = opt('field') || 'physics';
+const kit = opt('kit') || '3d';  // '3d' (Three.js chapters engine) or 'plain' (a single canvas)
 const titleArg = opt('title');
 const [slug, question] = args;
 
@@ -38,8 +39,11 @@ const vars = {
 };
 const fill = (s) => s.replace(/\{\{([A-Z_]+)\}\}/g, (m, k) => vars[k] ?? m);
 
-fs.cpSync(path.join(ROOT, 'templates', 'box'), dir, { recursive: true });
-for (const f of ['index.html', 'style.css', 'app.js', 'README.md', 'history.json', '.github/workflows/notify-hub.yml']) {
+fs.cpSync(path.join(ROOT, 'templates', kit === 'plain' ? 'box' : 'box3d'), dir, { recursive: true });
+const FILL = kit === 'plain'
+  ? ['index.html', 'style.css', 'app.js', 'README.md', 'history.json']
+  : ['index.html', 'README.md', 'history.json', 'js/chapters/index.js', 'js/chapters/intro.js'];
+for (const f of FILL) {
   const p = path.join(dir, f);
   fs.writeFileSync(p, fill(fs.readFileSync(p, 'utf8')));
 }
@@ -55,8 +59,11 @@ fs.writeFileSync(path.join(dir, 'glassbox.json'), JSON.stringify({
   ],
   concepts: [{ term: 'Key term', def: 'A one-sentence definition.' }],
   links: {},
-  storage: [],
-  credits: [{ name: 'Geist, Instrument Serif', license: 'SIL OFL 1.1', url: 'https://openfontlicense.org' }],
+  storage: kit === 'plain' ? [] : [{ key: `${slug}.v1`, what: 'Which chapters you have opened, your best quiz scores, and sound on or off.' }],
+  credits: [
+    ...(kit === 'plain' ? [] : [{ name: 'three.js', license: 'MIT', url: 'https://threejs.org' }]),
+    { name: 'Geist, Instrument Serif', license: 'SIL OFL 1.1', url: 'https://openfontlicense.org' },
+  ],
 }, null, 2) + '\n');
 
 const localFile = path.join(ROOT, 'apps.local.json');
@@ -73,5 +80,5 @@ console.log(`Box No. ${vars.NO} → ${dir}`);
 console.log(`  opens ${date} · ${config.fields[field].label}`);
 console.log('Next:');
 console.log(`  1. Build the model in ${slug}/app.js, fill in ${slug}/glassbox.json and research ${slug}/history.json (docs/HISTORY.md)`);
-console.log(`  2. npm run dev → http://localhost:5210/${slug}/  and  /studio/?box=${slug}`);
-console.log(`  3. scripts/github-setup.sh ${slug}   (creates the public repo + Pages)`);
+console.log(`  2. npm run dev → http://localhost:5210/${slug}/  and record it at /studio/?box=${slug}`);
+console.log(`  3. scripts/github-setup.sh ${slug}   (creates the public repo; the Glassbox server picks it up)`);

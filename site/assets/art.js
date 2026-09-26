@@ -2,6 +2,31 @@
 // on a 64×64 grid with currentColor strokes and an accent (var(--c)) fill, so it
 // sits in any era's colour. Add new ones here; history.json refers to them by name.
 const A = {
+  // pens
+  reed: '<path d="M52 8 16 52l-4 6 6-4L54 14z"/><path d="M16 52l4-10 6 4z" class="f"/><path d="M40 20l6 6M34 26l6 6" class="a"/>',
+  quill: '<path d="M14 54C24 36 36 18 56 8c-4 18-18 34-36 40" /><path d="M14 54l6-8" /><path d="M24 44c8-10 18-20 28-28" class="a"/><path d="M11 57l3-3" class="f"/>',
+  scroll: '<path d="M16 14h32a6 6 0 0 1 0 12H16a6 6 0 0 1 0-12zM16 26v24a6 6 0 0 0 6 6h28V26"/><path d="M22 34h20M22 40h20M22 46h14" class="a"/>',
+  inkpot: '<path d="M18 30h28l4 24H14z"/><path d="M24 30v-6h16v6"/><path d="M16 46h32" class="a"/><path d="M40 20l12-14" /><path d="M52 6l-3 7" class="f"/>',
+  nib: '<path d="M32 60 18 34l6-22h16l6 22z"/><path d="M32 60V36" class="a"/><circle cx="32" cy="32" r="3" class="f"/><path d="M24 12h16" />',
+  fountainpen: '<path d="M8 56l10-10" class="a"/><path d="M18 46l6-16 10 10-16 6z" class="f" opacity=".5"/><path d="M18 46l6-16 10 10-16 6z"/><path d="M28 34 50 12a6 6 0 0 1 8 8L36 42"/>',
+  ballpoint: '<path d="M8 56l4-8 34-34a5 5 0 0 1 7 7L19 55z"/><circle cx="9" cy="55" r="2.5" class="f"/><path d="M40 20l7 7" class="a"/><path d="M50 10l6-6" />',
+  marker: '<path d="M10 54l6-14 30-30 8 8-30 30z"/><path d="M10 54l6-14 8 8z" class="f"/><path d="M40 16l8 8" class="a"/>',
+  stylus: '<rect x="14" y="8" width="36" height="48" rx="5"/><path d="M22 40c6-10 10 6 16-6s6 2 8-2" class="a"/><path d="M50 30l8-8" /><path d="M58 22l-2 6" class="f"/>',
+  rocket: '<path d="M32 6c10 8 12 22 8 34H24C20 28 22 14 32 6z"/><circle cx="32" cy="22" r="4" class="f"/><path d="M24 40l-6 8h8M40 40l6 8h-8" /><path d="M28 48l4 10 4-10" class="a"/>',
+  // bicycles
+  hobbyhorse: '<circle cx="14" cy="44" r="10"/><circle cx="50" cy="44" r="10"/><path d="M14 44l4-16h28l4 16M18 28h-4M46 28l2-8h6" /><path d="M26 28v-4h10v4" class="a"/>',
+  velocipede: '<circle cx="20" cy="40" r="16"/><circle cx="52" cy="48" r="8"/><path d="M20 40l14-18h14l4 26M34 22l-4-6h6" /><path d="M16 44l8-8M24 44l-8-8" class="a"/>',
+  pennyfarthing: '<circle cx="22" cy="34" r="22"/><circle cx="54" cy="50" r="6"/><path d="M22 12c14 0 26 14 32 38M22 12l-4-4h8" /><path d="M22 34l4 6" class="a"/>',
+  bicycle: '<circle cx="15" cy="44" r="11"/><circle cx="49" cy="44" r="11"/><path d="M15 44l11-18h18l5 18M26 26l7 18 11-18M33 44l-4-22h-6M44 26l-2-8h6" /><circle cx="33" cy="44" r="3" class="f"/>',
+  chain: '<rect x="6" y="24" width="18" height="16" rx="8"/><rect x="22" y="24" width="18" height="16" rx="8" class="a"/><rect x="38" y="24" width="18" height="16" rx="8"/><circle cx="15" cy="32" r="2" class="f"/><circle cx="47" cy="32" r="2" class="f"/>',
+  tyre: '<circle cx="32" cy="32" r="24"/><circle cx="32" cy="32" r="16" class="a"/><circle cx="32" cy="32" r="4" class="f"/><path d="M8 32h4M52 32h4M32 8v4M32 52v4"/>',
+  gear: '<circle cx="32" cy="32" r="16"/><circle cx="32" cy="32" r="5" class="f"/><path d="M32 8v8M32 48v8M8 32h8M48 32h8M15 15l6 6M43 43l6 6M15 49l6-6M43 21l6-6" class="a"/>',
+  spokes: '<circle cx="32" cy="32" r="24"/><circle cx="32" cy="32" r="4" class="f"/><path d="M32 8 30 32M56 32 32 30M32 56l2-24M8 32l24 2M15 15l17 15M49 49 32 34M49 15 34 32M15 49l17-17" class="a"/>',
+  trophy: '<path d="M20 10h24v14a12 12 0 0 1-24 0z"/><path d="M20 14h-8a8 8 0 0 0 8 10M44 14h8a8 8 0 0 1-8 10" class="a"/><path d="M32 36v10M22 54h20l-3-8H25z"/>',
+  bolt: '<circle cx="32" cy="32" r="24"/><path d="M36 12 22 34h10l-4 18 14-24H32z" class="f"/>',
+  plane: '<path d="M6 30h52M18 22h28M18 38h28" /><path d="M18 22v16M46 22v16" class="a"/><path d="M52 26l6 4-6 4" class="f"/>',
+  mountain: '<path d="M4 54 24 20l10 16 8-10 18 28z"/><path d="M20 26l4-6 5 8" class="a"/><circle cx="48" cy="14" r="4" class="f"/>',
+  share: '<circle cx="18" cy="44" r="9"/><circle cx="46" cy="44" r="9"/><path d="M18 44l8-14h14l6 14M26 30l6 14" /><rect x="22" y="8" width="20" height="12" rx="2" class="a"/><path d="M32 20v6" class="a"/>',
   obscura: '<rect x="18" y="18" width="38" height="28" rx="2"/><path d="M4 16l4 8M8 24l-4 8M6 16v16" class="a"/><path d="M8 20l10 12M8 28l10-8" stroke-dasharray="2 2"/><circle cx="18" cy="32" r="1.5" class="f"/><path d="M52 24v14M48 38h8" class="a"/>',
   eclipse: '<circle cx="32" cy="20" r="10"/><circle cx="37" cy="17" r="9" class="f" opacity=".35"/><path d="M8 40h48"/><path d="M16 50a5 5 0 0 0 8 0M30 52a5 5 0 0 0 8 0M44 50a5 5 0 0 0 8 0" class="a"/>',
   candles: '<path d="M10 40V26M18 40V30M26 40V24"/><path d="M10 22c-2-3 2-5 0-8 3 2 3 6 0 8zM18 26c-2-3 2-5 0-8 3 2 3 6 0 8zM26 20c-2-3 2-5 0-8 3 2 3 6 0 8z" class="a"/><rect x="36" y="16" width="24" height="32" rx="2"/><path d="M46 38c2 3-2 5 0 8-3-2-3-6 0-8z" class="a"/><path d="M52 36c2 3-2 5 0 8-3-2-3-6 0-8z" class="a"/>',

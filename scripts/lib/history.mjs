@@ -67,9 +67,14 @@ function chart(s, color) {
     const below = HUMAN.filter(([v]) => v <= lo).sort((a, b) => b[0] - a[0])[0] || HUMAN[HUMAN.length - 1];
     const above = HUMAN.filter(([v]) => v >= hi).sort((a, b) => a[0] - b[0])[0] || HUMAN[0];
     ticks = HUMAN.filter(([v]) => v >= below[0] && v <= above[0]);
-  } else {
+  } else if (s.log) {
     ticks = [];
     for (let k = Math.floor(lg(lo)); k <= Math.ceil(lg(hi)); k++) ticks.push([10 ** k, `${(10 ** k).toLocaleString('en', { maximumFractionDigits: 4 })}${s.unit === 'megapixels' ? ' MP' : ''}`]);
+  } else {
+    // Linear: about five round-numbered steps.
+    const raw = (hi - lo) / 5, mag = 10 ** Math.floor(Math.log10(raw)), step = [1, 2, 5, 10].map((m) => m * mag).find((x) => x >= raw);
+    ticks = [];
+    for (let v = Math.floor(lo / step) * step; v <= Math.ceil(hi / step) * step + 1e-9; v += step) ticks.push([v, `${+v.toFixed(3)} ${s.unit}`]);
   }
   const y0 = lg(Math.min(...ticks.map((t) => t[0]))), y1 = lg(Math.max(...ticks.map((t) => t[0])));
   const X = (x) => L + ((x - x0) / Math.max(1, x1 - x0)) * (W - L - R);
