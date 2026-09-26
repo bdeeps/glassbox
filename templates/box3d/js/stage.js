@@ -32,7 +32,7 @@ export class Stage {
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.08;
     this.controls.maxDistance = 140;
-    this.controls.addEventListener('start', () => { this.tw = null; this.onOrbit?.(); });
+    this.controls.addEventListener('start', () => { this.tw = null; this.moved = true; this.onOrbit?.(); });
 
     this.lights = new THREE.Group();
     this.lights.add(new THREE.HemisphereLight(0xcfe3ff, 0x1a1c22, 1.1));
@@ -94,8 +94,12 @@ export class Stage {
     if (!w || !h) return;
     this.renderer.setSize(w, h);
     this.css.setSize(w, h);
+    const was = this.camera.aspect;
     this.camera.aspect = w / h;
     this.applyShift();
+    // The first view is often set before the page has its final size. Re-frame it when the shape
+    // changes, unless the viewer has already orbited.
+    if (this.home && !this.moved && Math.abs(was - this.camera.aspect) > 0.02) this.setView(this.home.pos, this.home.target, 0.35);
     this.lineMats.forEach((m) => m.resolution.set(w, h));
   }
 
@@ -121,6 +125,7 @@ export class Stage {
 
   setView(pos, target, dur = 1) {
     this.home = { pos, target };
+    this.moved = false;
     // Narrow (portrait-ish) stages see less horizontally, so back the camera off.
     const t1 = new THREE.Vector3(...target);
     const k = Math.min(2.5, Math.max(1, 1.45 / Math.max(0.3, this.camera.aspect)));

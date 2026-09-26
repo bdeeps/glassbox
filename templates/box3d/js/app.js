@@ -134,7 +134,7 @@ window.addEventListener('keydown', (e) => {
 
 // ---------------------------------------------------------------- loop
 function frameStep(now) {
-  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  const dt = Math.max(0, Math.min(0.05, (now - last) / 1000)); last = now;
   time += dt;
   stage.update(dt);
   inst.update?.(dt, s, time);
