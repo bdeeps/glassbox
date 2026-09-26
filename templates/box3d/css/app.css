@@ -1,4 +1,4 @@
-/* Glassbox 3D box: dark stage, a chapter strip on top, a reading panel on the right. */
+/* Glassbox 3D box: dark stage, a chapter menu on the left, a reading panel on the right. */
 :root {
   --bg: #07080c; --bg2: #0d0f16; --panel: rgba(255,255,255,.045); --line: rgba(255,255,255,.09); --line2: rgba(255,255,255,.16);
   --text: #eef0f6; --muted: #a8aebf; --dim: #737a8e; --good: #5ce1a9; --bad: #ff6b6b;
@@ -16,18 +16,31 @@ button { font: inherit; color: inherit; }
 .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--text); flex: none; }
 .logo { width: 26px; height: 26px; border-radius: 8px; background: radial-gradient(circle at 50% 50%, var(--c) 0 32%, transparent 34%), #151822; border: 1px solid var(--line2); }
 .name { font: 400 24px/1 var(--serif); }
-.chapters { flex: 1; display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; min-width: 0; }
-.chapters::-webkit-scrollbar { display: none; }
-.chap { flex: none; display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 12px 0 6px; border-radius: 999px; border: 1px solid transparent; background: none; color: var(--muted); cursor: pointer; font-size: 14px; }
+.top .icon-btn { margin-left: auto; }
+/* Left chapter menu: number, title, one-line subtitle, quiz status */
+.menu { display: flex; flex-direction: column; min-height: 0; border-right: 1px solid var(--line); background: var(--bg2); }
+.menu-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 18px 16px 10px; }
+.menu-head h4 { margin: 0; font: 500 11px var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--dim); }
+.menu-head span { font: 400 11px var(--mono); color: var(--dim); }
+.chapters { flex: 1; overflow-y: auto; padding: 0 8px 76px; display: flex; flex-direction: column; gap: 2px; scrollbar-width: thin; }
+.chap { display: flex; align-items: flex-start; gap: 10px; width: 100%; text-align: left; padding: 10px 10px; border-radius: 12px; border: 1px solid transparent; background: none; color: var(--muted); cursor: pointer; font-size: 14px; line-height: 1.35; }
 .chap:hover { color: var(--text); background: var(--panel); }
-.chap .n { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--line2); font: 500 12px var(--mono); }
+.chap .n { flex: none; display: grid; place-items: center; width: 26px; height: 26px; margin-top: 1px; border-radius: 50%; border: 1px solid var(--line2); font: 500 12px var(--mono); }
+.chap .t { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.chap b { font-weight: 500; color: var(--text); }
+.chap .sub { font-size: 12.5px; color: var(--dim); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.chap .st { font: 400 11px var(--mono); color: var(--dim); }
+.chap.done .st { color: var(--good); }
+.chap.done .n { border-color: var(--good); color: var(--good); }
 .chap.seen .n { border-color: color-mix(in srgb, var(--c) 60%, transparent); }
 .chap.on { color: var(--text); background: var(--panel); border-color: var(--line2); }
 .chap.on .n { background: var(--c); color: #07080c; border-color: transparent; }
+.chap.on .sub { color: var(--muted); }
 .icon-btn { flex: none; width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--line2); background: none; cursor: pointer; }
 .icon-btn.muted { opacity: .4; text-decoration: line-through; }
 
-.layout { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 400px; }
+.layout { flex: 1; min-height: 0; display: grid; grid-template-columns: 250px minmax(0, 1fr) 380px; }
+@media (max-width: 1180px) { .layout { grid-template-columns: 220px minmax(0, 1fr) 340px; } }
 .stage-wrap { position: relative; overflow: hidden; background: radial-gradient(1200px 700px at 50% 20%, #171c2a 0%, #0c0f16 60%, #08090d 100%); }
 .stage { position: absolute; inset: 0; }
 .stage canvas { display: block; outline: none; touch-action: none; }
@@ -108,6 +121,13 @@ button { font: inherit; color: inherit; }
 @media (max-width: 860px) {
   body { overflow: auto; }
   .layout { display: flex; flex-direction: column; }
+  .menu { border-right: 0; border-bottom: 1px solid var(--line); }
+  .menu-head { display: none; }
+  .menu { flex: none; }
+  .chapters { flex: none; flex-direction: row; overflow-x: auto; padding: 8px; scrollbar-width: none; }
+  .chapters::-webkit-scrollbar { display: none; }
+  .chap { flex: none; width: auto; align-items: center; padding: 6px 12px 6px 6px; border-radius: 999px; }
+  .chap .sub, .chap .st { display: none; }
   .stage-wrap { height: 58vh; min-height: 340px; flex: none; }
   .panel { border-left: 0; border-top: 1px solid var(--line); overflow: visible; }
   .name { font-size: 20px; }
@@ -116,7 +136,7 @@ button { font: inherit; color: inherit; }
 
 /* Glassbox reel mode: only the 3D stage, sized by the studio */
 body.gb-reel { overflow: hidden; }
-.gb-reel .top, .gb-reel .panel, .gb-reel .stage-title, .gb-reel .hint, .gb-reel .reset, .gb-reel .readout, .gb-reel .modal, .gb-reel .toasts, .gb-reel .labels { display: none !important; }
+.gb-reel .top, .gb-reel .menu, .gb-reel .panel, .gb-reel .stage-title, .gb-reel .hint, .gb-reel .reset, .gb-reel .readout, .gb-reel .modal, .gb-reel .toasts, .gb-reel .labels { display: none !important; }
 .gb-reel .layout { display: block; }
 .gb-reel .stage-wrap { position: fixed; left: 0; top: 0; }
 .gb-reel .stage { position: relative; inset: auto; }

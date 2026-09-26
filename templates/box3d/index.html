@@ -23,10 +23,13 @@
 <body style="--c:{{COLOR}}">
 <header class="top">
   <a class="brand" href="#" title="{{QUESTION}}"><span class="logo" aria-hidden="true"></span><span class="name">{{TITLE}}</span></a>
-  <nav id="chapters" class="chapters" aria-label="Chapters"></nav>
   <button id="btnSound" class="icon-btn" aria-label="Sound on">♪</button>
 </header>
 <div class="layout">
+  <aside class="menu" aria-label="Chapters">
+    <div class="menu-head"><h4>Chapters</h4><span id="menuProgress"></span></div>
+    <nav id="chapters" class="chapters"></nav>
+  </aside>
   <main class="stage-wrap">
     <div id="stage" class="stage"></div>
     <div class="stage-title"><span id="kicker"></span><strong id="title"></strong></div>

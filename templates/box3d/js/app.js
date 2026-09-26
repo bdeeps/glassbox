@@ -39,7 +39,16 @@ function openChapter(id) {
 }
 
 function renderNav() {
-  $('#chapters').innerHTML = CHAPTERS.map((c, i) => `<button class="chap${c.id === ch?.id ? ' on' : ''}${store.visited[c.id] ? ' seen' : ''}" data-id="${c.id}" aria-current="${c.id === ch?.id}"><span class="n">${i + 1}</span><span class="t">${esc(c.short || c.title)}</span></button>`).join('');
+  const passed = CHAPTERS.filter((c) => c.quiz?.length && store.quiz[c.id] === c.quiz.length).length;
+  $('#menuProgress').textContent = `${passed}/${CHAPTERS.length} quizzes aced`;
+  $('#chapters').innerHTML = CHAPTERS.map((c, i) => {
+    const best = store.quiz[c.id], n = c.quiz?.length || 0;
+    const status = best === undefined ? (store.visited[c.id] ? 'Opened · quiz not taken' : 'Not opened yet') : `Quiz ${best}/${n}${best === n ? ' ★' : ''}`;
+    return `<button class="chap${c.id === ch?.id ? ' on' : ''}${store.visited[c.id] ? ' seen' : ''}${best === n && n ? ' done' : ''}" data-id="${c.id}" aria-current="${c.id === ch?.id}">
+      <span class="n">${best === n && n ? '★' : i + 1}</span>
+      <span class="t"><b>${esc(c.short || c.title)}</b><small class="sub">${esc(c.subtitle || '')}</small><small class="st">${status}</small></span>
+    </button>`;
+  }).join('');
   $('#chapters .on')?.scrollIntoView({ block: 'nearest', inline: 'center' });
 }
 $('#chapters').addEventListener('click', (e) => { const b = e.target.closest('.chap'); if (b) openChapter(b.dataset.id); });
