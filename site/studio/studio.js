@@ -30,13 +30,13 @@ async function boot() {
   idx = await fetch('/apps.json').then((r) => r.json());
   dev = await fetch('/__studio/status').then((r) => (r.ok ? r.json() : null)).catch(() => null);
   hosted = !!dev?.hosted;
-  $('#mode').textContent = hosted ? 'admin · publishing on' : dev ? 'local dev: saving + publishing on' : 'download only';
+  $('#mode').textContent = hosted ? 'live site · publishing on' : dev ? 'on this computer · saving + publishing on' : 'download only';
   $('#mode').classList.toggle('dev', !!dev);
   $('#logout').hidden = !hosted;
   if (!dev) ['#btnSave', '#btnDry', '#btnShip', '#shipMode', '#tabSettings'].forEach((s) => ($(s).hidden = true));
   if (hosted) {
     $('#btnSave').hidden = true; $('#stepsLocal').hidden = true; $('#stepsHosted').hidden = false;
-    $('#settingsNote').innerHTML = 'On the live site these settings are read-only. The Buffer key is the <code>BUFFER_API_KEY</code> variable on Railway; posting defaults and analytics are changed in the Studio on your computer (<code>npm run dev</code>), then pushed.';
+    $('#settingsNote').innerHTML = 'On the live site these settings are read-only. The Buffer key is the <code>BUFFER_API_KEY</code> variable on Railway; posting defaults and analytics are changed in the admin on your computer (<code>npm run dev</code>), then pushed.';
     ['#bufferKey', '#btnSaveKey', '#btnRemoveKey', '#btnSavePost', '#btnSaveAnalytics'].forEach((s) => ($(s).hidden = true));
     $('label[for=bufferKey]').hidden = true;
   }

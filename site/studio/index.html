@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
-<title>Glassbox Studio</title>
+<title>Glassbox Admin</title>
 <link rel="icon" href="/assets/icon.svg" type="image/svg+xml">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; font-src 'self'; connect-src 'self' blob:; frame-src 'self'; object-src 'none'; base-uri 'self'">
 <meta name="referrer" content="no-referrer">
@@ -14,7 +14,7 @@
 </head>
 <body class="studio">
 <header class="nav">
-  <a class="brand" href="/"><svg class="logo" viewBox="0 0 64 64" aria-hidden="true"><path d="M32 5 56 18v28L32 59 8 46V18Z" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/><circle cx="32" cy="31" r="7" fill="#8ef0ff"/></svg><span>Glassbox <b class="studio-tag">Studio</b></span></a>
+  <a class="brand" href="/" aria-label="Glassbox home"><svg class="logo" viewBox="0 0 64 64" aria-hidden="true"><path d="M32 5 56 18v28L32 59 8 46V18Z" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/><path d="M8 18l24 13 24-13M32 31v28" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round" opacity=".45"/><circle cx="32" cy="31" r="7" fill="var(--glow, #8ef0ff)"/></svg><span>Glassbox <b class="studio-tag">Admin</b></span></a>
   <nav><span id="mode" class="mode"></span><form id="logout" method="post" action="/__admin/logout" hidden><button class="btn ghost small" type="submit">Sign out</button></form></nav>
 </header>
 
@@ -119,7 +119,7 @@
 
   <!-- ------------------------------------------------ settings -->
   <section class="panel" data-panel="settings">
-    <p class="hint" id="settingsNote">Settings are saved by the Studio on your computer (<code>npm run dev</code>).</p>
+    <p class="hint" id="settingsNote">Settings are saved by the admin on your computer (<code>npm run dev</code>).</p>
     <div class="settings">
       <div class="card-ish">
         <h3>Buffer</h3>

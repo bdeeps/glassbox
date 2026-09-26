@@ -55,7 +55,7 @@ const cookie = (value, maxAge) => `${COOKIE}=${value}; Path=/; HttpOnly; SameSit
 export function loginPage({ error = '', next = '/studio/' } = {}) {
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="robots" content="noindex"><title>${esc(config.brand)} admin</title><link rel="icon" href="/assets/icon.svg" type="image/svg+xml">
+<meta name="robots" content="noindex"><title>${esc(config.brand)} Admin</title><link rel="icon" href="/assets/icon.svg" type="image/svg+xml">
 <style>
 :root{color-scheme:dark}*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;background:#07080c;color:#eef0f6;font:16px/1.5 system-ui,-apple-system,Segoe UI,sans-serif;padding:16px}
 form{width:min(380px,100%);padding:30px 26px;border:1px solid rgba(255,255,255,.12);border-radius:20px;background:rgba(255,255,255,.035)}
@@ -65,9 +65,9 @@ input:focus{outline:2px solid #8ef0ff;outline-offset:1px}button{width:100%;heigh
 .err{margin:12px 0 0;color:#ff8f8f;font-size:14px}a{color:#a8aebf}.foot{margin:18px 0 0;font-size:13px;text-align:center}
 </style></head><body>
 <form method="post" action="/__admin/login" autocomplete="off">
-<h1>${esc(config.brand)} admin</h1><p>Enter the access code to open the Studio.</p>
+<h1>${esc(config.brand)} Admin</h1><p>Enter the access code to sign in.</p>
 <label for="code">Access code</label><input id="code" name="code" type="password" required autofocus spellcheck="false" autocapitalize="off">
-<input type="hidden" name="next" value="${esc(next)}"><button type="submit">Open the Studio</button>
+<input type="hidden" name="next" value="${esc(next)}"><button type="submit">Sign in</button>
 ${error ? `<p class="err" role="alert">${esc(error)}</p>` : ''}
 <p class="foot"><a href="/">← Back to ${esc(config.brand)}</a></p>
 </form></body></html>`;
@@ -141,14 +141,14 @@ export async function adminRoutes(req, res, url, { send, TYPES, state, SECURITY 
       const bad = files.filter((f) => !/^[\w.-]+\.(mp4|jpg|png)$/.test(f));
       if (bad.length) throw new Error(`odd file names in the plan: ${bad.join(', ')}`);
       const missing = files.filter((f) => !fs.existsSync(path.join(box.dir, 'glassbox', f)));
-      if (missing.length) throw new Error(`these files aren't published in the ${slug} repo yet: ${missing.join(', ')}.\nRecord them in the Studio on your computer (npm run dev), Save to repo, push, then publish from here.`);
+      if (missing.length) throw new Error(`these files aren't published in the ${slug} repo yet: ${missing.join(', ')}.\nRecord them in the admin on your computer (npm run dev → localhost:5210/studio/), Save to repo, push, then publish from here.`);
       await ship(slug, { dry, mode, force, plan, log });
       log('done.');
     } catch (e) { log('✗ ' + e.message); }
     return res.end(), true;
   }
   if (action === 'save' || (action === 'settings' && req.method === 'POST')) {
-    return json(405, { error: 'On the live site the Studio publishes what is already in the box repos. Recording, saving media and changing settings happen in the Studio on your computer (npm run dev).' }), true;
+    return json(405, { error: 'On the live site the admin publishes what is already in the box repos. Recording, saving media and changing settings happen in the admin on your computer (npm run dev).' }), true;
   }
   return json(404, { error: 'unknown studio endpoint' }), true;
 }

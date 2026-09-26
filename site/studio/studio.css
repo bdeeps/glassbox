@@ -1,4 +1,6 @@
 .studio-tag { font-weight: 500; color: var(--glow); margin-left: 4px; }
+/* Keep "Glassbox Admin" visible on phones, where the hub nav hides the brand text */
+.studio .brand span { display: inline !important; }
 .mode { font: 500 12px var(--mono); color: var(--muted); padding: 6px 10px; border: 1px solid var(--line2); border-radius: 999px; }
 .mode.dev { color: #5ce1a9; border-color: rgba(92, 225, 169, .4); }
 .st { padding: 28px 0 80px; }
