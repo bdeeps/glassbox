@@ -15,7 +15,7 @@
 <body class="studio">
 <header class="nav">
   <a class="brand" href="/"><svg class="logo" viewBox="0 0 64 64" aria-hidden="true"><path d="M32 5 56 18v28L32 59 8 46V18Z" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/><circle cx="32" cy="31" r="7" fill="#8ef0ff"/></svg><span>Glassbox <b class="studio-tag">Studio</b></span></a>
-  <nav><span id="mode" class="mode"></span></nav>
+  <nav><span id="mode" class="mode"></span><form id="logout" method="post" action="/__admin/logout" hidden><button class="btn ghost small" type="submit">Sign out</button></form></nav>
 </header>
 
 <main class="st">
@@ -87,16 +87,27 @@
         <p class="hint">A target only posts if a matching channel is connected in Buffer.</p>
       </div>
       <div class="card-ish">
-        <h3>Save &amp; ship</h3>
-        <ol class="steps-list">
+        <h3>Publish to Buffer</h3>
+        <ol class="steps-list" id="stepsLocal">
           <li><b>Save to the box repo.</b> Writes the media and <code>post.json</code> into <code id="savePath">&lt;box&gt;/glassbox/</code>.</li>
           <li><b>Dry run.</b> Shows the exact Buffer posts and checks the media URLs.</li>
-          <li><b>Ship it.</b> Commits and pushes <code>glassbox/</code>, waits for GitHub Pages, then schedules every post in Buffer.</li>
+          <li><b>Publish.</b> Commits and pushes <code>glassbox/</code>, waits until the media is live, then sends every checked post to Buffer.</li>
         </ol>
+        <ol class="steps-list" id="stepsHosted" hidden>
+          <li><b>Check the words and targets.</b> Edits here go straight into the posts.</li>
+          <li><b>Dry run.</b> Shows the exact Buffer posts and checks every media file is live.</li>
+          <li><b>Publish.</b> Sends every checked post to Buffer. It uses the media already published in the box repo.</li>
+        </ol>
+        <label class="lbl" for="shipMode">How to publish</label>
+        <select id="shipMode">
+          <option value="schedule">Schedule for the time above</option>
+          <option value="queue">Add to each channel's Buffer queue</option>
+          <option value="now">Publish right now</option>
+        </select>
         <div class="row">
-          <button class="btn primary" id="btnSave">Save to repo</button>
+          <button class="btn" id="btnSave">Save to repo</button>
           <button class="btn" id="btnDry">Dry run</button>
-          <button class="btn" id="btnShip">Ship it</button>
+          <button class="btn primary" id="btnShip">Publish to Buffer</button>
         </div>
         <div class="row"><button class="btn ghost" id="btnZip">Download everything (.zip)</button></div>
         <pre class="log" id="log" aria-live="polite"></pre>
@@ -108,7 +119,7 @@
 
   <!-- ------------------------------------------------ settings -->
   <section class="panel" data-panel="settings">
-    <p class="hint" id="settingsNote">Settings only work on your local dev server. The public site is static and never holds keys.</p>
+    <p class="hint" id="settingsNote">Settings are saved by the Studio on your computer (<code>npm run dev</code>).</p>
     <div class="settings">
       <div class="card-ish">
         <h3>Buffer</h3>

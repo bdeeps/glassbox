@@ -159,6 +159,7 @@ async function studioApi(req, res, url) {
     if (!a) return send(res, 404, 'unknown box');
     const dry = url.searchParams.get('dry') === '1';
     const mode = url.searchParams.get('mode') || 'schedule';
+    const force = url.searchParams.get('force') === '1';
     res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });
     const log = (s) => res.write(s + '\n');
     try {
@@ -185,7 +186,7 @@ async function studioApi(req, res, url) {
             log('…still waiting');
           }
         }
-        await ship(slug, { mode, log });
+        await ship(slug, { mode, force, log });
       }
       log('done.');
     } catch (e) { log('✗ ' + e.message); }

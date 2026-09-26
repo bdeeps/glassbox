@@ -35,6 +35,7 @@ export function privacy(apps) {
     `<tr><td><code>_ga_&lt;ID&gt;</code></td><td>Cookie · Google Analytics</td><td>Keeps track of the current visit (session). Expires after 2 years.</td></tr>`,
     `<tr><td>ClickTrust identifiers</td><td>ClickTrust</td><td>ClickTrust may store a small identifier to recognise automated traffic across page views. See <a href="${esc(ctUrl)}" rel="noopener" target="_blank">ClickTrust's policy</a>.</td></tr>`,
     `<tr><td><code>${CONSENT_KEY}</code></td><td>Local storage · whole site</td><td>Your answer to “Can we count your visit?”: “granted” or “denied”. It's kept so we don't ask again, and it never leaves your device.</td></tr>`,
+    `<tr><td><code>glassbox_admin</code></td><td>Cookie · admin pages only</td><td>Set only for the site's owner, after signing in to the admin with an access code. It keeps them signed in for 12 hours. Visitors never get it.</td></tr>`,
     `<tr><td><code>glassbox.bar.min</code></td><td>Local storage · every box</td><td>Whether you collapsed the small Glassbox bar. Holds only “1” or “0”. Never leaves your device.</td></tr>`,
     ...stored.flatMap((a) => a.storage.map((s) => `<tr><td><code>${esc(s.key)}</code></td><td>Local storage · <a href="${a.pageUrl}">No. ${a.no} ${esc(a.title)}</a></td><td>${esc(s.what)} Never leaves your device.</td></tr>`)),
   ].join('');

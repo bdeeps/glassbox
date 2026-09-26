@@ -19,7 +19,7 @@ const TARGET_LABEL = {
   'instagram:history-reel': 'Instagram history Reel', 'instagram:history-carousel': 'Instagram history carousel', 'youtube:history-short': 'YouTube history Short',
 };
 
-let idx, dev = null, box = null, scenes = [], stopFlag = false;
+let idx, dev = null, hosted = false, box = null, scenes = [], stopFlag = false;
 let outputs = {};  // name → { blob?, url, kind, fresh }
 let stills = { square: [], land: [] };
 let caps = null;
@@ -29,9 +29,17 @@ let hist = null;  // the box's history.json, when it has one
 async function boot() {
   idx = await fetch('/apps.json').then((r) => r.json());
   dev = await fetch('/__studio/status').then((r) => (r.ok ? r.json() : null)).catch(() => null);
-  $('#mode').textContent = dev ? 'local dev: saving + shipping on' : 'hosted: download only';
+  hosted = !!dev?.hosted;
+  $('#mode').textContent = hosted ? 'admin · publishing on' : dev ? 'local dev: saving + publishing on' : 'download only';
   $('#mode').classList.toggle('dev', !!dev);
-  if (!dev) ['#btnSave', '#btnDry', '#btnShip', '#tabSettings'].forEach((s) => ($(s).hidden = true));
+  $('#logout').hidden = !hosted;
+  if (!dev) ['#btnSave', '#btnDry', '#btnShip', '#shipMode', '#tabSettings'].forEach((s) => ($(s).hidden = true));
+  if (hosted) {
+    $('#btnSave').hidden = true; $('#stepsLocal').hidden = true; $('#stepsHosted').hidden = false;
+    $('#settingsNote').innerHTML = 'On the live site these settings are read-only. The Buffer key is the <code>BUFFER_API_KEY</code> variable on Railway; posting defaults and analytics are changed in the Studio on your computer (<code>npm run dev</code>), then pushed.';
+    ['#bufferKey', '#btnSaveKey', '#btnRemoveKey', '#btnSavePost', '#btnSaveAnalytics'].forEach((s) => ($(s).hidden = true));
+    $('label[for=bufferKey]').hidden = true;
+  }
   $('#box').innerHTML = idx.apps.map((a) => `<option value="${a.slug}">No. ${a.no} · ${esc(a.title)}: ${esc(a.question)}</option>`).join('');
   const want = new URLSearchParams(location.search).get('box');
   if (want && idx.apps.some((a) => a.slug === want)) $('#box').value = want;
@@ -69,8 +77,10 @@ async function selectBox(slug) {
   outputs = {}; stills = { square: [], land: [] };
   const st = dev?.apps.find((a) => a.slug === slug);
   $('#status').innerHTML = [
-    dev ? `<span class="pill ${st?.git?.remote ? 'ok' : 'no'}">${st?.git?.remote ? 'git remote ✓' : 'no git remote yet'}</span>` : '',
+    hosted ? `<span class="pill ${Object.keys(st?.media || {}).length ? 'ok' : 'no'}">${Object.keys(st?.media || {}).length ? 'media published ✓' : 'no media published yet'}</span>`
+      : dev ? `<span class="pill ${st?.git?.remote ? 'ok' : 'no'}">${st?.git?.remote ? 'git remote ✓' : 'no git remote yet'}</span>` : '',
     dev ? `<span class="pill ${dev.buffer ? 'ok' : 'no'}">${dev.buffer ? 'Buffer key ✓' : 'no BUFFER_API_KEY'}</span>` : '',
+    hosted && st?.posted ? `<span class="pill">sent to Buffer ${new Date(st.posted).toLocaleDateString()}</span>` : '',
   ].join('');
   $('#savePath').textContent = st ? `${st.dir}/glassbox/` : `${slug}/glassbox/`;
 
@@ -370,16 +380,29 @@ async function save() {
   log('Saved. Next: Dry run, then Ship it.');
 }
 
-async function ship(dry) {
-  if (!dry && !confirm(`Commit and push ${box.slug}/glassbox, then schedule every checked post in Buffer for ${new Date($('#when').value).toLocaleString()}?`)) return;
-  const unsaved = Object.entries(outputs).some(([, o]) => o.fresh);
-  if (unsaved) { await save(); log(''); } else {
-    await put(box.slug, 'post.json', new Blob([JSON.stringify(plan(), null, 2) + '\n'], { type: 'application/json' }));
+const MODE_TEXT = { schedule: () => `schedule every checked post for ${new Date($('#when').value).toLocaleString()}`, queue: () => "add every checked post to each channel's Buffer queue", now: () => 'publish every checked post RIGHT NOW' };
+async function ship(dry, force = false) {
+  const mode = $('#shipMode').value;
+  if (mode === 'schedule' && new Date($('#when').value) < new Date(Date.now() + 5 * 60e3)) throw new Error('Pick a publish time at least 5 minutes from now, or choose "Add to queue" / "Publish right now".');
+  if (!dry && !force && !confirm(`${hosted ? '' : `Commit and push ${box.slug}/glassbox, then `}${MODE_TEXT[mode]()} in Buffer?`)) return;
+  let body;
+  if (hosted) {
+    if (Object.values(outputs).some((o) => o.fresh)) log('Note: new recordings made here are not on the server. Publishing uses the media already in the repo.', true);
+    body = JSON.stringify(plan());
+    log(dry ? '— dry run —' : '— publishing —', !Object.values(outputs).some((o) => o.fresh));
+  } else {
+    const unsaved = Object.entries(outputs).some(([, o]) => o.fresh);
+    if (unsaved) { await save(); log(''); } else {
+      await put(box.slug, 'post.json', new Blob([JSON.stringify(plan(), null, 2) + '\n'], { type: 'application/json' }));
+    }
+    log(dry ? '— dry run —' : '— publishing —', !unsaved);
   }
-  log(dry ? '— dry run —' : '— shipping —', !unsaved);
-  const r = await fetch(`/__studio/ship/${box.slug}?dry=${dry ? 1 : 0}&mode=schedule`, { method: 'POST' });
+  const r = await fetch(`/__studio/ship/${box.slug}?dry=${dry ? 1 : 0}&mode=${mode}${force ? '&force=1' : ''}`, { method: 'POST', headers: body ? { 'Content-Type': 'application/json' } : {}, body });
+  if (r.status === 401) { location.href = '/studio/'; return; }
   const reader = r.body.getReader(), dec = new TextDecoder();
-  for (;;) { const { done, value } = await reader.read(); if (done) break; $('#log').textContent += dec.decode(value, { stream: true }); $('#log').scrollTop = 1e9; }
+  let text = '';
+  for (;;) { const { done, value } = await reader.read(); if (done) break; const t = dec.decode(value, { stream: true }); text += t; $('#log').textContent += t; $('#log').scrollTop = 1e9; }
+  if (!dry && /already posted on/.test(text) && confirm('This box was already sent to Buffer. Send it again?')) return ship(false, true);
   if (!dry) renderHistory();
 }
 

@@ -13,6 +13,7 @@ import { Readable } from 'node:stream';
 import { ROOT, SITE, config, appsFromDirs } from './lib/apps.mjs';
 import { pages } from './build.mjs';
 import { csp } from './lib/analytics.mjs';
+import { adminRoutes } from './lib/admin.mjs';
 
 const PORT = Number(process.env.PORT || 8080);
 const BOXES = path.join(process.env.BOXES_DIR || path.join(ROOT, '.boxes'));
@@ -231,6 +232,7 @@ const server = http.createServer(async (req, res) => {
     const url = new URL(req.url, 'http://x');
     let p;
     try { p = decodeURIComponent(url.pathname); } catch { return send(req, res, 400, 'bad request', TYPES['.txt']); }
+    if (await adminRoutes(req, res, url, { send, TYPES, state, SECURITY })) return;
     if (req.method !== 'GET' && req.method !== 'HEAD') {
       if (p === '/__sync' && req.method === 'POST' && process.env.SYNC_TOKEN && req.headers.authorization === `Bearer ${process.env.SYNC_TOKEN}`) {
         sync('webhook');
@@ -239,7 +241,6 @@ const server = http.createServer(async (req, res) => {
       return send(req, res, 405, 'method not allowed', TYPES['.txt']);
     }
     if (p === '/healthz') return send(req, res, state.ready ? 200 : 503, JSON.stringify({ ok: true, boxes: state.apps.map((a) => a.slug), synced: state.synced, error: state.error }), TYPES['.json'], 'no-store');
-    if (p.startsWith('/__studio/')) return send(req, res, 404, 'The studio saves and ships only on a local dev server.', TYPES['.txt']);
 
     const key = p === '/' ? 'index.html' : p.replace(/^\//, '').replace(/\/$/, '/index.html');
     const gen = state.pages[key];

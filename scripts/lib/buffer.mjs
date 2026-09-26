@@ -177,11 +177,12 @@ export async function ship(slug, { dry = false, mode = 'schedule', force = false
   if (prev && !force && !dry) throw new Error(`${slug} was already posted on ${prev.at}. Use --force to post again.`);
   const plan = given || (await fetchPlan(slug));
   let chans;
+  const placeholders = () => [...new Set((plan.targets || config.post.targets).map((t) => t.service))].map((s) => ({ id: `<${s}-channel>`, service: s, name: s }));
   if (process.env.BUFFER_API_KEY) chans = await channels();
-  else if (dry) {
-    log('(no BUFFER_API_KEY: dry run against placeholder channels)');
-    chans = [...new Set((plan.targets || config.post.targets).map((t) => t.service))].map((s) => ({ id: `<${s}-channel>`, service: s, name: s }));
-  } else throw new Error('BUFFER_API_KEY is not set');
+  else if (dry) { log('(no BUFFER_API_KEY: dry run against placeholder channels)'); chans = placeholders(); }
+  else throw new Error('BUFFER_API_KEY is not set');
+  if (!chans.length && dry) { log('(no channels connected in Buffer yet: previewing against placeholder channels)'); chans = placeholders(); }
+  else if (!chans.length) throw new Error('No channels are connected in Buffer yet. Connect YouTube, Instagram and the rest at buffer.com, then publish again.');
   const { posts, media } = buildPosts(plan, chans, { mode });
   const missing = [...new Set((plan.targets || []).filter((t) => t.enabled !== false).map((t) => t.service))].filter((s) => !chans.some((c) => c.service === s));
   if (missing.length) log(`no Buffer channel connected for: ${missing.join(', ')} (skipped)`);

@@ -37,7 +37,7 @@ for (const a of apps.sort((x, y) => x.box - y.box)) {
   if (!fs.existsSync(path.join(a.dir, '.nojekyll'))) warn.push('no .nojekyll (GitHub Pages may hide files)');
   const html = fs.readFileSync(path.join(a.dir, 'index.html'), 'utf8');
   if (!html.includes('/bar.js')) warn.push('index.html does not load /bar.js');
-  if (/(src|href)="\/(?!bar\.js)/.test(html)) warn.push('root-absolute URLs in index.html break under /<slug>/; use relative paths');
+  if (/(src|href)="\/(?!bar\.js|")/.test(html)) warn.push('root-absolute URLs in index.html break under /<slug>/; use relative paths');
   if (/https:\/\/(fonts\.googleapis|fonts\.gstatic|cdn\.jsdelivr|unpkg|cdnjs)/.test(html)) warn.push('index.html loads from a third-party CDN; self-host it (the privacy policy promises no third-party requests)');
   if (!html.includes('Content-Security-Policy')) warn.push('no Content-Security-Policy meta tag');
   const hashes = [...html.matchAll(/<script type="importmap">([\s\S]*?)<\/script>/g)].map((m) => crypto.createHash('sha256').update(m[1]).digest('base64'));

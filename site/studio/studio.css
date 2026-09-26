@@ -81,3 +81,7 @@ button:disabled { opacity: .45; cursor: not-allowed; transform: none !important;
 .history .h { display: flex; gap: 10px; justify-content: space-between; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line); }
 .history .h .err { color: #ff6b6b; }
 .history .h .ok { color: #5ce1a9; }
+.studio .nav nav { display: flex; align-items: center; gap: 10px; }
+#logout { margin: 0; }
+#logout .btn { height: 32px; padding: 0 14px; font-size: 13px; }
+#shipMode { width: 100%; margin-bottom: 4px; }
