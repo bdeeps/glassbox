@@ -1,0 +1,21 @@
+{
+  "title": "The history of {{TITLE_LOWER}}",
+  "tagline": "One sentence that spans the whole story, from the first idea to today.",
+  "intro": "Two or three sentences: who first noticed it, what problem kept people stuck, and what finally changed.",
+  "eras": [
+    { "id": "idea", "name": "The idea", "from": 1600, "to": 1900, "color": "#c49bff", "summary": "Replace with what this era was about." },
+    { "id": "today", "name": "Today", "from": 1900, "to": 2026, "color": "#8ef0ff", "summary": "Replace with what this era was about." }
+  ],
+  "events": [
+    { "year": 1600, "date": "c. 1600", "era": "idea", "art": "lens", "key": true,
+      "title": "Replace: the first moment", "who": "Person or team", "where": "City, Country", "country": "Country",
+      "text": "What happened, in two or three plain sentences.", "why": "Why it mattered, in one sentence.", "box": "", "sources": [0] }
+  ],
+  "firsts": [],
+  "people": [],
+  "series": [],
+  "facts": [],
+  "sources": [
+    { "title": "Replace with a source", "publisher": "Publisher", "url": "https://example.org" }
+  ]
+}

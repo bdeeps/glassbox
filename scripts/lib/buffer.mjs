@@ -100,6 +100,24 @@ export function buildPosts(plan, chans, { mode = 'schedule' } = {}) {
         input.assets = [video(A.video)];
         input.metadata = { youtube: { title: clip(c.youtubeLong.title, 100), categoryId: config.post.youtubeCategoryId, privacy: 'public', madeForKids: false, notifySubscribers: false } };
         break;
+      case 'instagram:history-reel':
+        if (!A.historyReel || !c.history) continue;
+        input.text = c.history.instagram;
+        input.assets = [video(A.historyReel, { metadata: { thumbnailOffset: 1500 } })];
+        input.metadata = { instagram: { type: 'reel', shouldShareToFeed: true } };
+        break;
+      case 'instagram:history-carousel':
+        if (!A.historySlides?.length || !c.history) continue;
+        input.text = c.history.instagram;
+        input.assets = A.historySlides.slice(0, 10).map((f) => ({ image: { url: u(f) } }));
+        input.metadata = { instagram: { type: 'carousel', shouldShareToFeed: true } };
+        break;
+      case 'youtube:history-short':
+        if (!A.historyReel || !c.history) continue;
+        input.text = c.history.youtube.description;
+        input.assets = [video(A.historyReel)];
+        input.metadata = { youtube: { title: clip(c.history.youtube.title, 100), categoryId: config.post.youtubeCategoryId, privacy: 'public', madeForKids: false, notifySubscribers: true } };
+        break;
       case 'twitter:video':
         if (!A.video) continue;
         input.text = clip(c.short, 280);

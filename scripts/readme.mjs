@@ -50,6 +50,17 @@ const block = [
   '',
   a.explainer.length ? `## In 60 seconds\n\n${a.explainer.map((b, i) => `${i + 1}. **${b.title}.** ${b.text}`).join('\n')}\n` : '',
   a.concepts.length ? `## Words worth knowing\n\n| Term | Meaning |\n|---|---|\n${a.concepts.map((c) => `| **${c.term}** | ${c.def.replace(/\|/g, '\\|')} |`).join('\n')}\n` : '',
+  a.history?.events?.length ? [
+    `## A short history`,
+    '',
+    `**${a.history.tagline}**`,
+    '',
+    ...[...a.history.events].filter((e) => e.key).sort((x, y) => x.year - y.year).slice(0, 8)
+      .map((e) => `- **${e.year < 0 ? `${-e.year} BCE` : e.year}** · ${e.title}${e.who ? ` (${e.who}${e.where ? `, ${e.where}` : ''})` : ''}`),
+    '',
+    `The full story, with ${a.history.events.length} moments, charts, people and ${a.history.sources.length} sources: [${config.domain}/e/${a.slug}/history](${SITE}/e/${a.slug}/history/). The data lives in [\`history.json\`](history.json).`,
+    '',
+  ].join('\n') : '',
   has('reel.mp4') || has('thumb.jpg') ? [
     '## Video and slides',
     '',
@@ -64,6 +75,8 @@ const block = [
     slides.length ? `| \`glassbox/slide-1…${slides.length}.jpg\` | Instagram carousel | 1080×1350 |` : '',
     has('thumb.jpg') ? '| `glassbox/thumb.jpg` | YouTube thumbnail | 1280×720 |' : '',
     has('cover.jpg') ? '| `glassbox/cover.jpg` | Share card and repo social preview | 1200×630 |' : '',
+    has('history-reel.mp4') ? `| [\`glassbox/history-reel.mp4\`](${media('history-reel.mp4')}) | “History in 10 moments” Reel / Short | 1080×1920 |` : '',
+    fs.existsSync(path.join(a.dir, 'glassbox', 'history-slide-1.jpg')) ? '| `glassbox/history-slide-*.jpg` | History carousel | 1080×1350 |' : '',
     has('post.json') ? '| `glassbox/post.json` | Post copy and schedule used by the publish kit | |' : '',
   ].filter((l, i, arr) => l !== '' || (arr[i - 1] && !arr[i - 1].startsWith('|'))).join('\n') + '\n' : '',
   '## Privacy',
@@ -94,7 +107,7 @@ fs.writeFileSync(readmePath, next.replace(/\n{3,}/g, '\n\n'));
 fs.writeFileSync(path.join(a.dir, 'LICENSE-CONTENT.md'), `# Content licence
 
 The explanations, text, diagrams, images and videos in this repository, meaning
-\`glassbox.json\` and everything in \`glassbox/\`, are © ${year} ${config.owner} and
+\`glassbox.json\`, \`history.json\` and everything in \`glassbox/\`, are © ${year} ${config.owner} and
 licensed under the **Creative Commons Attribution 4.0 International licence
 (CC BY 4.0)**: https://creativecommons.org/licenses/by/4.0/
 

@@ -65,6 +65,24 @@
       {
         "service": "tiktok",
         "kind": "video"
+      },
+      {
+        "service": "instagram",
+        "kind": "history-reel",
+        "offsetHours": 2,
+        "enabled": false
+      },
+      {
+        "service": "youtube",
+        "kind": "history-short",
+        "offsetHours": 2,
+        "enabled": false
+      },
+      {
+        "service": "instagram",
+        "kind": "history-carousel",
+        "offsetHours": 6,
+        "enabled": false
       }
     ]
   },

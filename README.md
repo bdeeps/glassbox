@@ -2,7 +2,7 @@
 
 <h1 align="center">Glassbox</h1>
 
-<p align="center"><b>See inside how things work.</b><br>One open-source, interactive explainer every day: a model you can play with, a minute of plain words, a short video, and every line of code.</p>
+<p align="center"><b>See inside how things work.</b><br>One open-source, interactive explainer every day: a model you can play with, a minute of plain words, the history of how people figured it out, a short video, and every line of code.</p>
 
 <p align="center"><a href="https://glassbox.how"><b>glassbox.how</b></a> &nbsp;·&nbsp; <a href="https://youtube.com/@glassboxhow">YouTube</a> &nbsp;·&nbsp; <a href="https://instagram.com/glassbox.how">Instagram</a> &nbsp;·&nbsp; <a href="https://glassbox.how/feed.xml">RSS</a></p>
 
@@ -20,8 +20,8 @@ This repository is the **hub**. It holds the website at [glassbox.how](https://g
 |---|---|
 | ![Home page](docs/images/home.jpg) | ![An explainer page](docs/images/explainer.jpg) |
 | **Home.** Today's box opens from a black box into glass; search anything with <kbd>/</kbd>. | **Explainer.** The question, the 40-second video, six plain-language beats, key terms, the code. |
-| ![Concepts A–Z](docs/images/concepts.jpg) | ![Privacy](docs/images/privacy.jpg) |
-| **Concepts A–Z.** Every term across every box, each linked to where you can see it working. | **Privacy.** Exactly what Google Analytics and ClickTrust see, why, and how to opt out. |
+| ![History](docs/images/history.jpg) | ![Concepts A–Z](docs/images/concepts.jpg) |
+| **History.** Every box's past as a visual story: eras, a timeline of moments, charts, people, places and sources. | **Concepts A–Z.** Every term across every box, each linked to where you can see it working. |
 
 ## Boxes so far
 
@@ -38,10 +38,13 @@ github.com/glassboxhow                        glassbox.how
 ├─ glassboxhow.github.io  (this repo)  ──►  /                 home: today's box, the shelf, calendar
 │    GitHub Actions builds it from     ──►  /e/<slug>/        explainer page for each box
 │    every box's glassbox.json         ──►  /concepts/        every term, A to Z
+│    and history.json                  ──►  /e/<slug>/history/ that box's history, told visually
+│                                      ──►  /history/         every history on one timeline
 │                                      ──►  /privacy/ /terms/
 │                                      ──►  /studio/          recording + publish kit
 ├─ cameraclear            (No. 001)    ──►  /cameraclear/     the box itself
 │    glassbox.json   the manifest           /cameraclear/glassbox/reel.mp4, slides, thumbnail…
+│    history.json    its history
 │    glassbox/       studio output
 └─ <tomorrow's box>       (No. 002)    ──►  /<slug>/
 ```
@@ -60,10 +63,12 @@ npm run dev                                                # http://localhost:52
 ```
 
 1. **Build the model** in `../<slug>/app.js`, fill in `glassbox.json`, and write the storyboard (`window.glassbox.director`). The contract is in [docs/CONTRACT.md](docs/CONTRACT.md).
-2. **Record** at `http://localhost:5210/studio/?box=<slug>`. You get a 16:9 video, a 9:16 Reel/Short, 10 carousel slides, a thumbnail, a share card and a clean still. It encodes in the browser (WebCodecs), faster than real time, with a generated soundtrack.
-3. **Words:** edit the drafted captions for Instagram, YouTube, X and LinkedIn.
-4. **Ship:** pick a time → **Save to repo** → **Dry run** → **Ship it**. That commits `glassbox/`, pushes it, waits for Pages to serve the files, then schedules every post in Buffer.
-5. **First time only for a box:** `scripts/github-setup.sh <slug>` creates the public repo and fills in its description, homepage, topics, README, licences and Pages.
+2. **Research the history** in `../<slug>/history.json`: eras, 20–50 sourced moments, people, a number series or two. The guide is in [docs/HISTORY.md](docs/HISTORY.md).
+3. **Record** at `http://localhost:5210/studio/?box=<slug>`. You get a 16:9 video, a 9:16 Reel/Short, 10 carousel slides, a thumbnail, a share card and a clean still. It encodes in the browser (WebCodecs), faster than real time, with a generated soundtrack.
+   **Record history** makes a “history in 10 moments” Reel/Short and carousel from `history.json`.
+4. **Words:** edit the drafted captions for Instagram, YouTube, X and LinkedIn.
+5. **Ship:** pick a time → **Save to repo** → **Dry run** → **Ship it**. That commits `glassbox/`, pushes it, waits for Pages to serve the files, then schedules every post in Buffer.
+6. **First time only for a box:** `scripts/github-setup.sh <slug>` creates the public repo and fills in its description, homepage, topics, README, licences and Pages.
 
 ## What gets posted
 
@@ -75,6 +80,7 @@ npm run dev                                                # http://localhost:52
 | YouTube video | `video.mp4` (1920×1080) | long title and description |
 | LinkedIn, X | `video.mp4` | LinkedIn / X copy |
 | Threads, TikTok | `reel.mp4` | LinkedIn copy |
+| Instagram / YouTube history (off by default) | `history-reel.mp4`, `history-slide-*.jpg` | history captions |
 
 A target is skipped when no matching channel is connected in Buffer. Change the list in `glassbox.config.json`.
 
@@ -99,6 +105,8 @@ One-time setup (domain, org, Buffer): [docs/SETUP.md](docs/SETUP.md).
 |---|---|
 | `site/` | Static assets: styles, search and cube script, `bar.js` (the pill inside every box), fonts, the studio |
 | `scripts/lib/render.mjs` | Home, explainer, concepts, feed and sitemap pages |
+| `scripts/lib/history.mjs` | Box history pages, the combined `/history/` timeline and the history search index |
+| `site/assets/art.js` | Line-art illustrations for history moments, shared by the site and the studio |
 | `scripts/lib/legal.mjs` | The privacy policy and terms (kept in sync with how the site actually works) |
 | `scripts/lib/buffer.mjs` | Buffer GraphQL client: builds and schedules posts |
 | `scripts/dev.mjs` | Local server mirroring production, plus the studio's save/ship endpoints (localhost only) |

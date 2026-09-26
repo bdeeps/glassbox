@@ -12,7 +12,7 @@ export const SITE = `https://${config.domain}`;
 export const MEDIA = ['cover.jpg', 'still.jpg', 'thumb.jpg', 'slide-1.jpg', 'reel.mp4', 'video.mp4', 'post.json'];
 
 const SLUG = /^[a-z0-9][a-z0-9-]{1,40}$/;
-const RESERVED = new Set(['e', 'studio', 'assets', 'about', 'privacy', 'terms', 'concepts', 'feed.xml', 'apps.json', 'bar.js']);
+const RESERVED = new Set(['e', 'studio', 'assets', 'about', 'privacy', 'terms', 'concepts', 'history', 'feed.xml', 'apps.json', 'bar.js']);
 
 export function normalize(raw, extra = {}) {
   const m = { ...raw, ...extra };
@@ -33,6 +33,7 @@ export function normalize(raw, extra = {}) {
     repo: m.repo || `https://github.com/${config.org}/${m.slug}`,
     appUrl: `/${m.slug}/`,
     pageUrl: `/e/${m.slug}/`,
+    historyUrl: m.history?.events?.length ? `/e/${m.slug}/history/` : null,
   };
 }
 
@@ -46,9 +47,11 @@ export function localApps() {
     const mf = path.join(dir, 'glassbox.json');
     if (!fs.existsSync(mf)) throw new Error(`${dir} has no glassbox.json`);
     const raw = JSON.parse(fs.readFileSync(mf, 'utf8'));
+    const hf = path.join(dir, 'history.json');
+    const history = fs.existsSync(hf) ? JSON.parse(fs.readFileSync(hf, 'utf8')) : null;
     const media = {};
     for (const f of MEDIA) if (fs.existsSync(path.join(dir, 'glassbox', f))) media[f] = true;
-    return { ...normalize(raw, { media }), dir };
+    return { ...normalize(raw, { media, history }), dir };
   });
 }
 
@@ -71,7 +74,9 @@ export async function githubApps() {
         const h = await fetch(`${raw}/glassbox/${f}`, { method: 'HEAD', headers });
         if (h.ok) media[f] = true;
       }));
-      out.push(normalize(await mr.json(), { media, repo: r.html_url, stars: r.stargazers_count }));
+      const hr = await fetch(`${raw}/history.json`, { headers });
+      const history = hr.ok ? await hr.json().catch(() => null) : null;
+      out.push(normalize(await mr.json(), { media, history, repo: r.html_url, stars: r.stargazers_count }));
     } catch (e) { console.warn(`skip ${r.full_name}: ${e.message}`); }
   }
   return out;

@@ -1,6 +1,6 @@
 # The box contract
 
-A box is any static HTML5 app in its own repo. To join the shelf and get videos made for it, it needs three things.
+A box is any static HTML5 app in its own repo. To join the shelf and get videos made for it, it needs three things, plus a `history.json` telling how people figured it out (see [HISTORY.md](HISTORY.md)).
 
 ## 1. `glassbox.json`
 

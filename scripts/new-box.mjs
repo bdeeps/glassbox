@@ -33,13 +33,13 @@ const dir = path.resolve(ROOT, '..', slug);
 if (fs.existsSync(dir)) { console.error(`${dir} already exists`); process.exit(1); }
 
 const vars = {
-  SLUG: slug, TITLE: title, QUESTION: question, NO: String(box).padStart(3, '0'), COLOR: color, COLOR_URL: encodeURIComponent(color),
+  SLUG: slug, TITLE: title, TITLE_LOWER: title.toLowerCase(), QUESTION: question, NO: String(box).padStart(3, '0'), COLOR: color, COLOR_URL: encodeURIComponent(color),
   DOMAIN: config.domain, ORG: config.org, HUB_REPO: config.hubRepo,
 };
 const fill = (s) => s.replace(/\{\{([A-Z_]+)\}\}/g, (m, k) => vars[k] ?? m);
 
 fs.cpSync(path.join(ROOT, 'templates', 'box'), dir, { recursive: true });
-for (const f of ['index.html', 'style.css', 'app.js', 'README.md', '.github/workflows/notify-hub.yml']) {
+for (const f of ['index.html', 'style.css', 'app.js', 'README.md', 'history.json', '.github/workflows/notify-hub.yml']) {
   const p = path.join(dir, f);
   fs.writeFileSync(p, fill(fs.readFileSync(p, 'utf8')));
 }
@@ -72,6 +72,6 @@ execFileSync('node', [path.join(ROOT, 'scripts', 'readme.mjs'), slug], { cwd: RO
 console.log(`Box No. ${vars.NO} → ${dir}`);
 console.log(`  opens ${date} · ${config.fields[field].label}`);
 console.log('Next:');
-console.log(`  1. Build the model in ${slug}/app.js and fill in ${slug}/glassbox.json`);
+console.log(`  1. Build the model in ${slug}/app.js, fill in ${slug}/glassbox.json and research ${slug}/history.json (docs/HISTORY.md)`);
 console.log(`  2. npm run dev → http://localhost:5210/${slug}/  and  /studio/?box=${slug}`);
 console.log(`  3. scripts/github-setup.sh ${slug}   (creates the public repo + Pages)`);

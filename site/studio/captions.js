@@ -3,7 +3,7 @@
 const tagify = (s) => '#' + s.toLowerCase().replace(/[^a-z0-9]+/g, '');
 const firstSentence = (s) => (s.match(/^.*?[.!?](\s|$)/)?.[0] || s).trim();
 
-export function captions(box, idx, scenes) {
+export function captions(box, idx, scenes, hist = null) {
   const site = `https://${idx.domain}`;
   const page = `${site}/e/${box.slug}/`;
   const short = `${idx.domain}/${box.slug}`;
@@ -12,7 +12,37 @@ export function captions(box, idx, scenes) {
   const lines = scenes.map((s) => `→ ${s.caption}`);
   const beats = box.explainer.map((b, i) => `${i + 1}. ${b.title}`);
 
+  const hkeys = hist ? [...hist.events].filter((e) => e.key).sort((a, b) => a.year - b.year).slice(0, 6) : [];
+  const yl = (y) => (y < 0 ? `${-y} BCE` : y);
+  const history = hist ? {
+    instagram: [
+      hist.tagline,
+      '',
+      ...hkeys.map((e) => `${yl(e.year)}: ${e.title}`),
+      '',
+      `The full story, with ${hist.events.length} moments, sources and charts: ${idx.domain}/e/${box.slug}/history (link in bio)`,
+      '',
+      `Then play with how it works: ${short}`,
+      '',
+      tags.slice(0, 12).join(' ') + ' #history',
+    ].join('\n'),
+    youtube: {
+      title: `${hist.title} in 45 seconds #shorts`,
+      description: [
+        hist.tagline,
+        '',
+        ...hkeys.map((e) => `${yl(e.year)} · ${e.title}${e.who ? ` (${e.who})` : ''}`),
+        '',
+        `▶ Full history: ${site}/e/${box.slug}/history/`,
+        `▶ Play with it: ${page}`,
+        '',
+        tags.slice(0, 3).join(' ') + ' #history',
+      ].join('\n'),
+    },
+  } : undefined;
+
   return {
+    history,
     instagram: [
       box.question,
       '',
@@ -89,4 +119,4 @@ export function captions(box, idx, scenes) {
   };
 }
 
-export const LIMITS = { instagram: 2200, carousel: 2200, 'youtube.title': 100, 'youtube.description': 5000, 'youtubeLong.title': 100, 'youtubeLong.description': 5000, short: 280, linkedin: 3000 };
+export const LIMITS = { 'history.instagram': 2200, 'history.youtube.title': 100, 'history.youtube.description': 5000, instagram: 2200, carousel: 2200, 'youtube.title': 100, 'youtube.description': 5000, 'youtubeLong.title': 100, 'youtubeLong.description': 5000, short: 280, linkedin: 3000 };

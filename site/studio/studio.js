@@ -5,6 +5,7 @@
 import * as D from './draw.js';
 import { canEncode, createEncoder, soundtrack, toBlob, zip } from './encode.js';
 import { captions as draft, LIMITS } from './captions.js';
+import * as HX from './history.js';
 
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
@@ -15,12 +16,14 @@ const TARGET_LABEL = {
   'instagram:reel': 'Instagram Reel', 'instagram:carousel': 'Instagram carousel', 'youtube:short': 'YouTube Short', 'youtube:video': 'YouTube video (16:9)',
   'linkedin:video': 'LinkedIn video', 'twitter:video': 'X video', 'threads:video': 'Threads video', 'tiktok:video': 'TikTok video',
   'facebook:video': 'Facebook video', 'bluesky:video': 'Bluesky video', 'mastodon:video': 'Mastodon video',
+  'instagram:history-reel': 'Instagram history Reel', 'instagram:history-carousel': 'Instagram history carousel', 'youtube:history-short': 'YouTube history Short',
 };
 
 let idx, dev = null, box = null, scenes = [], stopFlag = false;
 let outputs = {};  // name → { blob?, url, kind, fresh }
 let stills = { square: [], land: [] };
 let caps = null;
+let hist = null;  // the box's history.json, when it has one
 
 // ---------------------------------------------------------------- boot
 async function boot() {
@@ -40,8 +43,9 @@ async function boot() {
     if (t.dataset.tab === 'settings') loadSettings();
   }));
   $('#btnRecord').addEventListener('click', record);
+  $('#btnHistory').addEventListener('click', recordHistory);
   $('#btnStop').addEventListener('click', () => { stopFlag = true; });
-  $('#btnRedraft').addEventListener('click', () => { caps = draft(box, idx, scenes); renderWords(); });
+  $('#btnRedraft').addEventListener('click', () => { caps = draft(box, idx, scenes, hist); renderWords(); });
   $('#btnSave').addEventListener('click', () => guard($('#btnSave'), save));
   $('#btnDry').addEventListener('click', () => guard($('#btnDry'), () => ship(true)));
   $('#btnShip').addEventListener('click', () => guard($('#btnShip'), () => ship(false)));
@@ -86,15 +90,23 @@ async function selectBox(slug) {
   const total = scenes.reduce((a, s) => a + s.ms, 0) + OUTRO_MS;
   $('#scenes').innerHTML = scenes.map((s) => `<li>${esc(s.caption)}<small>${(s.ms / 1000).toFixed(1)}s</small></li>`).join('') + `<li>End card<small>${OUTRO_MS / 1000}s · total ${(total / 1000).toFixed(1)}s</small></li>`;
 
+  // The box's history, if it has one.
+  hist = await fetch(`/${slug}/history.json`, { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+  $('#btnHistory').disabled = !hist || !canEncode();
+  $('#historyHint').innerHTML = hist
+    ? `Records a 45-second “${esc(hist.title)} in 10 moments” Reel and a 10-slide carousel from <code>history.json</code> (${hist.events.length} moments).`
+    : 'This box has no <code>history.json</code> yet. See docs/HISTORY.md.';
+
   // Anything already saved for this box.
   const base = `/${slug}/glassbox/`;
   const prev = await fetch(base + 'post.json', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
   if (prev) {
-    for (const f of [prev.assets.video, prev.assets.reel, prev.assets.thumb, prev.assets.cover, prev.assets.still, ...(prev.assets.slides || [])].filter(Boolean)) {
+    for (const f of [prev.assets.video, prev.assets.reel, prev.assets.thumb, prev.assets.cover, prev.assets.still, ...(prev.assets.slides || []), prev.assets.historyReel, ...(prev.assets.historySlides || [])].filter(Boolean)) {
       outputs[f] = { url: base + f, kind: f.endsWith('.mp4') ? 'video' : 'image', fresh: false };
     }
   }
-  caps = prev?.captions || draft(box, idx, scenes);
+  const fresh = draft(box, idx, scenes, hist);
+  caps = prev?.captions ? { ...fresh, ...prev.captions, history: prev.captions.history || fresh.history } : fresh;
   renderOutputs(); renderWords(); renderShip(prev); renderHistory();
 }
 
@@ -225,7 +237,7 @@ function setOutput(name, blob, kind) {
 }
 
 function renderOutputs() {
-  const order = (n) => (n === 'video.mp4' ? 0 : n === 'reel.mp4' ? 1 : n === 'thumb.jpg' ? 2 : n === 'cover.jpg' ? 3 : n === 'still.jpg' ? 4 : 5 + parseInt(n.split('-')[1] || 0));
+  const order = (n) => (n === 'video.mp4' ? 0 : n === 'reel.mp4' ? 1 : n === 'thumb.jpg' ? 2 : n === 'cover.jpg' ? 3 : n === 'still.jpg' ? 4 : n === 'history-reel.mp4' ? 20 : n.startsWith('history-slide-') ? 20 + parseInt(n.split('-')[2]) : 5 + parseInt(n.split('-')[1] || 0));
   const names = Object.keys(outputs).sort((a, b) => order(a) - order(b));
   $('#outputs').innerHTML = names.length ? names.map((n) => {
     const o = outputs[n];
@@ -235,12 +247,48 @@ function renderOutputs() {
   }).join('') : '<p class="hint">Nothing recorded yet.</p>';
 }
 
+// ---------------------------------------------------------------- history reel
+async function recordHistory() {
+  if (!hist || !canEncode()) return;
+  stopFlag = false;
+  $('#btnHistory').disabled = true; $('#btnRecord').disabled = true; $('#btnStop').hidden = false;
+  try {
+    const m = meta();
+    const ctx = await HX.prepare(hist, box);
+    const T = HX.historyTiming(ctx.events);
+    const audio = $('#optAudio').checked ? await soundtrack([T.intro, ...ctx.events.map(() => T.each)], T.outro) : null;
+    const { W, H } = HX.HREEL;
+    const out = D.canvas(W, H), g = out.getContext('2d');
+    const pv = $('#preview'), pg = pv.getContext('2d');
+    pv.width = 540; pv.height = 960; $('#previewEmpty').hidden = true;
+    const enc = await createEncoder({ W, H, fps: FPS, audio });
+    const total = Math.round((T.total / 1000) * FPS);
+    for (let f = 0; f < total; f++) {
+      if (stopFlag) throw new Error('Stopped.');
+      HX.historyFrame(g, (f * 1000) / FPS, { ...ctx, meta: m });
+      await enc.add(out);
+      if (f % 3 === 0) { pg.drawImage(out, 0, 0, pv.width, pv.height); $('#prog').style.width = ((f / total) * 100).toFixed(1) + '%'; $('#progText').textContent = `history-reel.mp4 · frame ${f} / ${total}`; }
+    }
+    $('#progText').textContent = 'history-reel.mp4: finishing the MP4…';
+    setOutput('history-reel.mp4', await enc.finish(), 'video');
+    Object.keys(outputs).filter((k) => k.startsWith('history-slide-')).forEach((k) => delete outputs[k]);
+    const slides = HX.historySlides(ctx, m);
+    for (let i = 0; i < slides.length; i++) setOutput(`history-slide-${i + 1}.jpg`, await toBlob(slides[i]), 'image');
+    $('#progText').textContent = 'History reel and carousel done. Save them from the Ship tab.';
+  } catch (e) {
+    $('#progText').textContent = e.message; console.error(e);
+  } finally {
+    $('#btnHistory').disabled = false; $('#btnRecord').disabled = false; $('#btnStop').hidden = true;
+  }
+}
+
 // ---------------------------------------------------------------- words
 const FIELDS = [
   ['instagram', 'Instagram Reel caption'], ['carousel', 'Instagram carousel caption'],
   ['youtube.title', 'YouTube Short title'], ['youtube.description', 'YouTube Short description'],
   ['youtubeLong.title', 'YouTube video title'], ['youtubeLong.description', 'YouTube video description'],
   ['short', 'X / Bluesky'], ['linkedin', 'LinkedIn / Threads / TikTok'],
+  ['history.instagram', 'History Reel and carousel caption'], ['history.youtube.title', 'History Short title'], ['history.youtube.description', 'History Short description'],
 ];
 const getc = (k) => k.split('.').reduce((o, p) => o?.[p], caps) ?? '';
 const setc = (k, v) => { const ps = k.split('.'); const last = ps.pop(); ps.reduce((o, p) => (o[p] ||= {}), caps)[last] = v; };
@@ -272,7 +320,7 @@ function renderShip(prev) {
   $('#when').value = toLocalInput(when);
   const saved = new Map((prev?.targets || []).map((t) => [`${t.service}:${t.kind}`, t.enabled !== false]));
   $('#targets').innerHTML = idx.post.targets.map((t) => {
-    const k = `${t.service}:${t.kind}`, on = saved.has(k) ? saved.get(k) : true;
+    const k = `${t.service}:${t.kind}`, on = saved.has(k) ? saved.get(k) : t.enabled !== false;
     return `<label class="check"><input type="checkbox" data-t="${k}" ${on ? 'checked' : ''}> ${TARGET_LABEL[k] || k}${t.offsetHours ? ` <span class="hint">(+${t.offsetHours}h)</span>` : ''}</label>`;
   }).join('');
 }
@@ -280,6 +328,7 @@ function renderShip(prev) {
 function plan() {
   const has = (n) => !!outputs[n];
   const slides = Object.keys(outputs).filter((n) => n.startsWith('slide-')).sort((a, b) => parseInt(a.split('-')[1]) - parseInt(b.split('-')[1]));
+  const hslides = Object.keys(outputs).filter((n) => n.startsWith('history-slide-')).sort((a, b) => parseInt(a.split('-')[2]) - parseInt(b.split('-')[2]));
   const on = new Map($$('#targets [data-t]').map((c) => [c.dataset.t, c.checked]));
   return {
     slug: box.slug, box: box.box, question: box.question,
@@ -288,6 +337,8 @@ function plan() {
       ...(has('reel.mp4') ? { reel: 'reel.mp4' } : {}), ...(has('video.mp4') ? { video: 'video.mp4' } : {}),
       ...(has('cover.jpg') ? { cover: 'cover.jpg' } : {}), ...(has('thumb.jpg') ? { thumb: 'thumb.jpg' } : {}),
       ...(has('still.jpg') ? { still: 'still.jpg' } : {}),
+      ...(has('history-reel.mp4') ? { historyReel: 'history-reel.mp4' } : {}),
+      ...(hslides.length ? { historySlides: hslides } : {}),
       ...(slides.length ? { slides } : {}),
     },
     captions: caps,

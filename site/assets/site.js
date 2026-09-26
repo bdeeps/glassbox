@@ -28,12 +28,16 @@
     { kind: 'Pages', title: 'The shelf', sub: 'Every box so far', url: '/#shelf' },
     { kind: 'Pages', title: 'Concepts A–Z', sub: 'Every term we define', url: '/concepts/' },
     { kind: 'Pages', title: 'Calendar', sub: 'One box a day, for a year', url: '/#calendar' },
+    { kind: 'Pages', title: 'Every history', sub: 'One timeline for everything we have opened', url: '/history/' },
     { kind: 'Pages', title: 'Privacy', sub: 'What we measure and why', url: '/privacy/' },
     { kind: 'Pages', title: 'Terms and licences', sub: 'MIT code, CC BY 4.0 explanations', url: '/terms/' },
   ];
   async function loadIndex() {
     if (index) return index;
-    const data = await fetch('/apps.json').then((r) => r.json()).catch(() => ({ apps: [] }));
+    const [data, hist] = await Promise.all([
+      fetch('/apps.json').then((r) => r.json()).catch(() => ({ apps: [] })),
+      fetch('/history-index.json').then((r) => r.json()).catch(() => []),
+    ]);
     if (data.org) suggest = `https://github.com/${data.org}/${data.hubRepo}/issues/new?template=box-idea.yml&title=${encodeURIComponent('Box idea: ')}`;
     const slug = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
     index = [
@@ -43,6 +47,8 @@
         hay: (c.term + ' ' + c.def).toLowerCase(), term: c.term.toLowerCase() }))),
       ...data.apps.flatMap((a) => (a.explainer || []).map((b, i) => ({ kind: 'Ideas', title: b.title, sub: `No. ${a.no} · ${a.question}`, url: a.pageUrl, c: a.color,
         hay: (b.title + ' ' + b.text).toLowerCase() }))),
+      ...hist.map((h) => ({ kind: 'History', title: `${h.d}: ${h.t}`, sub: [h.w, h.p, h.b].filter(Boolean).join(' · '), url: h.u, c: h.c,
+        hay: [h.t, h.d, h.w, h.p, String(h.y)].join(' ').toLowerCase() })),
       ...PAGES.map((p) => ({ ...p, hay: (p.title + ' ' + p.sub).toLowerCase() })),
     ];
     return index;
@@ -64,7 +70,7 @@
     results = index.map((it) => ({ it, s: score(it, q, words) })).filter((x) => x.s > 0)
       .sort((a, b) => b.s - a.s).map((x) => x.it)
       .filter((it) => { const k = it.kind + it.url + it.title; if (seen.has(k)) return false; seen.add(k); return true; }).slice(0, 14);
-    const order = ['Boxes', 'Concepts', 'Ideas', 'Pages'];
+    const order = ['Boxes', 'Concepts', 'History', 'Ideas', 'Pages'];
     results.sort((a, b) => order.indexOf(a.kind) - order.indexOf(b.kind));
     sel = 0;
     if (!results.length) {
@@ -198,6 +204,37 @@
     });
     apply();
   }
+
+  // ---------------------------------------------------------------- history
+  // The sticky strip follows the reader: the current moment's dot lights up and
+  // the year counter shows its date.
+  const hstrip = $('[data-strip]');
+  if (hstrip && 'IntersectionObserver' in window) {
+    const dots = $$('.h-dot', hstrip), byId = new Map(dots.map((d) => [d.getAttribute('href').slice(1), d]));
+    const yearEl = $('[data-now-year]', hstrip), eraEl = $('[data-now-era]', hstrip);
+    let current = null;
+    const setOn = (el) => {
+      if (!el || el === current) return;
+      current?.classList.remove('on'); byId.get(current?.id)?.classList.remove('on');
+      current = el; el.classList.add('on');
+      const d = byId.get(el.id);
+      if (d) { d.classList.add('on'); d.scrollIntoView({ block: 'nearest', inline: 'nearest' }); }
+      yearEl.textContent = el.dataset.year; if (eraEl) eraEl.textContent = el.dataset.era;
+    };
+    const io = new IntersectionObserver((es) => {
+      const vis = es.filter((e) => e.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+      if (vis[0]) setOn(vis[0].target);
+    }, { rootMargin: '-35% 0px -55% 0px' });
+    $$('.h-event').forEach((el) => io.observe(el));
+    dots.forEach((d) => d.addEventListener('mouseenter', () => { yearEl.textContent = d.dataset.year; if (eraEl) eraEl.textContent = d.dataset.era; }));
+    hstrip.addEventListener('mouseleave', () => { if (current) { yearEl.textContent = current.dataset.year; if (eraEl) eraEl.textContent = current.dataset.era; } });
+  }
+  $$('[data-hfilter]').forEach((b) => b.addEventListener('click', () => {
+    const f = b.dataset.hfilter;
+    $$('[data-hfilter]').forEach((x) => x.classList.toggle('on', x === b));
+    $$('.h-wrap').forEach((w) => { w.hidden = f !== 'all' && w.dataset.box !== f; });
+    $$('.h-dot').forEach((d) => { d.hidden = f !== 'all' && !d.getAttribute('href').startsWith('#' + f + '-'); });
+  }));
 
   // Concepts page filter.
   const cs = $('#conceptSearch');

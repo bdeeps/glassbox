@@ -3,6 +3,7 @@
 // JavaScript switched off. Every asset is served from our own domain.
 import { config, SITE, esc } from './apps.mjs';
 import { csp } from './analytics.mjs';
+import { historyTeaser } from './history.mjs';
 
 export const fmtDate = (d, opts = { day: 'numeric', month: 'short', year: 'numeric' }) => new Date(d + 'T12:00:00Z').toLocaleDateString('en-GB', { ...opts, timeZone: 'UTC' });
 export const addDays = (d, n) => { const t = new Date(d + 'T12:00:00Z'); t.setUTCDate(t.getUTCDate() + n); return t.toISOString().slice(0, 10); };
@@ -66,6 +67,7 @@ export function nav() {
   <nav aria-label="Main">
     <a href="/#shelf">Shelf</a>
     <a href="/concepts/">Concepts</a>
+    <a href="/history/">History</a>
     <a href="/#calendar" class="wide">Calendar</a>
     <button class="search-btn" data-open-search aria-label="Search boxes and concepts">${ICON.search}<span>Search</span><kbd>/</kbd></button>
     <a class="icon" href="https://github.com/${esc(config.org)}" rel="noopener" target="_blank" aria-label="Glassbox on GitHub">${ICON.gh}</a>
@@ -81,7 +83,7 @@ export function footer() {
       <p>${esc(config.tagline)} ${esc(config.pitch)}</p>
       <p class="promise-line">No accounts. No ads. Nothing sold. <a href="/privacy/">Exactly what we measure, and why.</a></p>
     </div>
-    <div><h4>Explore</h4><a href="/#today">Today's box</a><a href="/#shelf">The shelf</a><a href="/concepts/">Concepts A–Z</a><a href="/#calendar">Calendar</a></div>
+    <div><h4>Explore</h4><a href="/#today">Today's box</a><a href="/#shelf">The shelf</a><a href="/concepts/">Concepts A–Z</a><a href="/history/">Every history</a><a href="/#calendar">Calendar</a></div>
     <div><h4>Follow</h4>${H.youtube ? `<a href="https://youtube.com/${esc(H.youtube)}" rel="noopener" target="_blank">YouTube</a>` : ''}${H.instagram ? `<a href="https://instagram.com/${esc(H.instagram)}" rel="noopener" target="_blank">Instagram</a>` : ''}<a href="/feed.xml">RSS feed</a><a href="https://github.com/${esc(config.org)}" rel="noopener" target="_blank">GitHub</a></div>
     <div><h4>The small print</h4><a href="/privacy/">Privacy</a><a href="/terms/">Terms</a><a href="/terms/#licences">Licences</a><a href="${SUGGEST}" rel="noopener" target="_blank">Suggest a box</a></div>
   </div>
@@ -223,7 +225,7 @@ ${nav()}
         <a class="btn primary big" href="${today.appUrl}">${ICON.play} Play with it</a>
         <a class="btn big" href="${today.pageUrl}">Read it in 60 seconds</a>
       </div>
-      <p class="small-links"><a href="${esc(today.repo)}" rel="noopener" target="_blank">Source on GitHub</a> · ${today.minutes ? `${today.minutes} min to play · ` : ''}free, no sign-up</p>
+      <p class="small-links">${today.historyUrl ? `<a href="${today.historyUrl}">The history: ${esc(today.history.tagline)}</a><br>` : ''}<a href="${esc(today.repo)}" rel="noopener" target="_blank">Source on GitHub</a> · ${today.minutes ? `${today.minutes} min to play · ` : ''}free, no sign-up</p>
     </div>
   </section>` : ''}
 
@@ -331,6 +333,8 @@ ${nav()}
     </div>
   </section>
 
+  ${historyTeaser(a)}
+
   ${yt ? `<section class="ex-yt"><p class="eyebrow">The video</p><div class="yt" data-yt="${yt}" ${a.media['thumb.jpg'] ? `style="background-image:url(${mediaUrl(a, 'thumb.jpg')})"` : ''}><button class="btn primary big">${ICON.play} Play on YouTube</button><p class="yt-note">Loads a YouTube player (youtube-nocookie.com) only when you press play.</p></div></section>` : ''}
 
   ${a.concepts.length ? `<section class="ex-concepts" id="concepts">
@@ -397,7 +401,7 @@ export function feed(apps) {
 }
 
 export function sitemap(apps) {
-  const urls = ['/', '/concepts/', '/privacy/', '/terms/', ...apps.flatMap((a) => [a.pageUrl, a.appUrl])];
+  const urls = ['/', '/concepts/', '/history/', '/privacy/', '/terms/', ...apps.flatMap((a) => [a.pageUrl, a.appUrl, ...(a.historyUrl ? [a.historyUrl] : [])])];
   return `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls.map((u) => `<url><loc>${SITE}${u}</loc></url>`).join('')}</urlset>`;
 }
 
@@ -405,6 +409,7 @@ export function sitemap(apps) {
 export function appsJson(apps) {
   return JSON.stringify({
     brand: config.brand, domain: config.domain, org: config.org, hubRepo: config.hubRepo, handles: config.handles, hashtags: config.hashtags, post: config.post,
-    apps: apps.map(({ dir, ...a }) => a),
+    // History is summarised here; the full text lives on each history page.
+    apps: apps.map(({ dir, history, ...a }) => ({ ...a, history: history ? { title: history.title, tagline: history.tagline, events: history.events.length } : null })),
   }, null, 2);
 }
