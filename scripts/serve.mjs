@@ -4,6 +4,7 @@
 // at start-up, checks for changes every 10 minutes, and can be told to check
 // right away by POST /__sync (Authorization: Bearer $SYNC_TOKEN).
 import http from 'node:http';
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import zlib from 'node:zlib';
@@ -119,8 +120,23 @@ function send(req, res, code, body, type, cache = 'no-cache', extra = {}) {
 
 function cacheFor(file) {
   if (/\.(mp4|jpg|jpeg|png|webp|woff2|glb)$/.test(file)) return 'public, max-age=86400';
-  if (/\.(js|mjs|css|svg)$/.test(file)) return 'public, max-age=600';
-  return 'public, max-age=300';
+  if (/\/vendor\//.test(file)) return 'public, max-age=86400';
+  // Pages, styles and scripts always revalidate (a cheap 304), so a box update can never
+  // pair new HTML with a stale stylesheet.
+  return 'no-cache';
+}
+
+// ETag from content, not mtime: every sync rewrites the files, but unchanged files keep their tag.
+const tags = new Map();
+function etagFor(file, st) {
+  const k = `${file}:${st.size}:${st.mtimeMs}`;
+  let t = tags.get(k);
+  if (!t) {
+    t = st.size < 2e7 ? `"${crypto.createHash('sha1').update(fs.readFileSync(file)).digest('base64url').slice(0, 20)}"` : `W/"${st.size.toString(16)}-${Math.floor(st.mtimeMs).toString(16)}"`;
+    if (tags.size > 5000) tags.clear();
+    tags.set(k, t);
+  }
+  return t;
 }
 
 function serveFile(req, res, file) {
@@ -131,7 +147,7 @@ function serveFile(req, res, file) {
     return serveFile(req, res, path.join(file, 'index.html'));
   }
   const type = TYPES[path.extname(file).toLowerCase()] || 'application/octet-stream';
-  const etag = `W/"${st.size.toString(16)}-${Math.floor(st.mtimeMs).toString(16)}"`;
+  const etag = etagFor(file, st);
   if (req.headers['if-none-match'] === etag) { res.writeHead(304, { ETag: etag, ...SECURITY }); res.end(); return true; }
   const base = { 'Cache-Control': cacheFor(file), ETag: etag, 'Accept-Ranges': 'bytes' };
   const range = req.headers.range?.match(/bytes=(\d*)-(\d*)/);
@@ -174,7 +190,7 @@ const server = http.createServer(async (req, res) => {
     if (gen) {
       const type = TYPES[path.extname(key)] || TYPES['.html'];
       const extra = type.startsWith('text/html') ? { 'Content-Security-Policy': csp({ frames: ['https://www.youtube-nocookie.com'] }) } : {};
-      return send(req, res, 200, gen, type, key.endsWith('.html') ? 'public, max-age=120' : 'public, max-age=300', extra);
+      return send(req, res, 200, gen, type, 'no-cache', extra);
     }
     if (state.pages[key.replace(/index\.html$/, '').replace(/\/$/, '') + '/index.html'] && !p.endsWith('/')) {
       res.writeHead(301, { Location: p + '/', ...SECURITY }); return res.end();
