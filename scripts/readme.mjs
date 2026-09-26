@@ -81,7 +81,7 @@ const block = [
   ].filter((l, i, arr) => l !== '' || (arr[i - 1] && !arr[i - 1].startsWith('|'))).join('\n') + '\n' : '',
   '## Privacy',
   '',
-  `This box has no accounts and no ads, and it ships its own fonts and libraries. When you run it yourself it sends nothing anywhere. On ${config.domain}, the site's \`/bar.js\` also loads ${config.brand}'s analytics: **Google Analytics** to count visits (skipped when your browser sends Global Privacy Control or Do Not Track) and **ClickTrust** to detect bots.`,
+  `This box has no accounts and no ads, and it ships its own fonts and libraries. When you run it yourself it sends nothing anywhere. On ${config.domain}, the site's \`/bar.js\` also loads ${config.brand}'s analytics: **Google Analytics** to count visits (it asks first in the EU, UK and Switzerland, and stays off when your browser sends Global Privacy Control or Do Not Track) and **ClickTrust** to detect bots.`,
   '',
   a.storage.length ? `It remembers a few things **in your own browser only**, and never sends them anywhere:\n\n| Browser storage key | What it holds |\n|---|---|\n${a.storage.map((s) => `| \`${s.key}\` | ${s.what} |`).join('\n')}\n` : 'It stores nothing, not even in your browser.\n',
   `Exactly what each one sees is at [${config.domain}/privacy](${SITE}/privacy/).`,

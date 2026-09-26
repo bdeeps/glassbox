@@ -4,9 +4,10 @@ const tagify = (s) => '#' + s.toLowerCase().replace(/[^a-z0-9]+/g, '');
 const firstSentence = (s) => (s.match(/^.*?[.!?](\s|$)/)?.[0] || s).trim();
 
 export function captions(box, idx, scenes, hist = null) {
-  const site = `https://${idx.domain}`;
+  const site = idx.site || `https://${idx.domain}`;
+  const host = new URL(site).host;
   const page = `${site}/e/${box.slug}/`;
-  const short = `${idx.domain}/${box.slug}`;
+  const short = `${host}/${box.slug}`;
   const ig = idx.handles.instagram ? `@${idx.handles.instagram}` : idx.brand;
   const tags = [...new Set([...idx.hashtags, ...box.tags].map(tagify))].filter((t) => t.length > 2);
   const lines = scenes.map((s) => `→ ${s.caption}`);
@@ -20,7 +21,7 @@ export function captions(box, idx, scenes, hist = null) {
       '',
       ...hkeys.map((e) => `${yl(e.year)}: ${e.title}`),
       '',
-      `The full story, with ${hist.events.length} moments, sources and charts: ${idx.domain}/e/${box.slug}/history (link in bio)`,
+      `The full story, with ${hist.events.length} moments, sources and charts: ${host}/e/${box.slug}/history (link in bio)`,
       '',
       `Then play with how it works: ${short}`,
       '',

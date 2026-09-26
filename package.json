@@ -15,7 +15,8 @@
     "post": "node scripts/post.mjs",
     "new": "node scripts/new-box.mjs",
     "check": "node scripts/check.mjs",
-    "readme": "node scripts/readme.mjs"
+    "readme": "node scripts/readme.mjs",
+    "start": "node scripts/serve.mjs"
   },
   "homepage": "https://glassbox.how",
   "repository": {

@@ -332,7 +332,7 @@ function plan() {
   const on = new Map($$('#targets [data-t]').map((c) => [c.dataset.t, c.checked]));
   return {
     slug: box.slug, box: box.box, question: box.question,
-    url: `https://${idx.domain}/e/${box.slug}/`, app: `https://${idx.domain}/${box.slug}/`,
+    url: `${idx.site}/e/${box.slug}/`, app: `${idx.site}/${box.slug}/`,
     assets: {
       ...(has('reel.mp4') ? { reel: 'reel.mp4' } : {}), ...(has('video.mp4') ? { video: 'video.mp4' } : {}),
       ...(has('cover.jpg') ? { cover: 'cover.jpg' } : {}), ...(has('thumb.jpg') ? { thumb: 'thumb.jpg' } : {}),

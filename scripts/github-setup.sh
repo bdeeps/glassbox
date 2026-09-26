@@ -1,45 +1,49 @@
 #!/usr/bin/env bash
 # Creates (or refreshes) the public GitHub repos, fully filled in: description,
-# homepage, topics, README, licences, issue labels and GitHub Pages. Run it after
-# creating the GitHub org named in glassbox.config.json. Safe to re-run.
-#   scripts/github-setup.sh hub      # this repo → <org>/<org>.github.io (Pages via Actions, custom domain)
-#   scripts/github-setup.sh <slug>   # ../<slug> → <org>/<slug> (Pages from main)
+# homepage, topics, README, licences, issue labels, and the secret/variable the
+# box needs to ping the server. Safe to re-run.
+#   scripts/github-setup.sh hub      # this repo  → <owner>/<hubRepo>
+#   scripts/github-setup.sh <slug>   # ../<slug>  → <owner>/<slug>
+# <owner> is "org" in glassbox.config.json: a GitHub user or organisation.
+# Hosting is Railway (see docs/SETUP.md); these repos are the source.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 cfg() { node -p "require('./glassbox.config.json').$1"; }
-ORG=$(cfg org); HUB=$(cfg hubRepo); DOMAIN=$(cfg domain); BRAND=$(cfg brand)
+OWNER=$(cfg org); HUB=$(cfg hubRepo); BRAND=$(cfg brand)
+SITE=$(node --input-type=module -e "import { SITE } from './scripts/lib/apps.mjs'; console.log(SITE)")
 target=${1:?usage: scripts/github-setup.sh hub|<slug>}
 
-gh api "orgs/$ORG" >/dev/null 2>&1 || { echo "GitHub org '$ORG' doesn't exist yet. Create it at https://github.com/organizations/plan first."; exit 1; }
+gh api "users/$OWNER" >/dev/null 2>&1 || { echo "GitHub user or org '$OWNER' not found."; exit 1; }
+env_get() { [ -f .env ] && grep -E "^$1=" .env | head -1 | cut -d= -f2- || true; }
 
-# Labels used by the issue templates and the "Suggest a box" links.
 labels() {
   gh label create box-idea --repo "$1" --color 8ef0ff --description "A suggestion for a future box" --force >/dev/null
   gh label create correction --repo "$1" --color ffb547 --description "Something in an explainer is wrong or misleading" --force >/dev/null
 }
-# Repo settings that aren't files: issues on, wiki and projects off (nothing hides there).
 settings() {
   gh repo edit "$1" --enable-issues --enable-wiki=false --enable-projects=false --enable-discussions=false \
     --description "$2" --homepage "$3" >/dev/null
 }
+push() {  # $1 = dir, $2 = repo, $3 = description
+  ( cd "$1"
+    [ -d .git ] || git init -q -b main
+    git add -A && (git diff --cached --quiet || git commit -qm "Update from Glassbox")
+    gh repo view "$OWNER/$2" >/dev/null 2>&1 || gh repo create "$OWNER/$2" --public --description "$3"
+    git remote get-url origin >/dev/null 2>&1 || git remote add origin "https://github.com/$OWNER/$2.git"
+    git push -u origin main
+  )
+}
 
 if [ "$target" = "hub" ]; then
-  HUB_DESC="$BRAND: see inside how things work. One open-source interactive explainer a day, with no tracking. Hub site, studio and publish kit."
+  HUB_DESC="$BRAND: see inside how things work. One open-source interactive explainer a day, with its history. Hub site, server, studio and publish kit."
   npm run -s check
-  git add -A && (git diff --cached --quiet || git commit -qm "Glassbox hub")
-  gh repo view "$ORG/$HUB" >/dev/null 2>&1 || gh repo create "$ORG/$HUB" --public --source . --remote origin \
-    --description "$HUB_DESC"
-  git remote get-url origin >/dev/null 2>&1 || git remote add origin "https://github.com/$ORG/$HUB.git"
-  git push -u origin main
-  settings "$ORG/$HUB" "$HUB_DESC" "https://$DOMAIN"
-  gh repo edit "$ORG/$HUB" --add-topic glassbox --add-topic explainer --add-topic education --add-topic interactive \
-    --add-topic open-source --add-topic html5 --add-topic no-tracking --add-topic privacy --add-topic github-pages --add-topic static-site >/dev/null
-  labels "$ORG/$HUB"
-  gh api -X POST "repos/$ORG/$HUB/pages" -f build_type=workflow >/dev/null 2>&1 || true
-  gh api -X PUT "repos/$ORG/$HUB/pages" -f cname="$DOMAIN" >/dev/null 2>&1 || true
-  gh api -X PUT "repos/$ORG/$HUB/pages" -F https_enforced=true >/dev/null 2>&1 || echo "  (turn on Enforce HTTPS in Pages settings once DNS resolves)"
-  gh workflow run pages.yml -R "$ORG/$HUB" || true
-  echo "Hub: https://github.com/$ORG/$HUB  →  https://$DOMAIN"
+  push . "$HUB" "$HUB_DESC"
+  settings "$OWNER/$HUB" "$HUB_DESC" "$SITE"
+  gh repo edit "$OWNER/$HUB" --add-topic glassbox --add-topic explainer --add-topic education --add-topic interactive \
+    --add-topic open-source --add-topic html5 --add-topic history --add-topic privacy --add-topic static-site --add-topic railway >/dev/null
+  labels "$OWNER/$HUB"
+  key=$(env_get BUFFER_API_KEY); [ -n "$key" ] && printf %s "$key" | gh secret set BUFFER_API_KEY -R "$OWNER/$HUB" >/dev/null && echo "  BUFFER_API_KEY secret set (for the Post a box workflow)"
+  echo "Hub: https://github.com/$OWNER/$HUB  →  $SITE"
   echo "Manual step: Settings → General → Social preview → upload site/assets/og.png"
   exit 0
 fi
@@ -50,20 +54,17 @@ dir="../$slug"
 node scripts/readme.mjs "$slug"
 meta=$(node scripts/readme.mjs "$slug" --meta)
 desc=$(node -e "console.log(JSON.parse(process.argv[1]).description)" "$meta")
-home=$(node -e "console.log(JSON.parse(process.argv[1]).homepage)" "$meta")
 topics=$(node -e "console.log(JSON.parse(process.argv[1]).topics.map(t=>'--add-topic '+t).join(' '))" "$meta")
-( cd "$dir"
-  [ -d .git ] || git init -q -b main
-  git add -A && (git diff --cached --quiet || git commit -qm "Glassbox box: $slug")
-  gh repo view "$ORG/$slug" >/dev/null 2>&1 || gh repo create "$ORG/$slug" --public --source . --remote origin --description "$desc"
-  git remote get-url origin >/dev/null 2>&1 || git remote add origin "https://github.com/$ORG/$slug.git"
-  git push -u origin main
-)
-settings "$ORG/$slug" "$desc" "$home"
+push "$dir" "$slug" "$desc"
+settings "$OWNER/$slug" "$desc" "$SITE/$slug/"
 # shellcheck disable=SC2086
-gh repo edit "$ORG/$slug" $topics >/dev/null
-labels "$ORG/$slug"
-gh api -X POST "repos/$ORG/$slug/pages" -f "source[branch]=main" -f "source[path]=/" >/dev/null 2>&1 || true
-gh workflow run pages.yml -R "$ORG/$HUB" >/dev/null 2>&1 || true
-echo "Box: https://github.com/$ORG/$slug  →  $home"
+gh repo edit "$OWNER/$slug" $topics >/dev/null
+labels "$OWNER/$slug"
+tok=$(env_get SYNC_TOKEN)
+if [ -n "$tok" ]; then
+  printf %s "$tok" | gh secret set GLASSBOX_SYNC_TOKEN -R "$OWNER/$slug" >/dev/null
+  gh variable set GLASSBOX_SITE -R "$OWNER/$slug" --body "$SITE" >/dev/null
+  curl -fsS -X POST "$SITE/__sync" -H "Authorization: Bearer $tok" >/dev/null 2>&1 && echo "  asked $SITE to fetch it now" || true
+fi
+echo "Box: https://github.com/$OWNER/$slug  →  $SITE/$slug/"
 [ -f "$dir/glassbox/cover.jpg" ] && echo "Manual step: Settings → General → Social preview → upload $slug/glassbox/cover.jpg"

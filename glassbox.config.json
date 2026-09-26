@@ -10,8 +10,9 @@
     "content": "CC BY 4.0"
   },
   "domain": "glassbox.how",
-  "org": "glassboxhow",
-  "hubRepo": "glassboxhow.github.io",
+  "siteUrl": "",
+  "org": "bdeeps",
+  "hubRepo": "glassbox",
   "topic": "glassbox-box",
   "startDate": "2026-09-26",
   "handles": {

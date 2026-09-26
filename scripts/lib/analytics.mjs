@@ -41,28 +41,72 @@ export function csp({ scriptHashes = [], frames = [] } = {}) {
   ].join('; ');
 }
 
-// The file that actually loads the tags. Never runs on localhost, so development
-// and studio recordings don't pollute the numbers.
+// The file that actually loads the tags, with the consent banner. Never runs on
+// localhost or while the studio records, so development doesn't pollute the numbers.
+//  - ClickTrust (bot detection) protects the site and always runs.
+//  - Google Analytics needs a choice first where the law asks for consent: the EU/EEA,
+//    the UK and Switzerland, recognised from the device's time zone (never from IP).
+//    Elsewhere it runs unless the visitor opts out. GPC / Do Not Track always mean no.
+//  - Anyone can change their mind with any [data-privacy-choices] button.
+export const CONSENT_KEY = 'glassbox.consent';
 export function analyticsJs() {
   const { ga4, ct } = active();
-  return `// Generated from glassbox.config.json "analytics". What this does is explained at /privacy/.
+  const ctCode = ct.srcs.map((u) => `    add(${JSON.stringify(u)});`).concat(ct.code.map((c) => `    try {\n${c.split('\n').map((l) => '      ' + l).join('\n')}\n    } catch (e) { /* never break the page */ }`)).join('\n');
+  return `// Generated from glassbox.config.json "analytics". Explained at /privacy/.
 (() => {
   if (window.__gbAnalytics || /^(localhost|127\\.|\\[::1\\]|.*\\.local$)/.test(location.hostname) || /[?&]reel\\b/.test(location.search)) return;
   window.__gbAnalytics = true;
   const add = (src) => { const s = document.createElement('script'); s.async = true; s.src = src; document.head.appendChild(s); };
-${ga4 ? `  // Google Analytics 4: visitor analytics. Skipped when the browser sends
-  // Global Privacy Control or Do Not Track.
-  const optOut = navigator.globalPrivacyControl === true || navigator.doNotTrack === '1' || window.doNotTrack === '1';
-  if (!optOut) {
-  window.dataLayer = window.dataLayer || [];
-  window.gtag = function () { dataLayer.push(arguments); };
-  gtag('js', new Date());
-  gtag('config', ${JSON.stringify(ga4)}, { allow_google_signals: false, allow_ad_personalization_signals: false });
-  add('https://www.googletagmanager.com/gtag/js?id=' + ${JSON.stringify(ga4)});
+${ctCode ? `  // ClickTrust: bot and invalid-traffic detection.\n  (() => {\n${ctCode}\n  })();\n` : '  // ClickTrust: not configured.\n'}${ga4 ? `
+  // Google Analytics 4, with consent.
+  const GA = ${JSON.stringify(ga4)}, KEY = ${JSON.stringify(CONSENT_KEY)};
+  const tz = (Intl.DateTimeFormat().resolvedOptions().timeZone || '');
+  const consentRegion = /^Europe\\//.test(tz) || /^Atlantic\\/(Canary|Madeira|Azores|Faroe|Reykjavik)$/.test(tz) || tz === 'Arctic/Longyearbyen';
+  const signal = navigator.globalPrivacyControl === true || navigator.doNotTrack === '1' || window.doNotTrack === '1';
+  const get = () => { try { return localStorage.getItem(KEY); } catch { return null; } };
+  const put = (v) => { try { localStorage.setItem(KEY, v); } catch { /* storage blocked: choice lasts this page */ } };
+  let started = false;
+  const startGA = () => {
+    if (started) return; started = true;
+    window.dataLayer = window.dataLayer || [];
+    window.gtag = function () { dataLayer.push(arguments); };
+    gtag('consent', 'default', { analytics_storage: 'granted', ad_storage: 'denied', ad_user_data: 'denied', ad_personalization: 'denied' });
+    gtag('js', new Date());
+    gtag('config', GA, { allow_google_signals: false, allow_ad_personalization_signals: false });
+    add('https://www.googletagmanager.com/gtag/js?id=' + GA);
+  };
+  const clearGA = () => {
+    for (const c of document.cookie.split(';')) {
+      const n = c.split('=')[0].trim();
+      if (/^_ga/.test(n)) for (const d of ['', location.hostname, '.' + location.hostname.split('.').slice(-2).join('.')]) document.cookie = n + '=; Max-Age=0; Path=/' + (d ? '; Domain=' + d : '');
+    }
+  };
+  const choice = get();
+  if (!signal && (choice === 'granted' || (!consentRegion && choice !== 'denied'))) startGA();
+
+  function banner(reopened) {
+    document.getElementById('gb-consent')?.remove();
+    const now = signal ? 'off (your browser sent a privacy signal)' : started ? 'on' : 'off';
+    const el = document.createElement('div');
+    el.id = 'gb-consent';
+    el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', 'Privacy choices'); el.setAttribute('aria-live', 'polite');
+    el.innerHTML = '<style>#gb-consent{position:fixed;z-index:2147483600;right:16px;bottom:16px;max-width:420px;padding:18px 18px 16px;border-radius:18px;background:#10131b;color:#eef0f6;border:1px solid rgba(255,255,255,.18);box-shadow:0 20px 60px rgba(0,0,0,.6);font:400 14.5px/1.5 Geist,ui-sans-serif,system-ui,sans-serif}#gb-consent b{font-weight:600}#gb-consent p{margin:0 0 12px}#gb-consent .r{display:flex;gap:8px;flex-wrap:wrap}#gb-consent button{flex:1;min-height:42px;padding:8px 14px;border-radius:999px;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.06);color:#eef0f6;font:600 14px Geist,system-ui,sans-serif;cursor:pointer}#gb-consent button:hover{background:rgba(255,255,255,.12)}#gb-consent button:focus-visible{outline:2px solid #8ef0ff;outline-offset:2px}#gb-consent a{color:#8ef0ff}#gb-consent small{display:block;margin-top:10px;color:#a8aebf;font-size:12.5px}@media (max-width:520px){#gb-consent{left:12px;right:12px;bottom:12px;max-width:none}}</style>'
+      + '<p><b>Can we count your visit?</b> We use Google Analytics to see which explainers help people, and nothing else. No ads, nothing sold.' + (reopened ? ' It is currently <b>' + now + '</b>.' : '') + '</p>'
+      + '<div class="r"><button type="button" data-v="granted">Allow</button><button type="button" data-v="denied">No thanks</button></div>'
+      + '<small>Bot detection (ClickTrust) always runs to protect the site. <a href="/privacy/">Privacy</a> · change this any time from “Privacy choices” at the bottom of every page.</small>';
+    el.addEventListener('click', (e) => {
+      const b = e.target.closest('button[data-v]'); if (!b) return;
+      put(b.dataset.v); el.remove();
+      if (b.dataset.v === 'granted' && !signal) startGA();
+      if (b.dataset.v === 'denied' && started) { clearGA(); location.reload(); }
+    });
+    document.body.appendChild(el);
+    el.querySelector('button').focus({ preventScroll: true });
   }
-` : '  // Google Analytics: not configured.\n'}${ct.srcs.length || ct.code.length ? `  // ClickTrust: bot and invalid-traffic analytics.
-${ct.srcs.map((u) => `  add(${JSON.stringify(u)});`).join('\n')}
-${ct.code.map((c) => `  try {\n${c.split('\n').map((l) => '    ' + l).join('\n')}\n  } catch (e) { /* never break the page */ }`).join('\n')}
-` : '  // ClickTrust: not configured.\n'}})();
+  const ready = (fn) => (document.body ? fn() : document.addEventListener('DOMContentLoaded', fn));
+  if (consentRegion && !choice && !signal) ready(() => banner(false));
+  document.addEventListener('click', (e) => { if (e.target.closest('[data-privacy-choices]')) { e.preventDefault(); banner(true); } });
+  window.glassboxPrivacyChoices = () => banner(true);
+` : '  // Google Analytics: not configured, so no consent banner is needed.\n'}})();
 `;
 }

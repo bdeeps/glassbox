@@ -6,7 +6,9 @@ import { fileURLToPath } from 'node:url';
 
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 export const config = JSON.parse(fs.readFileSync(path.join(ROOT, 'glassbox.config.json'), 'utf8'));
-export const SITE = `https://${config.domain}`;
+// Where the site actually lives. The brand domain until it's pointed at the host;
+// SITE_URL (env) or siteUrl (config) override it, e.g. the Railway URL.
+export const SITE = (process.env.SITE_URL || config.siteUrl || `https://${config.domain}`).replace(/\/$/, '');
 
 // The media files the studio writes into <app>/glassbox/.
 export const MEDIA = ['cover.jpg', 'still.jpg', 'thumb.jpg', 'slide-1.jpg', 'reel.mp4', 'video.mp4', 'post.json'];
@@ -42,8 +44,12 @@ export function localApps() {
   const file = path.join(ROOT, 'apps.local.json');
   if (!fs.existsSync(file)) return [];
   const list = JSON.parse(fs.readFileSync(file, 'utf8')).apps || [];
-  return list.map((p) => {
-    const dir = path.resolve(ROOT, p);
+  return appsFromDirs(list.map((p) => path.resolve(ROOT, p)));
+}
+
+// Any set of box folders on disk (local siblings, or repos the server downloaded).
+export function appsFromDirs(dirs) {
+  return dirs.map((dir) => {
     const mf = path.join(dir, 'glassbox.json');
     if (!fs.existsSync(mf)) throw new Error(`${dir} has no glassbox.json`);
     const raw = JSON.parse(fs.readFileSync(mf, 'utf8'));
@@ -59,7 +65,7 @@ export function localApps() {
 export async function githubApps() {
   const headers = { 'User-Agent': 'glassbox-build', Accept: 'application/vnd.github+json' };
   if (process.env.GITHUB_TOKEN) headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
-  const q = encodeURIComponent(`org:${config.org} topic:${config.topic} is:public`);
+  const q = encodeURIComponent(`user:${config.org} topic:${config.topic} is:public`);
   const res = await fetch(`https://api.github.com/search/repositories?q=${q}&per_page=100`, { headers });
   if (!res.ok) throw new Error(`GitHub search failed: ${res.status} ${await res.text()}`);
   const { items } = await res.json();

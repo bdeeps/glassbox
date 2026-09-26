@@ -37,7 +37,11 @@
       <a class="x" href="/e/${esc(a.slug)}/">How it works</a>
       <a class="x opt" href="${esc(a.repo)}" target="_blank" rel="noopener">Source</a>
       <a class="x opt" href="/">All boxes</a>
+      <a class="x opt" href="/privacy/" data-choices>Privacy</a>
     </div>`;
+    root.querySelector('[data-choices]').addEventListener('click', (e) => {
+      if (window.glassboxPrivacyChoices) { e.preventDefault(); window.glassboxPrivacyChoices(); }
+    });
     root.querySelector('.home').addEventListener('click', () => {
       const bar = root.querySelector('.bar');
       bar.classList.toggle('min');

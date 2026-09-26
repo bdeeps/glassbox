@@ -1,21 +1,16 @@
-# Optional: rebuild the Glassbox hub as soon as this box changes, instead of
-# waiting for the hub's hourly rebuild. Needs a HUB_DISPATCH_TOKEN secret: a
-# fine-grained token with "Contents: read and write" on the hub repo.
-name: Notify hub
+# Tells the Glassbox server to fetch this box straight away, instead of waiting
+# for its 10-minute check. Needs the GLASSBOX_SYNC_TOKEN secret (the server's
+# SYNC_TOKEN) and the GLASSBOX_SITE variable (e.g. https://glassbox.how).
+name: Notify Glassbox
 on:
   push:
     branches: [main]
-    paths: ['glassbox.json', 'glassbox/**']
 jobs:
   notify:
     runs-on: ubuntu-latest
     env:
-      TOKEN: ${{ secrets.HUB_DISPATCH_TOKEN }}
+      TOKEN: ${{ secrets.GLASSBOX_SYNC_TOKEN }}
+      SITE: ${{ vars.GLASSBOX_SITE }}
     steps:
-      - if: env.TOKEN != ''
-        run: |
-          curl -fsS -X POST \
-            -H "Authorization: Bearer $TOKEN" \
-            -H "Accept: application/vnd.github+json" \
-            https://api.github.com/repos/{{ORG}}/{{HUB_REPO}}/dispatches \
-            -d '{"event_type":"box-updated","client_payload":{"slug":"{{SLUG}}"}}'
+      - if: env.TOKEN != '' && env.SITE != ''
+        run: curl -fsS -X POST "$SITE/__sync" -H "Authorization: Bearer $TOKEN"

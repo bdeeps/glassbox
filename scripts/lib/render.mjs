@@ -2,7 +2,7 @@
 // client-rendered) so each carries its own share-card tags and works with
 // JavaScript switched off. Every asset is served from our own domain.
 import { config, SITE, esc } from './apps.mjs';
-import { csp } from './analytics.mjs';
+import { csp, active } from './analytics.mjs';
 import { historyTeaser } from './history.mjs';
 
 export const fmtDate = (d, opts = { day: 'numeric', month: 'short', year: 'numeric' }) => new Date(d + 'T12:00:00Z').toLocaleDateString('en-GB', { ...opts, timeZone: 'UTC' });
@@ -85,7 +85,7 @@ export function footer() {
     </div>
     <div><h4>Explore</h4><a href="/#today">Today's box</a><a href="/#shelf">The shelf</a><a href="/concepts/">Concepts A–Z</a><a href="/history/">Every history</a><a href="/#calendar">Calendar</a></div>
     <div><h4>Follow</h4>${H.youtube ? `<a href="https://youtube.com/${esc(H.youtube)}" rel="noopener" target="_blank">YouTube</a>` : ''}${H.instagram ? `<a href="https://instagram.com/${esc(H.instagram)}" rel="noopener" target="_blank">Instagram</a>` : ''}<a href="/feed.xml">RSS feed</a><a href="https://github.com/${esc(config.org)}" rel="noopener" target="_blank">GitHub</a></div>
-    <div><h4>The small print</h4><a href="/privacy/">Privacy</a><a href="/terms/">Terms</a><a href="/terms/#licences">Licences</a><a href="${SUGGEST}" rel="noopener" target="_blank">Suggest a box</a></div>
+    <div><h4>The small print</h4><a href="/privacy/">Privacy</a>${active().ga4 ? '<a href="/privacy/#choices" data-privacy-choices>Privacy choices</a>' : ''}<a href="/terms/">Terms</a><a href="/terms/#licences">Licences</a><a href="${SUGGEST}" rel="noopener" target="_blank">Suggest a box</a></div>
   </div>
   <p class="colophon">Code under ${esc(config.licenses.code)}. Words, images and videos under ${esc(config.licenses.content)}. Static files on GitHub Pages; fonts self-hosted; visits measured with Google Analytics, bots detected with ClickTrust. © ${new Date(config.policyDate).getUTCFullYear()} ${esc(config.owner)}.</p>
 </footer>
@@ -408,7 +408,7 @@ export function sitemap(apps) {
 // Public index for search, the bar and the studio. Media flags let the studio skip missing files.
 export function appsJson(apps) {
   return JSON.stringify({
-    brand: config.brand, domain: config.domain, org: config.org, hubRepo: config.hubRepo, handles: config.handles, hashtags: config.hashtags, post: config.post,
+    brand: config.brand, domain: config.domain, site: SITE, org: config.org, hubRepo: config.hubRepo, handles: config.handles, hashtags: config.hashtags, post: config.post,
     // History is summarised here; the full text lives on each history page.
     apps: apps.map(({ dir, history, ...a }) => ({ ...a, history: history ? { title: history.title, tagline: history.tagline, events: history.events.length } : null })),
   }, null, 2);

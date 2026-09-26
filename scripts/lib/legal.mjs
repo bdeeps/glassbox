@@ -2,6 +2,7 @@
 // if the build changes (a new host, a new embed), these pages must change with it.
 import { config, SITE, esc } from './apps.mjs';
 import { head, nav, footer, fmtDate } from './render.mjs';
+import { CONSENT_KEY } from './analytics.mjs';
 
 const REPO = `https://github.com/${config.org}/${config.hubRepo}`;
 const HISTORY = (file) => `${REPO}/commits/main/scripts/lib/${file}`;
@@ -33,6 +34,7 @@ export function privacy(apps) {
     `<tr><td><code>_ga</code></td><td>Cookie · Google Analytics</td><td>A random ID that lets Google Analytics tell one visitor from another. Expires after 2 years.</td></tr>`,
     `<tr><td><code>_ga_&lt;ID&gt;</code></td><td>Cookie · Google Analytics</td><td>Keeps track of the current visit (session). Expires after 2 years.</td></tr>`,
     `<tr><td>ClickTrust identifiers</td><td>ClickTrust</td><td>ClickTrust may store a small identifier to recognise automated traffic across page views. See <a href="${esc(ctUrl)}" rel="noopener" target="_blank">ClickTrust's policy</a>.</td></tr>`,
+    `<tr><td><code>${CONSENT_KEY}</code></td><td>Local storage · whole site</td><td>Your answer to “Can we count your visit?”: “granted” or “denied”. It's kept so we don't ask again, and it never leaves your device.</td></tr>`,
     `<tr><td><code>glassbox.bar.min</code></td><td>Local storage · every box</td><td>Whether you collapsed the small Glassbox bar. Holds only “1” or “0”. Never leaves your device.</td></tr>`,
     ...stored.flatMap((a) => a.storage.map((s) => `<tr><td><code>${esc(s.key)}</code></td><td>Local storage · <a href="${a.pageUrl}">No. ${a.no} ${esc(a.title)}</a></td><td>${esc(s.what)} Never leaves your device.</td></tr>`)),
   ].join('');
@@ -45,7 +47,7 @@ export function privacy(apps) {
       <li><b>No accounts, no forms, no ads.</b> There's nothing to sign up for, and we never sell or share data for advertising.</li>
       <li><b>Google Analytics counts visits.</b> It tells us which boxes people use, roughly where from, on what kind of device, and how they found us. It sets two cookies. <a href="#analytics">Details</a></li>
       <li><b>ClickTrust detects bots.</b> It looks at technical signals from each visit to tell real people from automated traffic, so our numbers stay honest and the site stays safe. <a href="#bots">Details</a></li>
-      <li><b>Your browser's privacy signals are respected.</b> If it sends Global Privacy Control or Do Not Track, Google Analytics doesn't load. <a href="#choices">Your choices</a></li>
+      <li><b>You choose.</b> In the EU, the UK and Switzerland, Google Analytics only runs after you press “Allow”. Everywhere, you can switch it off from “Privacy choices”, and a Global Privacy Control or Do Not Track signal switches it off automatically. <a href="#choices">Your choices</a></li>
       <li><b>Nothing else talks to other sites.</b> Fonts, scripts, images and videos come from ${esc(config.domain)}. A YouTube player loads only if you press play on one.</li>
       <li><b>Your progress stays on your device.</b> Quiz scores and similar things are kept in your own browser and never sent anywhere.</li>
     </ul>`,
@@ -58,6 +60,7 @@ export function privacy(apps) {
           <tr><td><b>Us</b></td><td>Only the aggregated reports above. No names, no emails, no accounts, and nothing we could use to identify you.</td><td></td><td></td></tr>
         </tbody></table></div>`],
       ['analytics', 'Google Analytics: understanding visits', `<p>We use <b>Google Analytics 4</b>, a service from Google, to count visits and see how people use the site: which boxes they open, how long they stay, where they came from (a search, YouTube, Instagram, another site), and roughly where in the world they are.</p>
+        <p><b>When it runs.</b> If your device is set to a time zone in the EU/EEA, the UK or Switzerland, Google Analytics doesn't load until you press “Allow” on the banner. We work this out from your device's time zone, not your IP address. Elsewhere, it loads unless you opt out. Either way, you can change your mind at any time with “Privacy choices” at the bottom of every page, or the “Privacy” link in each box. Choosing “No thanks” deletes the Google Analytics cookies.</p>
         <p>We've switched off Google signals and ad personalisation, so this data isn't linked to Google accounts or used for advertising. Google Analytics 4 works out an approximate location from your IP address; Google states that GA4 doesn't log or store IP addresses. We never send Google your name, email or anything you type. Reports reach us as totals and trends, like “a thousand people opened CameraClear yesterday”, and don't identify individuals. We keep analytics data for 14 months.</p>
         <p>Google processes this data for us. See <a href="https://support.google.com/analytics/answer/6004245" rel="noopener" target="_blank">how Google safeguards Analytics data</a> and the <a href="https://policies.google.com/privacy" rel="noopener" target="_blank">Google Privacy Policy</a>.</p>`],
       ['bots', 'ClickTrust: detecting bots', `<p>A lot of web traffic isn't people. It's crawlers, scrapers and bots, some of them harmful. We use <b>ClickTrust</b> (<a href="${esc(ctUrl)}" rel="noopener" target="_blank">${esc(ctUrl.replace(/^https?:\/\//, ''))}</a>), an invalid-traffic detection service, to spot them.</p>
@@ -66,12 +69,13 @@ export function privacy(apps) {
       ['cookies', "Cookies and what's stored on your device", `<div class="table-wrap"><table><thead><tr><th>Name</th><th>Type · set by</th><th>What it does</th></tr></thead><tbody>${storageRows}</tbody></table></div>
         <p>To clear them, use your browser's “clear site data” option for ${esc(config.domain)}. Private or incognito windows forget them automatically.</p>`],
       ['choices', 'Your choices', `<ul>
+          <li><b>Use “Privacy choices”</b> at the bottom of any page (or “Privacy” in a box's bar) to allow or refuse Google Analytics. Your answer is remembered on your device.</li>
           <li><b>Send a privacy signal.</b> If your browser sends <a href="https://globalprivacycontrol.org" rel="noopener" target="_blank">Global Privacy Control</a> or Do Not Track, Google Analytics doesn't load at all.</li>
           <li><b>Opt out of Google Analytics everywhere</b> with <a href="https://tools.google.com/dlpage/gaoptout" rel="noopener" target="_blank">Google's opt-out browser add-on</a>.</li>
           <li><b>Block or delete cookies</b> in your browser settings, or use a content blocker. The site works fully without them.</li>
           <li><b>Use the boxes offline.</b> Every box is open source. Clone it and run it on your own computer, and no analytics run at all.</li>
         </ul>`],
-      ['basis', "Why we're allowed to (legal basis)", `<p>If you're in the European Economic Area or the United Kingdom, the law asks us to say why we process this data. For bot detection it's our <b>legitimate interest</b> in keeping the site secure and its statistics accurate. For Google Analytics it's our legitimate interest in understanding which explainers are useful, with the opt-outs above always available. Where the law requires your consent for analytics cookies, we'll ask for it first.</p>
+      ['basis', "Why we're allowed to (legal basis)", `<p>If you're in the European Economic Area or the United Kingdom, the law asks us to say why we process this data. For bot detection it's our <b>legitimate interest</b> in keeping the site secure and its statistics accurate. For Google Analytics it's your <b>consent</b>: we ask before loading it, and you can withdraw consent at any time from “Privacy choices”. Outside those regions, we rely on our legitimate interest in understanding which explainers are useful, with the opt-outs above always available.</p>
         <p>You have the right to ask about, correct, delete or object to the processing of your personal data, and to complain to your data protection authority. Because we only see aggregated reports, we usually can't tell which data is yours. Tell us what you need and we'll help, including with deletion requests to Google and ClickTrust.</p>`],
       ['sharing', 'Who else gets data', `<p>Only the three services above: Google, ClickTrust and GitHub. They process data on our behalf or to deliver the site, and may do so outside your country. We never sell personal data, never share it for advertising, and never combine it with other sources to identify you.</p>`],
       ['video', 'Videos and YouTube', `<p>Our own videos (the 40-second clips on each page) are MP4 files served from ${esc(config.domain)}. Some pages also offer the video on YouTube. That player is <b>not loaded</b> until you press its play button. Only then does your browser connect to <code>youtube-nocookie.com</code>, Google's privacy-enhanced embed, and Google's <a href="https://policies.google.com/privacy" rel="noopener" target="_blank">privacy policy</a> applies to that player.</p>`],
