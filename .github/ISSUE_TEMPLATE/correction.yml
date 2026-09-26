@@ -1,0 +1,22 @@
+name: Report a mistake
+description: Something in an explainer, video or model is wrong or misleading.
+title: "Correction: "
+labels: [correction]
+body:
+  - type: input
+    id: where
+    attributes:
+      label: Which box or page?
+      placeholder: https://glassbox.how/e/cameraclear/
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What's wrong, and what's right?
+    validations:
+      required: true
+  - type: input
+    id: source
+    attributes:
+      label: A source, if you have one

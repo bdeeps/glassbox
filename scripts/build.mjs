@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { ROOT, config, loadApps } from './lib/apps.mjs';
 import * as R from './lib/render.mjs';
+import * as L from './lib/legal.mjs';
 
 export function pages(apps) {
   const out = {
@@ -14,6 +15,9 @@ export function pages(apps) {
     'sitemap.xml': R.sitemap(apps),
     'apps.json': R.appsJson(apps),
     'robots.txt': `User-agent: *\nDisallow: /studio/\nSitemap: https://${config.domain}/sitemap.xml\n`,
+    'concepts/index.html': R.conceptsPage(apps),
+    'privacy/index.html': L.privacy(apps),
+    'terms/index.html': L.terms(),
   };
   for (const a of apps) out[`e/${a.slug}/index.html`] = R.explainer(a, apps);
   return out;

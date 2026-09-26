@@ -17,9 +17,10 @@ Register **glassbox.how** (it looked unregistered on 2026-09-26). At the registr
 
 1. Create the free org **glassboxhow** at github.com/organizations/plan. The API can't create orgs.
 2. Org settings → Pages → **Verify** `glassbox.how` (a TXT record). This stops anyone else claiming it.
-3. From this repo: `scripts/github-setup.sh hub`. It creates `glassboxhow/glassboxhow.github.io`, sets Pages to deploy from Actions, sets the custom domain, and runs the first build.
-4. For each box: `scripts/github-setup.sh <slug>` (e.g. `cameraclear`).
-5. Once DNS resolves, tick **Enforce HTTPS** in the hub repo's Pages settings.
+3. From this repo: `scripts/github-setup.sh hub`. It creates `glassboxhow/glassboxhow.github.io` and sets its description, homepage, topics and issue labels. It also turns issues on and wiki/projects off, sets Pages to deploy from Actions on the custom domain, and runs the first build.
+4. For each box: `scripts/github-setup.sh <slug>` (e.g. `cameraclear`). It regenerates the box README (cover image, video links, explainer, concepts, privacy, licences), `LICENSE-CONTENT.md` and `package.json` metadata from `glassbox.json`. Then it creates the public repo with description, homepage, topics and labels, and turns on Pages.
+5. One manual step per repo, because GitHub has no API for it: **Settings → General → Social preview →** upload `site/assets/og.png` (hub) or `glassbox/cover.jpg` (box).
+6. Once DNS resolves, tick **Enforce HTTPS** in the hub repo's Pages settings.
 
 If you pick a different org or domain, change `org`, `hubRepo` and `domain` in `glassbox.config.json`.
 

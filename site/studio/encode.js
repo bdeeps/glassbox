@@ -1,6 +1,6 @@
 // In-browser MP4 encoding (WebCodecs + mp4-muxer), a generated soundtrack, and
 // a tiny zip writer. No server-side video tools needed.
-const MUXER = 'https://cdn.jsdelivr.net/npm/mp4-muxer@5.2.2/+esm';
+const MUXER = './vendor/mp4-muxer.mjs';  // vendored (MIT) so the studio makes no third-party requests
 const SR = 48000;
 
 export const canEncode = () => typeof VideoEncoder !== 'undefined' && typeof VideoFrame !== 'undefined';

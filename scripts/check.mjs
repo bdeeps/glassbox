@@ -1,6 +1,7 @@
 // Validates every local box manifest and flags what's missing before a ship.
 import fs from 'node:fs';
 import path from 'node:path';
+import crypto from 'node:crypto';
 import { config, localApps } from './lib/apps.mjs';
 
 let bad = 0;
@@ -15,6 +16,13 @@ for (const a of apps.sort((x, y) => x.box - y.box)) {
   const html = fs.readFileSync(path.join(a.dir, 'index.html'), 'utf8');
   if (!html.includes('/bar.js')) warn.push('index.html does not load /bar.js');
   if (/(src|href)="\/(?!bar\.js)/.test(html)) warn.push('root-absolute URLs in index.html break under /<slug>/; use relative paths');
+  if (/https:\/\/(fonts\.googleapis|fonts\.gstatic|cdn\.jsdelivr|unpkg|cdnjs)/.test(html)) warn.push('index.html loads from a third-party CDN; self-host it (the privacy policy promises no third-party requests)');
+  if (!html.includes('Content-Security-Policy')) warn.push('no Content-Security-Policy meta tag');
+  const im = html.match(/<script type="importmap">([\s\S]*?)<\/script>/);
+  if (im) {
+    const h = crypto.createHash('sha256').update(im[1]).digest('base64');
+    if (!html.includes(`'sha256-${h}'`)) warn.push(`import map changed: put 'sha256-${h}' in the CSP script-src`);
+  }
   const js = fs.readdirSync(a.dir, { recursive: true }).filter((f) => /\.m?js$/.test(f) && !f.includes('node_modules'));
   if (!js.some((f) => fs.readFileSync(path.join(a.dir, f), 'utf8').includes('glassbox'))) warn.push('no window.glassbox.director found (studio cannot record video)');
   if (!a.media['post.json']) warn.push('not recorded yet (no glassbox/post.json)');
@@ -24,7 +32,7 @@ for (const a of apps.sort((x, y) => x.box - y.box)) {
   }
   console.log(`${warn.length ? '⚠' : '✓'} No. ${a.no} ${a.slug} (${a.date}, ${config.fields[a.field].label})`);
   warn.forEach((w) => console.log('    - ' + w));
-  if (warn.some((w) => /limit|root-absolute|bar\.js/.test(w))) bad++;
+  if (warn.some((w) => /limit|root-absolute|bar\.js|third-party|import map/.test(w))) bad++;
 }
 const nums = apps.map((a) => a.box).sort((x, y) => x - y);
 nums.forEach((n, i) => { if (i && n !== nums[i - 1] + 1) { console.log(`⚠ box numbers jump from ${nums[i - 1]} to ${n}`); } });

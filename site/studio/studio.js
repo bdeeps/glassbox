@@ -88,7 +88,7 @@ async function selectBox(slug) {
   const base = `/${slug}/glassbox/`;
   const prev = await fetch(base + 'post.json', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
   if (prev) {
-    for (const f of [prev.assets.video, prev.assets.reel, prev.assets.thumb, prev.assets.cover, ...(prev.assets.slides || [])].filter(Boolean)) {
+    for (const f of [prev.assets.video, prev.assets.reel, prev.assets.thumb, prev.assets.cover, prev.assets.still, ...(prev.assets.slides || [])].filter(Boolean)) {
       outputs[f] = { url: base + f, kind: f.endsWith('.mp4') ? 'video' : 'image', fresh: false };
     }
   }
@@ -212,6 +212,8 @@ async function makeStills() {
   for (let i = 0; i < slides.length; i++) setOutput(`slide-${i + 1}.jpg`, await toBlob(slides[i]), 'image');
   setOutput('thumb.jpg', await toBlob(D.thumbnail(m, landStill)), 'image');
   setOutput('cover.jpg', await toBlob(D.shareCover(m, landStill)), 'image');
+  // A clean frame with no text, for shelf cards and the home page cube.
+  setOutput('still.jpg', await toBlob(D.flatten(landStill, 1200, 630), 'image/jpeg', 0.88), 'image');
 }
 
 function setOutput(name, blob, kind) {
@@ -221,7 +223,7 @@ function setOutput(name, blob, kind) {
 }
 
 function renderOutputs() {
-  const order = (n) => (n === 'video.mp4' ? 0 : n === 'reel.mp4' ? 1 : n === 'thumb.jpg' ? 2 : n === 'cover.jpg' ? 3 : 4 + parseInt(n.split('-')[1] || 0));
+  const order = (n) => (n === 'video.mp4' ? 0 : n === 'reel.mp4' ? 1 : n === 'thumb.jpg' ? 2 : n === 'cover.jpg' ? 3 : n === 'still.jpg' ? 4 : 5 + parseInt(n.split('-')[1] || 0));
   const names = Object.keys(outputs).sort((a, b) => order(a) - order(b));
   $('#outputs').innerHTML = names.length ? names.map((n) => {
     const o = outputs[n];
@@ -283,6 +285,7 @@ function plan() {
     assets: {
       ...(has('reel.mp4') ? { reel: 'reel.mp4' } : {}), ...(has('video.mp4') ? { video: 'video.mp4' } : {}),
       ...(has('cover.jpg') ? { cover: 'cover.jpg' } : {}), ...(has('thumb.jpg') ? { thumb: 'thumb.jpg' } : {}),
+      ...(has('still.jpg') ? { still: 'still.jpg' } : {}),
       ...(slides.length ? { slides } : {}),
     },
     captions: caps,

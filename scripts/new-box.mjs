@@ -55,6 +55,8 @@ fs.writeFileSync(path.join(dir, 'glassbox.json'), JSON.stringify({
   ],
   concepts: [{ term: 'Key term', def: 'A one-sentence definition.' }],
   links: {},
+  storage: [],
+  credits: [{ name: 'Geist, Instrument Serif', license: 'SIL OFL 1.1', url: 'https://openfontlicense.org' }],
 }, null, 2) + '\n');
 
 const localFile = path.join(ROOT, 'apps.local.json');
@@ -65,6 +67,7 @@ fs.writeFileSync(localFile, JSON.stringify(local, null, 2) + '\n');
 try {
   execFileSync('git', ['init', '-q', '-b', 'main'], { cwd: dir });
 } catch { /* git missing: fine */ }
+execFileSync('node', [path.join(ROOT, 'scripts', 'readme.mjs'), slug], { cwd: ROOT, stdio: 'inherit' });
 
 console.log(`Box No. ${vars.NO} → ${dir}`);
 console.log(`  opens ${date} · ${config.fields[field].label}`);

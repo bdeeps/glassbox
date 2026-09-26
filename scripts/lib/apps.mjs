@@ -9,10 +9,10 @@ export const config = JSON.parse(fs.readFileSync(path.join(ROOT, 'glassbox.confi
 export const SITE = `https://${config.domain}`;
 
 // The media files the studio writes into <app>/glassbox/.
-export const MEDIA = ['cover.jpg', 'thumb.jpg', 'reel.mp4', 'video.mp4', 'post.json'];
+export const MEDIA = ['cover.jpg', 'still.jpg', 'thumb.jpg', 'slide-1.jpg', 'reel.mp4', 'video.mp4', 'post.json'];
 
 const SLUG = /^[a-z0-9][a-z0-9-]{1,40}$/;
-const RESERVED = new Set(['e', 'studio', 'assets', 'about', 'feed.xml', 'apps.json', 'bar.js']);
+const RESERVED = new Set(['e', 'studio', 'assets', 'about', 'privacy', 'terms', 'concepts', 'feed.xml', 'apps.json', 'bar.js']);
 
 export function normalize(raw, extra = {}) {
   const m = { ...raw, ...extra };
@@ -25,7 +25,7 @@ export function normalize(raw, extra = {}) {
   if (errs.length) throw new Error(`${m.slug || '(no slug)'}: ${errs.join('; ')}`);
   const field = config.fields[m.field];
   return {
-    tags: [], explainer: [], concepts: [], links: {}, media: {},
+    tags: [], explainer: [], concepts: [], links: {}, media: {}, storage: [], credits: [],
     ...m,
     color: m.color || field.color,
     fieldLabel: field.label,

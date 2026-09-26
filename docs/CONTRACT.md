@@ -19,11 +19,22 @@ A box is any static HTML5 app in its own repo. To join the shelf and get videos 
   "tags": ["camera", "optics"],     // also become hashtags
   "explainer": [{ "title": "…", "text": "…" }],   // the "In 60 seconds" beats (3–7)
   "concepts": [{ "term": "…", "def": "…" }],      // "Words worth knowing"
-  "links": { "youtube": "https://youtube.com/shorts/…" }  // optional, embeds on the page
+  "links": { "youtube": "https://youtube.com/shorts/…" },  // optional, embeds on the page (click-to-load)
+  "storage": [{ "key": "cameraclear.v1", "what": "Your XP and quiz scores." }],  // every localStorage key the box uses
+  "credits": [{ "name": "three.js", "license": "MIT", "url": "https://threejs.org" }]    // third-party parts it ships
 }
 ```
 
-## 2. Relative paths and the bar
+`storage` is listed on the public privacy page and in the box's README, so it must name **every** browser storage key the box writes. `credits` appear on the explainer page and in the README.
+
+## 2. Relative paths, no third parties, and the bar
+
+Glassbox promises visitors that no page contacts another website. So a box must:
+
+- **self-host** its fonts and libraries (put them in `fonts/` and `vendor/`, with their licence files);
+- carry a **Content Security Policy** meta tag limiting everything to `'self'` (an inline import map needs its `sha256-` hash in `script-src`; `npm run check` prints the right one);
+- store nothing except in `localStorage`, and declare those keys in `storage`.
+
 
 The box is served at `/<slug>/`, so reference its own files relatively (`css/app.css`, not `/css/app.css`). Load the Glassbox bar last:
 

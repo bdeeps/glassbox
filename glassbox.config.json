@@ -2,6 +2,13 @@
   "brand": "Glassbox",
   "tagline": "See inside how things work.",
   "pitch": "One open-source interactive explainer, every day. Play with it, break it, read the code.",
+  "owner": "Deepankar Biswas",
+  "contactEmail": "",
+  "policyDate": "2026-09-26",
+  "licenses": {
+    "code": "MIT",
+    "content": "CC BY 4.0"
+  },
   "domain": "glassbox.how",
   "org": "glassboxhow",
   "hubRepo": "glassboxhow.github.io",

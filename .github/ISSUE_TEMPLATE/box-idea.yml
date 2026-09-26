@@ -1,0 +1,20 @@
+name: Suggest a box
+description: Something you use every day but can't explain.
+title: "Box idea: How does … work?"
+labels: [box-idea]
+body:
+  - type: input
+    id: question
+    attributes:
+      label: The question
+      placeholder: How does noise-cancelling actually cancel noise?
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: What makes it interesting?
+      description: What do people get wrong about it, or what would you want to play with?
+  - type: markdown
+    attributes:
+      value: GitHub issues are public. Please don't include personal details.
