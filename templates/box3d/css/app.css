@@ -141,3 +141,9 @@ body.gb-reel { overflow: hidden; }
 .gb-reel .stage-wrap { position: fixed; left: 0; top: 0; }
 .gb-reel .stage { position: relative; inset: auto; }
 @media (max-width: 860px) { .hint { display: none; } }
+
+/* Way back to the Glassbox home page */
+.home { flex: none; display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px 0 8px; margin-right: 2px; border-radius: 999px; border: 1px solid var(--line2); color: var(--muted); text-decoration: none; font: 500 13px var(--sans, system-ui); transition: color .15s, border-color .15s, background .15s; }
+.home:hover { color: var(--text); border-color: rgba(255,255,255,.3); background: rgba(255,255,255,.05); }
+@media (max-width: 560px) { .home span { display: none; } .home { padding: 0 8px; } }
+.gb-reel .home { display: none !important; }
