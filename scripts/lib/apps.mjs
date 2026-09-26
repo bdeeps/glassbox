@@ -44,7 +44,8 @@ export function localApps() {
   const file = path.join(ROOT, 'apps.local.json');
   if (!fs.existsSync(file)) return [];
   const list = JSON.parse(fs.readFileSync(file, 'utf8')).apps || [];
-  return appsFromDirs(list.map((p) => path.resolve(ROOT, p)));
+  // Sibling folders that aren't on this machine (e.g. on the build server) are skipped.
+  return appsFromDirs(list.map((p) => path.resolve(ROOT, p)).filter((d) => fs.existsSync(d)));
 }
 
 // Any set of box folders on disk (local siblings, or repos the server downloaded).
