@@ -6,7 +6,7 @@
   "deploy": {
     "startCommand": "node scripts/serve.mjs",
     "healthcheckPath": "/healthz",
-    "healthcheckTimeout": 120,
+    "healthcheckTimeout": 300,
     "restartPolicyType": "ON_FAILURE",
     "multiRegionConfig": {
       "us-east4-eqdc4a": {

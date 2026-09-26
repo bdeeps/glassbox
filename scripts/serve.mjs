@@ -71,12 +71,10 @@ async function sync(reason) {
     const seen = readState();
     try {
       const repos = await listRepos();
-      for (const r of repos) {
-        if (seen[r.name] === r.pushed_at && fs.existsSync(path.join(BOXES, r.name, 'glassbox.json'))) continue;
-        log(`sync ${r.name} (${reason})`);
-        await download(r);
-        seen[r.name] = r.pushed_at;
-      }
+      const stale = repos.filter((r) => !(seen[r.name] === r.pushed_at && fs.existsSync(path.join(BOXES, r.name, 'glassbox.json'))));
+      const results = await Promise.allSettled(stale.map(async (r) => { log(`sync ${r.name} (${reason})`); await download(r); seen[r.name] = r.pushed_at; }));
+      const failed = results.find((x) => x.status === 'rejected');
+      if (failed) throw failed.reason;
       for (const name of Object.keys(seen)) if (!repos.some((r) => r.name === name)) { fs.rmSync(path.join(BOXES, name), { recursive: true, force: true }); delete seen[name]; }
       fs.writeFileSync(stateFile, JSON.stringify(seen, null, 2));
       state.error = null;
@@ -86,6 +84,7 @@ async function sync(reason) {
       log('sync failed:', e.message);
     }
     rebuild();
+    state.ready = true;
   })().finally(() => { syncing = null; });
   return syncing;
 }
@@ -239,7 +238,7 @@ const server = http.createServer(async (req, res) => {
       }
       return send(req, res, 405, 'method not allowed', TYPES['.txt']);
     }
-    if (p === '/healthz') return send(req, res, 200, JSON.stringify({ ok: true, boxes: state.apps.map((a) => a.slug), synced: state.synced, error: state.error }), TYPES['.json'], 'no-store');
+    if (p === '/healthz') return send(req, res, state.ready ? 200 : 503, JSON.stringify({ ok: true, boxes: state.apps.map((a) => a.slug), synced: state.synced, error: state.error }), TYPES['.json'], 'no-store');
     if (p.startsWith('/__studio/')) return send(req, res, 404, 'The studio saves and ships only on a local dev server.', TYPES['.txt']);
 
     const key = p === '/' ? 'index.html' : p.replace(/^\//, '').replace(/\/$/, '/index.html');
