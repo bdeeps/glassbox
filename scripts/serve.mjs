@@ -33,7 +33,7 @@ const SECURITY = {
 const log = (...a) => console.log(new Date().toISOString(), ...a);
 
 // ---------------------------------------------------------------- box sync
-let state = { apps: [], pages: {}, gz: new Map(), synced: null, error: null };
+let state = { apps: [], pages: {}, tags: new Map(), synced: null, error: null };
 const stateFile = path.join(BOXES, 'state.json');
 const readState = () => { try { return JSON.parse(fs.readFileSync(stateFile, 'utf8')); } catch { return {}; } };
 
@@ -95,7 +95,7 @@ function rebuild() {
   const apps = [];
   for (const d of dirs) { try { apps.push(...appsFromDirs([d])); } catch (e) { log(`skip ${path.basename(d)}: ${e.message}`); } }
   apps.sort((a, b) => b.box - a.box);
-  state = { ...state, apps, pages: pages(apps), gz: new Map(), synced: new Date().toISOString() };
+  state = { ...state, apps, pages: pages(apps), tags: new Map(), synced: new Date().toISOString() };
   log(`serving ${apps.length} box(es): ${apps.map((a) => a.slug).join(', ') || 'none'}`);
 }
 
@@ -104,18 +104,69 @@ function headers(type, extra = {}) {
   return { 'Content-Type': type, ...SECURITY, ...extra };
 }
 
+// Compressed bodies are cached by ETag (or by the generated string), so each file is
+// compressed once per version. Brotli when the browser takes it, gzip otherwise.
+const zcache = new Map();
 function send(req, res, code, body, type, cache = 'no-cache', extra = {}) {
   const buf = Buffer.isBuffer(body) ? body : Buffer.from(body);
   const h = headers(type, { 'Cache-Control': cache, Vary: 'Accept-Encoding', ...extra });
-  if (TEXT.test(type) && buf.length > 1024 && /\bgzip\b/.test(req.headers['accept-encoding'] || '')) {
-    const key = body;
-    let z = typeof key === 'string' ? state.gz.get(key) : null;
-    if (!z) { z = zlib.gzipSync(buf); if (typeof key === 'string' && state.gz.size < 500) state.gz.set(key, z); }
-    res.writeHead(code, { ...h, 'Content-Encoding': 'gzip', 'Content-Length': z.length });
+  const ae = req.headers['accept-encoding'] || '';
+  const enc = /\bbr\b/.test(ae) ? 'br' : /\bgzip\b/.test(ae) ? 'gzip' : null;
+  if (TEXT.test(type) && buf.length > 1024 && enc) {
+    const key = enc + ':' + (extra.ETag || (typeof body === 'string' ? hashOf(buf) : ''));
+    let z = key.length > enc.length + 1 ? zcache.get(key) : null;
+    if (!z) {
+      z = enc === 'br' ? zlib.brotliCompressSync(buf, { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 10, [zlib.constants.BROTLI_PARAM_SIZE_HINT]: buf.length } }) : zlib.gzipSync(buf, { level: 9 });
+      if (key.length > enc.length + 1) { if (zcache.size > 2000) zcache.clear(); zcache.set(key, z); }
+    }
+    res.writeHead(code, { ...h, 'Content-Encoding': enc, 'Content-Length': z.length });
     return res.end(req.method === 'HEAD' ? undefined : z);
   }
   res.writeHead(code, { ...h, 'Content-Length': buf.length });
   res.end(req.method === 'HEAD' ? undefined : buf);
+}
+const hashOf = (buf) => `"${crypto.createHash('sha1').update(buf).digest('base64url').slice(0, 20)}"`;
+const IMMUTABLE = 'public, max-age=31536000, immutable';
+const notModified = (req, etag) => (req.headers['if-none-match'] || '').split(/\s*,\s*/).includes(etag);
+
+// A box page gets <link rel="modulepreload"> for its whole module graph, so the browser fetches
+// app.js, the chapters, the kit and three.js in parallel instead of one import at a time.
+// Its stylesheets and entry script get ?v=<content hash> and are cached for a year.
+const boxPages = new Map();
+function boxPage(dir, file, st) {
+  const k = `${file}:${st.mtimeMs}:${st.size}`;
+  if (boxPages.has(k)) return boxPages.get(k);
+  let html = fs.readFileSync(file, 'utf8');
+  const base = path.dirname(file);
+  const ver = (rel) => { try { return hashOf(fs.readFileSync(path.join(base, rel))).slice(1, 11); } catch { return null; } };
+  html = html.replace(/(<link[^>]+rel="stylesheet"[^>]+href=")(?!https?:|\/)([^"?]+)"/g, (m, a, rel) => { const v = ver(rel); return v ? `${a}${rel}?v=${v}"` : m; });
+  let map = {};
+  try { map = JSON.parse(html.match(/<script type="importmap">([\s\S]*?)<\/script>/)?.[1] || '{}').imports || {}; } catch { /* no import map */ }
+  const resolve = (spec, from) => {
+    if (map[spec]) return path.posix.normalize(map[spec].replace(/^\.\//, ''));
+    const pre = Object.keys(map).find((k) => k.endsWith('/') && spec.startsWith(k));
+    if (pre) return path.posix.normalize(map[pre].replace(/^\.\//, '') + spec.slice(pre.length));
+    if (spec.startsWith('.')) return path.posix.normalize(path.posix.join(path.posix.dirname(from), spec));
+    return null;
+  };
+  const entries = [...html.matchAll(/<script type="module" src="(?!https?:|\/)([^"?]+)"/g)].map((m) => path.posix.normalize(m[1]));
+  const seen = new Set(), queue = [...entries];
+  while (queue.length && seen.size < 200) {
+    const rel = queue.shift();
+    if (seen.has(rel)) continue;
+    let src; try { src = fs.readFileSync(path.join(base, rel), 'utf8'); } catch { continue; }
+    seen.add(rel);
+    for (const m of src.matchAll(/(?:^|[;\n}])\s*(?:import|export)\s[^'"`;]*?from\s*['"]([^'"]+)['"]|(?:^|[;\n])\s*import\s*['"]([^'"]+)['"]/g)) {
+      const r = resolve(m[1] || m[2], rel);
+      if (r && !seen.has(r)) queue.push(r);
+    }
+  }
+  const pre = [...seen].filter((r) => !entries.includes(r)).map((r) => `<link rel="modulepreload" href="${r}">`).join('\n');
+  if (pre) html = html.replace(/<\/head>/, `${pre}\n</head>`);
+  const out = { body: html, etag: hashOf(Buffer.from(html)) };
+  if (boxPages.size > 200) boxPages.clear();
+  boxPages.set(k, out);
+  return out;
 }
 
 function cacheFor(file) {
@@ -139,17 +190,23 @@ function etagFor(file, st) {
   return t;
 }
 
-function serveFile(req, res, file) {
+function serveFile(req, res, file, boxDir) {
   let st;
   try { st = fs.statSync(file); } catch { return false; }
   if (st.isDirectory()) {
     if (!req.url.split('?')[0].endsWith('/')) { res.writeHead(301, { Location: req.url.split('?')[0] + '/' + (req.url.includes('?') ? '?' + req.url.split('?')[1] : ''), ...SECURITY }); res.end(); return true; }
-    return serveFile(req, res, path.join(file, 'index.html'));
+    return serveFile(req, res, path.join(file, 'index.html'), boxDir);
   }
   const type = TYPES[path.extname(file).toLowerCase()] || 'application/octet-stream';
+  if (boxDir && path.basename(file) === 'index.html' && path.dirname(file) === boxDir) {
+    const page = boxPage(boxDir, file, st);
+    if (notModified(req, page.etag)) { res.writeHead(304, { ETag: page.etag, 'Cache-Control': 'no-cache', ...SECURITY }); res.end(); return true; }
+    return send(req, res, 200, page.body, type, 'no-cache', { ETag: page.etag }), true;
+  }
   const etag = etagFor(file, st);
-  if (req.headers['if-none-match'] === etag) { res.writeHead(304, { ETag: etag, ...SECURITY }); res.end(); return true; }
-  const base = { 'Cache-Control': cacheFor(file), ETag: etag, 'Accept-Ranges': 'bytes' };
+  const cache = /[?&]v=/.test(req.url) ? IMMUTABLE : cacheFor(file);
+  if (notModified(req, etag)) { res.writeHead(304, { ETag: etag, 'Cache-Control': cache, ...SECURITY }); res.end(); return true; }
+  const base = { 'Cache-Control': cache, ETag: etag, 'Accept-Ranges': 'bytes' };
   const range = req.headers.range?.match(/bytes=(\d*)-(\d*)/);
   if (range && st.size) {
     const start = range[1] ? +range[1] : Math.max(0, st.size - +range[2]), end = range[1] && range[2] ? Math.min(+range[2], st.size - 1) : st.size - 1;
@@ -190,7 +247,9 @@ const server = http.createServer(async (req, res) => {
     if (gen) {
       const type = TYPES[path.extname(key)] || TYPES['.html'];
       const extra = type.startsWith('text/html') ? { 'Content-Security-Policy': csp({ frames: ['https://www.youtube-nocookie.com'] }) } : {};
-      return send(req, res, 200, gen, type, 'no-cache', extra);
+      const etag = state.tags.get(key) || state.tags.set(key, hashOf(Buffer.from(gen))).get(key);
+      if (notModified(req, etag)) { res.writeHead(304, { ETag: etag, 'Cache-Control': 'no-cache', ...SECURITY }); return res.end(); }
+      return send(req, res, 200, gen, type, /[?&]v=/.test(req.url) ? IMMUTABLE : 'no-cache', { ...extra, ETag: etag });
     }
     if (state.pages[key.replace(/index\.html$/, '').replace(/\/$/, '') + '/index.html'] && !p.endsWith('/')) {
       res.writeHead(301, { Location: p + '/', ...SECURITY }); return res.end();
@@ -203,7 +262,7 @@ const server = http.createServer(async (req, res) => {
       // Keep repo plumbing private-ish: no dotfiles, no git metadata.
       if (!p.split('/').some((s) => s.startsWith('.'))) {
         const f = inside(box.dir, p.slice(seg.length + 1));
-        if (f && serveFile(req, res, f)) return;
+        if (f && serveFile(req, res, f, box.dir)) return;
       }
     } else if (!p.split('/').some((s) => s.startsWith('.'))) {
       const f = inside(SITE_DIR, p);

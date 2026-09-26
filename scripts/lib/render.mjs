@@ -2,7 +2,9 @@
 // client-rendered) so each carries its own share-card tags and works with
 // JavaScript switched off. Every asset is served from our own domain.
 import { config, SITE, esc } from './apps.mjs';
-import { csp, active } from './analytics.mjs';
+import fs from 'node:fs';
+import crypto from 'node:crypto';
+import { csp, active, analyticsJs } from './analytics.mjs';
 import { historyTeaser } from './history.mjs';
 
 export const fmtDate = (d, opts = { day: 'numeric', month: 'short', year: 'numeric' }) => new Date(d + 'T12:00:00Z').toLocaleDateString('en-GB', { ...opts, timeZone: 'UTC' });
@@ -26,6 +28,18 @@ const ICON = {
   arrow: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
 };
 
+// Versioned asset URLs: the server caches ?v= requests for a year, and a new build changes the hash.
+const hash = (buf) => crypto.createHash('sha1').update(buf).digest('hex').slice(0, 10);
+const vcache = new Map();
+export function asset(p) {
+  if (!vcache.has(p)) {
+    let body;
+    try { body = p === '/assets/analytics.js' ? analyticsJs() : fs.readFileSync(new URL('../../site' + p, import.meta.url)); } catch { body = ''; }
+    vcache.set(p, `${p}?v=${hash(body)}`);
+  }
+  return vcache.get(p);
+}
+
 export function head({ title, description, url, image, type = 'website', extra = '', cls = '' , style = '' }) {
   const img = image ? (image.startsWith('http') ? image : SITE + image) : `${SITE}/assets/og.png`;
   return `<!doctype html>
@@ -48,13 +62,15 @@ export function head({ title, description, url, image, type = 'website', extra =
 <meta property="og:image" content="${esc(img)}">
 <meta name="twitter:card" content="summary_large_image">
 ${H.x ? `<meta name="twitter:site" content="@${esc(H.x)}">` : ''}
-<link rel="icon" href="/assets/icon.svg" type="image/svg+xml">
+<link rel="icon" href="${asset('/assets/icon.svg')}" type="image/svg+xml">
 <link rel="alternate" type="application/rss+xml" title="${esc(config.brand)}" href="/feed.xml">
 <link rel="preload" href="/assets/fonts/instrument-serif-latin-5.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/assets/fonts/instrument-serif-latin-7.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="/assets/fonts/geist-latin-1.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="/assets/fonts/fonts.css">
-<link rel="stylesheet" href="/assets/site.css">
-<script src="/assets/analytics.js" defer></script>
+<link rel="preload" href="/assets/fonts/geist-mono-latin-3.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="${asset('/assets/fonts/fonts.css')}">
+<link rel="stylesheet" href="${asset('/assets/site.css')}">
+<script src="${asset('/assets/analytics.js')}" defer></script>
 ${extra}
 </head>
 <body class="${cls}"${style ? ` style="${style}"` : ''}>
@@ -96,7 +112,7 @@ export function footer() {
     <p class="palette-foot"><span><kbd>↑</kbd><kbd>↓</kbd> move</span><span><kbd>↵</kbd> open</span><span><kbd>/</kbd> or <kbd>⌘K</kbd> search anywhere</span></p>
   </div>
 </div>
-<script src="/assets/site.js" defer></script>
+<script src="${asset('/assets/site.js')}" defer></script>
 </body>
 </html>`;
 }
