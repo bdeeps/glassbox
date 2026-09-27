@@ -30,9 +30,11 @@ async function load() {
   $('#hootBtn').dataset.connected = h.connected ? '1' : '';
   $('#hootSub').textContent = !h.connected ? 'Not connected. Connect to publish to every network you have in Hootsuite.'
     : h.error ? `Connected, but: ${h.error}`
-    : h.profiles.length ? `Publishing to: ${h.profiles.map((p) => `${p.service || p.type}${p.name && p.name !== p.service ? ' (' + p.name + ')' : ''}${p.reauth ? ' (reconnect it in Hootsuite)' : ''}`).join(', ')}. Add Instagram, LinkedIn and the rest in Hootsuite and they appear here.` : 'Connected, but no social profiles in your Hootsuite account yet.';
+    : h.profiles.length ? `YouTube posts arrive as drafts in your Hootsuite Planner (press Schedule); the rest publish automatically. Profiles: ${h.profiles.map((p) => `${p.service || p.type}${p.name && p.name !== p.service ? ' (' + p.name + ')' : ''}${p.reauth ? ' (reconnect it in Hootsuite)' : ''}`).join(', ')}. Add Instagram, LinkedIn and the rest in Hootsuite and they appear here.` : 'Connected, but no social profiles in your Hootsuite account yet.';
   const b = data.buffer;
-  $('#bufSub').textContent = !b.ok ? `Buffer: ${b.error}` : b.list.length ? `Connected: ${b.list.map((c) => `${c.name} (${c.service})`).join(', ')}` : 'No channels connected in Buffer yet (connect YouTube at buffer.com).';
+  $('#bufOn').checked = !!s.buffer;
+  $('#buf .pill').textContent = s.buffer ? 'on' : 'off';
+  if (!s.buffer) $('#bufSub').textContent = 'Off: Hootsuite only. Switch on to send networks Hootsuite lacks to Buffer.'; else $('#bufSub').textContent = !b.ok ? `Buffer: ${b.error}` : b.list.length ? `Connected: ${b.list.map((c) => `${c.name} (${c.service})`).join(', ')}` : 'No channels connected in Buffer yet (connect YouTube at buffer.com).';
 
   renderList();
   $('#activity').innerHTML = data.log.map((l) => `<li class="${l.ok === false ? 'bad' : ''}"><time>${when(l.at)}</time> ${l.slug ? `<b>${esc(l.slug)}</b> ` : ''}${esc(l.message)}${l.provider ? ` <span class="pill">${esc(l.provider)}</span>` : ''}</li>`).join('') || '<li class="empty-a">Nothing yet.</li>';
@@ -72,7 +74,7 @@ $('#list').addEventListener('click', (e) => {
   const btn = e.target.closest('button[data-slug]');
   if (!btn) return;
   const box = data.boxes.find((x) => x.slug === btn.dataset.slug);
-  const targets = [data.hootsuite.connected && 'Hootsuite', data.buffer.list.length && 'Buffer'].filter(Boolean).join(' and ') || 'your channels';
+  const targets = [data.hootsuite.connected && 'Hootsuite', data.settings.buffer && data.buffer.list.length && 'Buffer'].filter(Boolean).join(' and ') || 'your channels';
   $('#cTitle').textContent = `Publish ${box.question}`;
   $('#cText').textContent = `This posts the video, reel and carousel to ${targets}, ${({ auto: 'at its planned time', queue: 'in the next free slot', now: 'right away' })[$('#when').value]}.`;
   $('#againRow').hidden = !box.posted; $('#again').checked = false;
@@ -105,6 +107,10 @@ $('#hootBtn').addEventListener('click', async (e) => {
   if (r.url) location.href = r.url; else flash(r.error || 'Could not reach Hootsuite.', true);
 });
 $('#q').addEventListener('input', renderList);
+$('#bufOn').addEventListener('change', async (e) => {
+  await api('settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ buffer: e.target.checked }) });
+  flash(e.target.checked ? 'Buffer is on for networks Hootsuite lacks.' : 'Hootsuite only.'); load();
+});
 
 const qs = new URLSearchParams(location.search);
 if (qs.get('hootsuite')) {

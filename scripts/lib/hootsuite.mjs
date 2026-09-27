@@ -3,7 +3,8 @@
 // (dynamic client registration, PKCE, no client secret), you sign in to your Hootsuite
 // workspace once, and the refresh token is kept in the admin store.
 // The same sign-in also opens Hootsuite's REST API (platform.hootsuite.com/v1), which really
-// schedules and publishes: that is what Glassbox uses. Perch's own tools can only save drafts.
+// schedules and publishes to Instagram, Facebook, LinkedIn, X and TikTok. That API refuses YouTube,
+// so YouTube posts go in through Perch as ready drafts in the Hootsuite Planner (one click to schedule).
 import crypto from 'node:crypto';
 import * as store from './store.mjs';
 
@@ -164,24 +165,46 @@ async function upload({ path: file, name }, log) {
   throw new Error(`Hootsuite is still processing ${name}; try again in a few minutes`);
 }
 
-// Diagnostic: tries a few message shapes against one profile, deleting anything that gets created.
-export async function probe(file, service = 'youtube') {
-  const prof = (await profiles()).find((p) => p.service === service);
-  if (!prof) throw new Error(`no ${service} profile`);
-  const out = [];
-  const when = new Date(Date.now() + 3 * 864e5).toISOString().replace(/\.\d+Z$/, '.000Z');
-  const tryMsg = async (label, body) => {
-    const res = await fetch(API + '/messages', { method: 'POST', headers: { Authorization: `Bearer ${await accessToken()}`, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-    const text = await res.text();
-    out.push({ label, status: res.status, body: text.slice(0, 500) });
-    if (res.ok) { try { for (const m of JSON.parse(text).data || []) { const d = await fetch(API + '/messages/' + m.id, { method: 'DELETE', headers: { Authorization: `Bearer ${await accessToken()}` } }); out.push({ label: 'deleted ' + m.id, status: d.status }); } } catch {} }
-  };
-  await tryMsg('text only', { text: 'Glassbox test', socialProfileIds: [prof.id], scheduledSendTime: when });
-  const id = await upload(file, () => {});
-  out.push({ label: 'uploaded', id });
-  await tryMsg('video, short text', { text: 'Glassbox test', socialProfileIds: [prof.id], scheduledSendTime: when, media: [{ id }] });
-  await tryMsg('video, numeric id', { text: 'Glassbox test', socialProfileIds: [Number(prof.id)], scheduledSendTime: when, media: [{ id }] });
-  return { profile: prof, results: out };
+// ---- YouTube: Perch drafts (the REST API rejects YouTube messages)
+const P = (list, suffix) => list.find((t) => t.name.startsWith('create-mcp') && t.name.endsWith('_' + suffix))?.name;
+async function perch(suffix, args) {
+  const name = P(await tools(), suffix);
+  if (!name) throw new Error(`Hootsuite no longer offers ${suffix}`);
+  return call(name, args);
+}
+async function perchWorkspace() {
+  const have = await store.get('hootsuite:workspace');
+  if (have) return have;
+  const out = await perch('get_entitled_workspaces', {});
+  const arr = Array.isArray(out) ? out : out.workspaces || Object.values(out).find(Array.isArray) || [];
+  if (!arr.length) throw new Error('no Hootsuite workspace');
+  const w = { scope: arr[0].workspaceScope || arr[0] };
+  await store.set('hootsuite:workspace', w);   // Personal workspace when it's the only one
+  return w;
+}
+async function perchDraft(p, when, log) {
+  const w = await perchWorkspace();
+  const out = await perch('get_social_profiles', { workspaceScope: w.scope });
+  const arr = Array.isArray(out) ? out : out.socialProfiles || out.profiles || Object.values(out).find(Array.isArray) || [];
+  const profs = arr.filter((x) => NET[p.service].test(x.networkType || x.type || ''));
+  if (!profs.length) return { target: p.target, skipped: `no ${p.service} profile in Hootsuite` };
+  const fs = await import('node:fs');
+  const media = [];
+  for (const f of p.files) {
+    log(`    uploading ${f.name} for a draft…`);
+    const bytes = fs.readFileSync(f.path);
+    const mimeType = MIME[f.name.split('.').pop()];
+    const slot = await perch('request_media_upload', { mimeType, sizeBytes: bytes.length });
+    const put = await fetch(slot.uploadUrl, { method: 'PUT', headers: { 'Content-Type': mimeType }, body: bytes });
+    if (!put.ok) throw new Error(`upload of ${f.name} failed (${put.status})`);
+    let ready = null;
+    for (let i = 0; i < 40 && !ready; i++) { const r = await perch('poll_media_upload', { mediaId: slot.mediaId }); if (r.ready) { const { ready: _, ...fields } = r; ready = fields; } else await new Promise((ok) => setTimeout(ok, 3000)); }
+    if (!ready) throw new Error(`Hootsuite is still processing ${f.name}`);
+    media.push(ready);
+  }
+  const text = p.title ? `${p.title}\n\n${p.text}` : p.text;
+  const r = await perch('create_draft', { workspaceScope: w.scope, socialProfiles: profs, text, scheduledDate: when, mediaAttachments: media });
+  return { target: p.target, provider: 'hootsuite', draft: true, id: r.id || r.draftId || r.draft?.id || null, dueAt: when };
 }
 
 // posts: [{ target, service, text, title?, files: [local paths], at }]
@@ -192,6 +215,16 @@ export async function publish(posts, { dry = false, log = console.log } = {}) {
   for (const p of posts) {
     const targets = profs.filter((x) => x.service === p.service);
     if (!targets.length) { results.push({ target: p.target, skipped: `no ${p.service} profile in Hootsuite` }); continue; }
+    if (p.service === 'youtube') {
+      const when = new Date(Math.max(p.at ? Date.parse(p.at) : 0, Date.now() + 20 * 60e3)).toISOString();
+      if (dry) { log(`  • ${p.target.padEnd(20)} → Hootsuite draft (YouTube) for ${when}: ${p.files.map((f) => f.name).join(', ')}`); results.push({ target: p.target, dry: true }); continue; }
+      try {
+        const r = await perchDraft(p, when, log);
+        results.push(r);
+        log(r.skipped ? `  – ${p.target}: ${r.skipped}` : `  ✓ ${p.target} → Hootsuite draft for ${when}: open Hootsuite Planner and press Schedule`);
+      } catch (e) { results.push({ target: p.target, provider: 'hootsuite', error: e.message }); log(`  ✗ ${p.target} (Hootsuite draft): ${e.message}`); }
+      continue;
+    }
     // Hootsuite needs video posts at least 15 minutes ahead; give it 20.
     const earliest = Date.now() + 20 * 60e3;
     const when = new Date(Math.max(p.at ? Date.parse(p.at) : 0, earliest)).toISOString().replace(/\.\d+Z$/, '.000Z');

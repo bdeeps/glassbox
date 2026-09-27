@@ -10,7 +10,7 @@ import * as store from './store.mjs';
 import * as hoot from './hootsuite.mjs';
 import { channels, buildPosts, createPost, checkLive, mediaUrl, niceName } from './buffer.mjs';
 
-const DEFAULTS = { auto: false, when: 'auto', baseline: [], since: null };
+const DEFAULTS = { auto: false, when: 'auto', baseline: [], since: null, buffer: false };
 export const settings = async () => ({ ...DEFAULTS, ...((await store.get('settings')) || {}) });
 
 export async function saveSettings(next, apps) {
@@ -24,6 +24,7 @@ export async function saveSettings(next, apps) {
     await store.log(`auto-publish turned ${next.auto ? 'on' : 'off'}`);
   }
   if (['auto', 'queue', 'now'].includes(next.when)) s.when = next.when;
+  if (typeof next.buffer === 'boolean') s.buffer = next.buffer;
   await store.set('settings', s);
   return s;
 }
@@ -100,7 +101,8 @@ export async function publishBox(box, { dry = false, force = false, when, log = 
     const results = [];
     if (viaHoot.length) results.push(...(await hoot.publish(viaHoot, { dry, log })).map((x) => ({ provider: 'hootsuite', ...x })));
 
-    if (viaBuffer.length) {
+    if (viaBuffer.length && !s.buffer) viaBuffer.forEach((p) => results.push({ provider: 'hootsuite', target: p.target, skipped: `no ${p.service} profile in Hootsuite` }));
+    else if (viaBuffer.length) {
       if (!process.env.BUFFER_API_KEY) { log('Buffer: no API key, skipped ' + viaBuffer.map((p) => p.target).join(', ')); }
       else {
         const chans = await channels();
@@ -126,7 +128,7 @@ export async function publishBox(box, { dry = false, force = false, when, log = 
 
     const posted = results.filter((x) => !x.error && !x.skipped && !x.dry);
     if (dry) { log('dry run: nothing was sent'); return { dry: true, results }; }
-    if (!posted.length) throw new Error('nothing was published: connect Hootsuite or Buffer channels for these networks');
+    if (!posted.length) throw new Error('nothing was published: add these networks to your Hootsuite account');
     const rec = { at: new Date().toISOString(), when, by, results };
     await store.set('posted:' + box.slug, rec);
     await store.log(`published ${posted.length} of ${results.length} target(s)`, { slug: box.slug, provider: [...new Set(posted.map((x) => x.provider))].join('+'), ok: posted.length === results.length });
