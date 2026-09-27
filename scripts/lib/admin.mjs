@@ -235,6 +235,13 @@ async function adminApi(req, res, url, { json, html, state }) {
     await hoot.disconnect(); profCache = null; await store.log('Hootsuite disconnected', { provider: 'hootsuite' });
     return json(200, { ok: true }), true;
   }
+  if (action === 'hootsuite' && arg === 'probe' && req.method === 'POST') {
+    const box = apps.find((a) => a.slug === url.searchParams.get('slug'));
+    if (!box) return json(404, { error: 'unknown box' }), true;
+    const path = await import('node:path');
+    try { return json(200, await hoot.probe({ path: path.join(box.dir, 'glassbox', 'reel.mp4'), name: 'probe-short.mp4' }, url.searchParams.get('service') || 'youtube')), true; }
+    catch (e) { return json(502, { error: e.message }), true; }
+  }
   if (action === 'hootsuite' && arg === 'rest-check') {
     try { return json(200, await hoot.restCheck()), true; } catch (e) { return json(502, { error: e.message }), true; }
   }

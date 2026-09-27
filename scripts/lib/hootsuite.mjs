@@ -164,6 +164,26 @@ async function upload({ path: file, name }, log) {
   throw new Error(`Hootsuite is still processing ${name}; try again in a few minutes`);
 }
 
+// Diagnostic: tries a few message shapes against one profile, deleting anything that gets created.
+export async function probe(file, service = 'youtube') {
+  const prof = (await profiles()).find((p) => p.service === service);
+  if (!prof) throw new Error(`no ${service} profile`);
+  const out = [];
+  const when = new Date(Date.now() + 3 * 864e5).toISOString().replace(/\.\d+Z$/, '.000Z');
+  const tryMsg = async (label, body) => {
+    const res = await fetch(API + '/messages', { method: 'POST', headers: { Authorization: `Bearer ${await accessToken()}`, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const text = await res.text();
+    out.push({ label, status: res.status, body: text.slice(0, 500) });
+    if (res.ok) { try { for (const m of JSON.parse(text).data || []) { const d = await fetch(API + '/messages/' + m.id, { method: 'DELETE', headers: { Authorization: `Bearer ${await accessToken()}` } }); out.push({ label: 'deleted ' + m.id, status: d.status }); } } catch {} }
+  };
+  await tryMsg('text only', { text: 'Glassbox test', socialProfileIds: [prof.id], scheduledSendTime: when });
+  const id = await upload(file, () => {});
+  out.push({ label: 'uploaded', id });
+  await tryMsg('video, short text', { text: 'Glassbox test', socialProfileIds: [prof.id], scheduledSendTime: when, media: [{ id }] });
+  await tryMsg('video, numeric id', { text: 'Glassbox test', socialProfileIds: [Number(prof.id)], scheduledSendTime: when, media: [{ id }] });
+  return { profile: prof, results: out };
+}
+
 // posts: [{ target, service, text, title?, files: [local paths], at }]
 export async function publish(posts, { dry = false, log = console.log } = {}) {
   const profs = (await profiles()).filter((p) => !p.reauth);
