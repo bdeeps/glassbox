@@ -558,9 +558,9 @@ td { color: #c9cedb; }
 .cab-search kbd { font: 500 11px var(--mono); color: var(--dim); border: 1px solid var(--line2); border-radius: 6px; padding: 2px 6px; }
 
 .cases {
-  display: grid; gap: var(--gap); grid-template-columns: repeat(5, minmax(0, 1fr)); grid-auto-flow: dense;
-  /* two rows fill what's left of the first screen, within sensible limits */
-  grid-auto-rows: clamp(170px, calc((100svh - 65px - var(--head) - 52px - var(--gap)) / 2), 290px);
+  display: grid; gap: var(--gap); grid-template-columns: repeat(var(--cols, 5), minmax(0, 1fr)); grid-auto-flow: dense;
+  /* the rows share what's left of the first screen, within sensible limits */
+  grid-auto-rows: clamp(150px, calc((100svh - 65px - var(--head) - 52px - (var(--rows, 2) - 1) * var(--gap)) / var(--rows, 2)), 290px);
 }
 .case { position: relative; border-radius: 18px; isolation: isolate; --rx: 0deg; --ry: 0deg; --mx: 50%; --my: 30%;
   transform: perspective(1000px) rotateX(var(--rx)) rotateY(var(--ry)); transition: transform .5s cubic-bezier(.2, .8, .2, 1), box-shadow .3s;
@@ -626,7 +626,11 @@ td { color: #c9cedb; }
 .case.sealed .case-meta .no { color: var(--dim); }
 .case[hidden] { display: none; }
 
-@media (max-width: 1180px) { .cases { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (max-width: 1180px) { .cases { grid-template-columns: repeat(4, minmax(0, 1fr)); grid-auto-rows: 200px; } }
+.cases[data-dense] .case:not(.feature) h3 { font-size: clamp(16px, 1.2vw, 19px); }
+.cases[data-dense] .case:not(.feature) .case-body { padding: 10px 12px; }
+.cases[data-dense] .case-meta { font-size: 10.5px; gap: 7px; }
+.law-cases { --cols: 5; }
 @media (max-width: 900px) {
   .cab-head { grid-template-columns: 1fr; grid-template-areas: "title" "sub" "search" "chips"; }
   .cab-search { width: 100%; justify-self: stretch; }
@@ -648,3 +652,79 @@ td { color: #c9cedb; }
   .case, .case .glass img { transition: none; transform: none; }
   .js .case .seal { animation: none; }
 }
+
+/* ---------------------------------------------------------------- laws and principles */
+.laws-shelf { padding-top: 56px; border-top: 1px solid var(--line); margin-top: 20px; }
+.laws-page .laws-shelf { border-top: 0; margin-top: 0; padding-top: 18px; }
+.cab-head .cab-all { grid-area: search; justify-self: end; color: var(--muted); text-decoration: none; font-size: 14px; }
+.cab-head .cab-all:hover { color: var(--text); }
+.law-cases { grid-auto-rows: 210px; }
+.case.law .law-glass { background:
+    radial-gradient(120% 90% at 85% 0%, color-mix(in srgb, var(--c) 26%, transparent), transparent 60%),
+    repeating-linear-gradient(0deg, rgba(255,255,255,.035) 0 1px, transparent 1px 22px),
+    repeating-linear-gradient(90deg, rgba(255,255,255,.035) 0 1px, transparent 1px 22px), #0a0c12; }
+.case.law .glass::after { background: linear-gradient(180deg, rgba(7,8,12,0) 45%, rgba(7,8,12,.85) 100%); }
+.law-art { position: absolute; right: 14px; top: 14px; width: 54px; height: 54px; color: var(--muted); opacity: .8; }
+.law-art svg { width: 100%; height: 100%; }
+.law-art .art-svg { --c: var(--c); }
+.law-formula { position: absolute; left: 16px; right: 70px; top: 18px; margin: 0; font: 400 clamp(22px, 2vw, 30px)/1.1 var(--serif); color: var(--text); letter-spacing: -.01em; text-wrap: balance; }
+.case.law h3 { font-size: clamp(18px, 1.4vw, 21px); }
+.law-seen { margin: 4px 0 0; font-size: 12.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (hover: hover) { .case.law .case-body { transform: none !important; } }
+
+/* modal */
+.law-modal { --c: var(--glow); width: min(820px, calc(100vw - 32px)); max-height: min(88svh, 900px); padding: 0; border: 1px solid color-mix(in srgb, var(--c) 40%, var(--line2)); border-radius: 22px;
+  background: radial-gradient(90% 60% at 100% 0%, color-mix(in srgb, var(--c) 16%, transparent), transparent 60%), #0b0d13; color: var(--text); box-shadow: 0 40px 120px rgba(0,0,0,.7); overflow: auto; }
+.law-modal::backdrop { background: rgba(4,5,8,.72); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+.law-modal[open] { animation: lm-in .28s cubic-bezier(.2,.8,.2,1); }
+@keyframes lm-in { from { opacity: 0; transform: translateY(12px) scale(.98); } }
+.lm-close-form { position: sticky; top: 0; z-index: 2; display: flex; justify-content: flex-end; height: 0; }
+.lm-x { margin: 10px 10px 0 0; width: 38px; height: 38px; border-radius: 50%; border: 1px solid var(--line2); background: rgba(7,8,12,.7); color: var(--text); font-size: 22px; cursor: pointer; }
+.lm-body { padding: 26px 28px 8px; }
+.lm-kicker { display: flex; gap: 12px; margin: 0 0 10px; font: 500 12px var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--c); }
+.lm-kicker span + span { color: var(--muted); }
+.lm-top { display: grid; grid-template-columns: minmax(0, 1fr) 220px; gap: 22px; align-items: start; }
+.lm-text h2 { margin: 0; font: 400 clamp(30px, 4vw, 44px)/1 var(--serif); }
+.lm-formula { margin: 14px 0 4px; font: 400 clamp(26px, 3.4vw, 38px)/1.1 var(--serif); color: var(--c); }
+.lm-note { margin: 0; color: var(--muted); font-size: 14px; }
+.lm-idea { margin: 14px 0 0; font-size: 16.5px; line-height: 1.55; color: #d9dde7; }
+.lm-disc { margin: 12px 0 0; font: 400 12.5px var(--mono); color: var(--dim); }
+.lm-disc a { color: var(--muted); }
+.lm-visual { border-radius: 16px; overflow: hidden; border: 1px solid var(--line2); background: #07080c; aspect-ratio: 1; display: grid; place-items: center; }
+.lm-visual img { width: 100%; height: 100%; object-fit: cover; }
+.lm-art { width: 60%; color: var(--text); }
+.lm-art svg { width: 100%; height: auto; }
+.lm-h { margin: 24px 0 10px; font: 500 12px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--dim); }
+.lm-examples { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.lm-examples li { display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; border-radius: 14px; border: 1px solid var(--line); background: rgba(255,255,255,.03); border-left: 3px solid var(--c); }
+.lm-examples b { font-weight: 600; font-size: 14.5px; }
+.lm-examples span { color: var(--muted); font-size: 13.5px; line-height: 1.5; }
+.lm-examples a { margin-top: 2px; font-size: 13px; color: var(--c); text-decoration: none; }
+.lm-examples a:hover { text-decoration: underline; }
+.lm-foot { position: sticky; bottom: 0; display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; padding: 16px 28px; margin-top: 16px;
+  border-top: 1px solid var(--line); background: rgba(11,13,19,.94); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+.lm-foot p { margin: 0; color: var(--muted); font-size: 14px; }
+.lm-actions { display: flex; gap: 8px; }
+.lm-actions form { margin: 0; }
+.lm-actions .btn.primary { background: var(--c); color: var(--ink); border-color: transparent; }
+@media (max-width: 640px) {
+  .lm-top { grid-template-columns: 1fr; }
+  .lm-visual { width: 140px; order: -1; }
+  .lm-examples { grid-template-columns: 1fr; }
+  .lm-body { padding: 22px 18px 6px; }
+  .lm-foot { padding: 14px 18px; }
+}
+
+/* on explainer pages */
+.ex-laws { padding: 34px 0 10px; }
+.law-chips { display: flex; flex-wrap: wrap; gap: 10px; }
+.law-chip { display: inline-flex; flex-direction: column; gap: 2px; padding: 10px 14px; border-radius: 14px; border: 1px solid color-mix(in srgb, var(--c) 40%, var(--line2)); background: color-mix(in srgb, var(--c) 8%, transparent); text-decoration: none; color: var(--text); }
+.law-chip span { font: 400 16px var(--serif); color: var(--c); }
+.law-chip:hover { background: color-mix(in srgb, var(--c) 16%, transparent); }
+.law-big { margin: 0; font: 400 clamp(34px, 5vw, 58px)/1 var(--serif); color: var(--c); }
+.law-note { margin: 6px 0 0; color: var(--muted); }
+.law-examples { list-style: none; margin: 22px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+.law-examples li { padding: 16px; border-radius: 16px; border: 1px solid var(--line); border-left: 3px solid var(--c); background: rgba(255,255,255,.03); }
+.law-examples h3 { margin: 0 0 6px; font: 400 21px/1.15 var(--serif); }
+.law-examples p { margin: 0; color: var(--muted); font-size: 14.5px; line-height: 1.55; }
+.law-examples a { display: inline-block; margin-top: 8px; color: var(--c); text-decoration: none; font-size: 14px; }

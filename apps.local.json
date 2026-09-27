@@ -14,6 +14,22 @@
     "../washerclear",
     "../dishwasherclear",
     "../tvclear",
-    "../fridgeclear"
+    "../fridgeclear",
+    "../mixerclear",
+    "../airfryerclear",
+    "../ohmslawclear",
+    "../bernoulliclear",
+    "../newtonclear",
+    "../energyclear",
+    "../thermoclear",
+    "../gaslawclear",
+    "../faradayclear",
+    "../pascalclear",
+    "../hookeclear",
+    "../heatclear",
+    "../waveclear",
+    "../snellclear",
+    "../combustionclear",
+    "../osmosisclear"
   ]
 }

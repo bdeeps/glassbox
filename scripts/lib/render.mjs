@@ -6,6 +6,7 @@ import fs from 'node:fs';
 import crypto from 'node:crypto';
 import { csp, active, analyticsJs } from './analytics.mjs';
 import { historyTeaser } from './history.mjs';
+import { art as artByName } from '../../site/assets/art.js';
 
 export const fmtDate = (d, opts = { day: 'numeric', month: 'short', year: 'numeric' }) => new Date(d + 'T12:00:00Z').toLocaleDateString('en-GB', { ...opts, timeZone: 'UTC' });
 export const addDays = (d, n) => { const t = new Date(d + 'T12:00:00Z'); t.setUTCDate(t.getUTCDate() + n); return t.toISOString().slice(0, 10); };
@@ -82,7 +83,8 @@ export function nav() {
   <a class="brand" href="/" aria-label="${esc(config.brand)} home">${LOGO}<span>${esc(config.brand)}</span></a>
   <nav aria-label="Main">
     <a href="/#shelf">Shelf</a>
-    <a href="/concepts/">Concepts</a>
+    <a href="/laws/">Laws</a>
+    <a href="/concepts/" class="wide">Concepts</a>
     <a href="/history/">History</a>
     <a href="/#calendar" class="wide">Calendar</a>
     <button class="search-btn" data-open-search aria-label="Search boxes and concepts">${ICON.search}<span>Search</span><kbd>/</kbd></button>
@@ -171,7 +173,10 @@ function caseTile(a, i, feature) {
 }
 
 // Sealed boxes fill out the last row of the 5-column desktop cabinet (today's case is 2×2).
-const sealedCount = (n) => (n ? (5 - ((n + 3) % 5)) % 5 : 5);
+// The cabinet adds columns as boxes arrive so every box stays in the first screen (up to
+// about 21; after that it scrolls). Today's box takes 2×2 cells.
+const cabinetCols = (n) => Math.min(8, Math.max(5, Math.ceil((n + 3) / 3)));
+const sealedCount = (n, cols = cabinetCols(n)) => (n ? (cols - ((n + 3) % cols)) % cols : 5);
 
 function sealedCase(date, n, i) {
   return `<article class="case sealed" data-sealed style="--i:${i}" aria-label="Box ${n} opens ${fmtDate(date)}">
@@ -179,6 +184,112 @@ function sealedCase(date, n, i) {
     <div class="case-body"><p class="case-meta"><span class="no">No. ${String(n).padStart(3, '0')}</span><span class="fld">Sealed</span></p>
     <h3>Opens ${fmtDate(date, { weekday: 'long', day: 'numeric', month: 'short' })}</h3></div>
   </article>`;
+}
+
+// ---------------------------------------------------------------- laws and principles
+// A principle box's case: the formula is the picture. Clicking opens the law in a modal
+// (site.js) that offers the full principle box; without JavaScript the link just goes there.
+const lawType = (l) => (l.principle?.type === 'law' ? 'Law' : 'Principle');
+function lawTile(l, i, boxes) {
+  const P = l.principle || {};
+  const seen = (P.appliesTo || []).map((s) => boxes.find((b) => b.slug === s)).filter(Boolean);
+  const hay = [l.title, l.question, P.name, P.formula, ...(l.tags || []), ...seen.map((b) => b.title)].join(' ').toLowerCase();
+  return `<article class="case law" style="--c:${esc(l.color)};--i:${i}" data-field="${esc(l.field)}" data-box="${l.box}" data-hay="${esc(hay)}" data-tilt>
+    <div class="glass law-glass">
+      <div class="law-art" aria-hidden="true">${artSvgInline(P.art)}</div>
+      <p class="law-formula">${esc(P.formula || '')}</p>
+      <i class="sheen" aria-hidden="true"></i><i class="seal" aria-hidden="true"></i>
+    </div>
+    <a class="stretch" href="${l.appUrl}" data-law="${esc(l.slug)}" aria-label="${esc(P.name || l.title)}: open"></a>
+    <div class="case-body">
+      <p class="case-meta"><span class="no">${lawType(l)} ${l.no.slice(1)}</span><span class="fld"><i></i>${esc(l.fieldLabel)}</span></p>
+      <h3>${esc(P.name || l.title)}</h3>
+      ${seen.length ? `<p class="law-seen">Seen in ${seen.slice(0, 3).map((b) => esc(b.title)).join(', ')}${seen.length > 3 ? ` +${seen.length - 3}` : ''}</p>` : ''}
+    </div>
+  </article>`;
+}
+
+function artSvgInline(name) {
+  return name ? artByName(name, 64) : '';
+}
+
+// Everything the modal needs, as JSON the page carries (not executed, so the CSP is happy).
+function lawsData(laws, boxes) {
+  const pick = (b) => b && { slug: b.slug, title: b.title, question: b.question, appUrl: b.appUrl, pageUrl: b.pageUrl, color: b.color, no: b.no };
+  const data = {};
+  for (const l of laws) {
+    const P = l.principle || {};
+    data[l.slug] = {
+      slug: l.slug, type: lawType(l), no: l.no, name: P.name || l.title, formula: P.formula || '', formulaNote: P.formulaNote || '', idea: P.idea || l.hook,
+      discovered: P.discovered || '', color: l.color, fieldLabel: l.fieldLabel, appUrl: l.appUrl, pageUrl: l.pageUrl, historyUrl: l.historyUrl,
+      art: P.art ? artByName(P.art, 96) : '',
+      still: l.media['still.jpg'] ? mediaUrl(l, 'still.jpg') : null,
+      examples: (P.examples || []).map((e) => ({ title: e.title, text: e.text, box: pick(boxes.find((b) => b.slug === e.box)) })),
+      seen: (P.appliesTo || []).map((s) => pick(boxes.find((b) => b.slug === s))).filter(Boolean),
+    };
+  }
+  return `<script type="application/json" id="lawsData">${JSON.stringify(data).replace(/</g, '\\u003c')}</script>`;
+}
+
+const lawModal = () => `<dialog class="law-modal" id="lawModal" aria-labelledby="lawName">
+  <form method="dialog" class="lm-close-form"><button class="lm-x" aria-label="Close">×</button></form>
+  <div class="lm-body" id="lawBody"></div>
+  <div class="lm-foot">
+    <p>Would you like to see the full page, with the interactive model?</p>
+    <div class="lm-actions"><a class="btn primary" id="lawOpen" href="#">Yes, open it</a><form method="dialog"><button class="btn">Not now</button></form></div>
+  </div>
+</dialog>`;
+
+function lawsSection(laws, boxes, { full = false } = {}) {
+  if (!laws.length) return '';
+  const kinds = [...new Set(laws.map((l) => l.field))].map((f) => ({ f, n: laws.filter((l) => l.field === f).length, ...config.fields[f] }));
+  return `<section class="cabinet laws-shelf" id="laws" aria-label="Laws and principles">
+    <header class="cab-head">
+      ${full ? '<h1 class="cab-h1">Laws &amp; <em>principles</em>.</h1>' : '<h2 class="cab-h1">Laws &amp; <em>principles</em>.</h2>'}
+      <p class="cab-sub"><span>The rules behind every box: ${laws.length} so far, each with a model to play with and everyday examples.</span></p>
+      ${full ? '' : `<a class="cab-all" href="/laws/">All laws and principles →</a>`}
+      <div class="chips" role="group" aria-label="Filter laws">
+        <button class="chip on" data-lfilter="all" aria-pressed="true">All <small>${laws.length}</small></button>
+        ${kinds.map((x) => `<button class="chip" data-lfilter="${esc(x.f)}" style="--c:${esc(x.color)}" aria-pressed="false">${esc(x.label)} <small>${x.n}</small></button>`).join('')}
+      </div>
+    </header>
+    <div class="cases law-cases" id="lawGrid">${laws.map((l, i) => lawTile(l, i, boxes)).join('')}</div>
+  </section>`;
+}
+
+// On an object box's page: the laws you can see at work inside it.
+function lawsAtWork(a, laws) {
+  const here = laws.filter((l) => (l.principle?.appliesTo || []).includes(a.slug));
+  if (!here.length) return '';
+  return `<section class="ex-laws">
+    <p class="eyebrow">Laws at work here</p>
+    <div class="law-chips">${here.map((l) => `<a class="law-chip" href="${l.appUrl}" data-law="${esc(l.slug)}" style="--c:${esc(l.color)}"><b>${esc(l.principle?.name || l.title)}</b><span>${esc(l.principle?.formula || '')}</span></a>`).join('')}</div>
+  </section>`;
+}
+
+// On a principle box's page: every everyday example, linked to its box where there is one.
+function principleExamples(l, boxes) {
+  const P = l.principle || {};
+  if (!P.examples?.length) return '';
+  return `<section class="ex-laws">
+    <p class="eyebrow">Where you'll meet it</p>
+    ${P.formula ? `<p class="law-big">${esc(P.formula)}</p>${P.formulaNote ? `<p class="law-note">${esc(P.formulaNote)}</p>` : ''}` : ''}
+    <ul class="law-examples">${P.examples.map((e) => {
+      const b = boxes.find((x) => x.slug === e.box);
+      return `<li style="--c:${esc(b?.color || l.color)}"><h3>${esc(e.title)}</h3><p>${esc(e.text)}</p>${b ? `<a href="${b.pageUrl}">See it in ${esc(b.title)} →</a>` : ''}</li>`;
+    }).join('')}</ul>
+  </section>`;
+}
+
+export function lawsPage(laws, boxes) {
+  return `${head({ title: `Laws and principles · ${config.brand}`, description: 'Famous laws and principles of physics and chemistry, each with an interactive model and the everyday things where you can see it at work.', url: '/laws/', cls: 'home laws-page' })}
+${nav()}
+<main id="main">
+  ${laws.length ? lawsSection(laws, boxes, { full: true }) : '<section class="cabinet"><h1 class="cab-h1">Laws &amp; <em>principles</em>.</h1><p class="cab-sub">The first ones are on their way.</p></section>'}
+</main>
+${lawsData(laws, boxes)}
+${lawModal()}
+${footer()}`;
 }
 
 // 365 days from the start date, one cell per day, lit where a box opened.
@@ -208,7 +319,7 @@ export function allConcepts(apps) {
 }
 
 // ---------------------------------------------------------------- home
-export function home(apps) {
+export function home(apps, laws = []) {
   const today = apps[0];
   const fields = [...new Set(apps.map((a) => a.field))].map((f) => ({ f, n: apps.filter((a) => a.field === f).length, ...config.fields[f] }));
   const next = today ? today.box + 1 : 1;
@@ -233,12 +344,14 @@ ${nav()}
           ${fields.map((x) => `<button class="chip" data-filter="${esc(x.f)}" style="--c:${esc(x.color)}" aria-pressed="false">${esc(x.label)} <small>${x.n}</small></button>`).join('')}
         </div>
     </header>
-    <div class="cases" id="grid">
+    <div class="cases" id="grid" style="--cols:${cabinetCols(apps.length)};--rows:${Math.max(2, Math.ceil((apps.length + 3) / cabinetCols(apps.length)))}"${cabinetCols(apps.length) > 5 ? ' data-dense' : ''}>
       ${apps.map((a, i) => caseTile(a, i, i === 0)).join('')}
       ${Array.from({ length: sealedCount(apps.length) }, (_, k) => sealedCase(addDays(nextDate, k), next + k, apps.length + k)).join('')}
     </div>
     <p class="empty" id="shelfEmpty" hidden>No box matches that yet. <a href="${SUGGEST}" rel="noopener" target="_blank">Suggest it as a future box →</a></p>
   </section>
+
+  ${lawsSection(laws, apps)}
 
   <section class="manifesto" aria-label="Why Glassbox">
     <p class="m-line reveal">You use them every day.</p>
@@ -286,11 +399,12 @@ ${nav()}
     </div>
   </section>
 </main>
+${laws.length ? lawsData(laws, apps) + lawModal() : ''}
 ${footer()}`;
 }
 
 // ---------------------------------------------------------------- explainer
-export function explainer(a, apps) {
+export function explainer(a, apps, { laws = [], apps: boxes = apps } = {}) {
   const i = apps.findIndex((x) => x.slug === a.slug);
   const newer = apps[i - 1], older = apps[i + 1];
   const related = apps.filter((x) => x.field === a.field && x.slug !== a.slug).slice(0, 3);
@@ -310,7 +424,7 @@ export function explainer(a, apps) {
 ${nav()}
 <main id="main" data-prev="${older ? older.pageUrl : ''}" data-next="${newer ? newer.pageUrl : ''}">
   <section class="ex-hero">
-    <nav class="crumbs" aria-label="Breadcrumb"><a href="/">${esc(config.brand)}</a><span>/</span><a href="/?f=${esc(a.field)}#shelf">${esc(a.fieldLabel)}</a><span>/</span><span class="no" aria-current="page">No. ${a.no}</span></nav>
+    <nav class="crumbs" aria-label="Breadcrumb"><a href="/">${esc(config.brand)}</a><span>/</span>${a.kind === 'principle' ? '<a href="/laws/">Laws &amp; principles</a>' : `<a href="/?f=${esc(a.field)}#shelf">${esc(a.fieldLabel)}</a>`}<span>/</span><span class="no" aria-current="page">No. ${a.no}</span></nav>
     <h1>${esc(a.question)}</h1>
     <p class="lede">${esc(a.hook)}</p>
     <div class="ctas">
@@ -335,6 +449,8 @@ ${nav()}
       </ol>
     </div>
   </section>
+
+  ${a.kind === 'principle' ? principleExamples(a, boxes) : lawsAtWork(a, laws)}
 
   ${historyTeaser(a)}
 
@@ -364,6 +480,7 @@ ${nav()}
   </nav>
   <p class="kbd-hint"><kbd>←</kbd><kbd>→</kbd> previous / next box · <kbd>/</kbd> search</p>
 </main>
+${laws.length ? lawsData(laws, boxes) + lawModal() : ''}
 ${footer()}`;
 }
 

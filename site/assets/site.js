@@ -206,6 +206,53 @@
     apply();
   }
 
+  // ---------------------------------------------------------------- laws and principles
+  // A law opens in a modal first (formula, idea, everyday examples linked to their boxes),
+  // then asks whether to open the full principle box.
+  const lawJson = $('#lawsData'), dlg = $('#lawModal');
+  if (lawJson && dlg && typeof dlg.showModal === 'function') {
+    let laws = {};
+    try { laws = JSON.parse(lawJson.textContent); } catch { /* no data */ }
+    const e = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    const open = (slug) => {
+      const L = laws[slug];
+      if (!L) return false;
+      dlg.style.setProperty('--c', L.color);
+      $('#lawBody').innerHTML = `
+        <p class="lm-kicker"><span>${e(L.type)} ${e(L.no.slice(1))}</span><span>${e(L.fieldLabel)}</span></p>
+        <div class="lm-top">
+          <div class="lm-text">
+            <h2 id="lawName">${e(L.name)}</h2>
+            ${L.formula ? `<p class="lm-formula">${e(L.formula)}</p>` : ''}
+            ${L.formulaNote ? `<p class="lm-note">${e(L.formulaNote)}</p>` : ''}
+            <p class="lm-idea">${e(L.idea)}</p>
+            ${L.discovered ? `<p class="lm-disc">${e(L.discovered)}${L.historyUrl ? ` · <a href="${e(L.historyUrl)}">the history</a>` : ''}</p>` : ''}
+          </div>
+          <div class="lm-visual">${L.still ? `<img src="${e(L.still)}" alt="">` : `<div class="lm-art">${L.art}</div>`}</div>
+        </div>
+        ${L.examples.length ? `<h3 class="lm-h">Where you see it</h3><ul class="lm-examples">${L.examples.map((x) => `<li style="--c:${e(x.box?.color || L.color)}"><b>${e(x.title)}</b><span>${e(x.text)}</span>${x.box ? `<a href="${e(x.box.pageUrl)}">See it in ${e(x.box.title)} →</a>` : ''}</li>`).join('')}</ul>` : ''}`;
+      $('#lawOpen').href = L.appUrl;
+      $('#lawOpen').textContent = `Yes, open ${L.name}`;
+      dlg.showModal();
+      dlg.scrollTop = 0;
+      return true;
+    };
+    document.addEventListener('click', (ev) => {
+      const a = ev.target.closest('[data-law]');
+      if (!a || ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.button) return;
+      if (open(a.dataset.law)) ev.preventDefault();
+    });
+    dlg.addEventListener('click', (ev) => { if (ev.target === dlg) dlg.close(); });
+    // Law filters
+    const lchips = $$('.chip[data-lfilter]'), lgrid = $('#lawGrid');
+    lchips.forEach((c) => c.addEventListener('click', () => {
+      const f = c.dataset.lfilter;
+      lchips.forEach((x) => { const on = x === c; x.classList.toggle('on', on); x.setAttribute('aria-pressed', on); });
+      $$('.case', lgrid).forEach((k) => { k.hidden = f !== 'all' && k.dataset.field !== f; });
+    }));
+    if (location.hash.startsWith('#law-')) open(location.hash.slice(5));
+  }
+
   // ---------------------------------------------------------------- cabinet tilt
   // Cases lean towards the pointer and a sheen follows it, like a glass case catching light.
   if (!reduce && matchMedia('(hover: hover)').matches) {

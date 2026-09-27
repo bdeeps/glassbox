@@ -9,23 +9,27 @@ import * as L from './lib/legal.mjs';
 import { analyticsJs } from './lib/analytics.mjs';
 import * as HI from './lib/history.mjs';
 
-export function pages(apps) {
+export function pages(all) {
+  // Object boxes (one a day) and principle boxes (laws and principles) have separate shelves.
+  const apps = all.filter((a) => a.kind !== 'principle');
+  const laws = all.filter((a) => a.kind === 'principle').sort((x, y) => x.box - y.box);
   const out = {
-    'index.html': R.home(apps),
+    'index.html': R.home(apps, laws),
+    'laws/index.html': R.lawsPage(laws, apps),
     '404.html': R.notFound(),
     'feed.xml': R.feed(apps),
-    'sitemap.xml': R.sitemap(apps),
-    'apps.json': R.appsJson(apps),
+    'sitemap.xml': R.sitemap(all),
+    'apps.json': R.appsJson(all),
     'robots.txt': `User-agent: *\nDisallow: /studio/\nSitemap: https://${config.domain}/sitemap.xml\n`,
-    'concepts/index.html': R.conceptsPage(apps),
-    'privacy/index.html': L.privacy(apps),
+    'concepts/index.html': R.conceptsPage(all),
+    'privacy/index.html': L.privacy(all),
     'terms/index.html': L.terms(),
     'assets/analytics.js': analyticsJs(),
-    'history/index.html': HI.allHistory(apps),
-    'history-index.json': HI.historyIndex(apps),
+    'history/index.html': HI.allHistory(all),
+    'history-index.json': HI.historyIndex(all),
   };
-  for (const a of apps) if (a.historyUrl) out[`e/${a.slug}/history/index.html`] = HI.historyPage(a, apps);
-  for (const a of apps) out[`e/${a.slug}/index.html`] = R.explainer(a, apps);
+  for (const a of all) if (a.historyUrl) out[`e/${a.slug}/history/index.html`] = HI.historyPage(a, all);
+  for (const a of all) out[`e/${a.slug}/index.html`] = R.explainer(a, a.kind === 'principle' ? laws : apps, { laws, apps });
   return out;
 }
 

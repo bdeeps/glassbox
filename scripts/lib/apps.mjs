@@ -14,7 +14,7 @@ export const SITE = (process.env.SITE_URL || config.siteUrl || `https://${config
 export const MEDIA = ['cover.jpg', 'still.jpg', 'thumb.jpg', 'slide-1.jpg', 'reel.mp4', 'video.mp4', 'post.json'];
 
 const SLUG = /^[a-z0-9][a-z0-9-]{1,40}$/;
-const RESERVED = new Set(['e', 'studio', 'assets', 'about', 'privacy', 'terms', 'concepts', 'history', 'feed.xml', 'apps.json', 'bar.js']);
+const RESERVED = new Set(['e', 'studio', 'assets', 'about', 'privacy', 'terms', 'concepts', 'history', 'laws', 'feed.xml', 'apps.json', 'bar.js']);
 
 export function normalize(raw, extra = {}) {
   const m = { ...raw, ...extra };
@@ -26,12 +26,17 @@ export function normalize(raw, extra = {}) {
   if (m.field && !config.fields[m.field]) errs.push(`unknown field "${m.field}" (see glassbox.config.json fields)`);
   if (errs.length) throw new Error(`${m.slug || '(no slug)'}: ${errs.join('; ')}`);
   const field = config.fields[m.field];
+  // A box explains an object (one a day, numbered 001…). A principle box explains a law or
+  // principle (numbered L01…) and links to the boxes where it shows up.
+  const kind = m.kind === 'principle' ? 'principle' : 'box';
   return {
     tags: [], explainer: [], concepts: [], links: {}, media: {}, storage: [], credits: [],
     ...m,
+    kind,
+    principle: kind === 'principle' ? { examples: [], appliesTo: [], ...(m.principle || {}) } : null,
     color: m.color || field.color,
     fieldLabel: field.label,
-    no: String(m.box).padStart(3, '0'),
+    no: kind === 'principle' ? `L${String(m.box).padStart(2, '0')}` : String(m.box).padStart(3, '0'),
     repo: m.repo || `https://github.com/${config.org}/${m.slug}`,
     appUrl: `/${m.slug}/`,
     pageUrl: `/e/${m.slug}/`,

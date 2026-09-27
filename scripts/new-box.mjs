@@ -1,6 +1,8 @@
 // Starts tomorrow's box: a new sibling repo from templates/box, numbered and
 // dated after the latest box, and registered in apps.local.json.
 //   npm run new -- <slug> "How does X work?" --field physics [--title "Name"] [--kit 3d|plain]
+//   npm run new -- <slug> "What is Ohm's law?" --kind principle --field physics --title "Ohm's law"
+//        [--formula "V = I × R"] [--type law|principle] [--art resistor] [--applies a,b,c]
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
@@ -11,6 +13,11 @@ const opt = (k) => { const i = args.indexOf(`--${k}`); return i >= 0 ? args.spli
 const field = opt('field') || 'physics';
 const kit = opt('kit') || '3d';  // '3d' (Three.js chapters engine) or 'plain' (a single canvas)
 const titleArg = opt('title');
+const kind = opt('kind') === 'principle' ? 'principle' : 'box';
+const formula = opt('formula') || '';
+const ptype = opt('type') === 'law' ? 'law' : 'principle';
+const partName = opt('art') || '';
+const applies = (opt('applies') || '').split(',').map((x) => x.trim()).filter(Boolean);
 const [slug, question] = args;
 
 if (!slug || !question) {
@@ -23,18 +30,22 @@ if (!config.fields[field]) { console.error(`unknown field "${field}". Pick one o
 
 const apps = localApps();
 if (apps.some((a) => a.slug === slug)) { console.error(`${slug} already exists`); process.exit(1); }
-const latest = apps.sort((a, b) => b.box - a.box)[0];
+// Object boxes open one a day; principle boxes have their own numbering and no calendar slot.
+const same = apps.filter((a) => (a.kind === 'principle') === (kind === 'principle'));
+const latest = same.sort((a, b) => b.box - a.box)[0];
 const box = latest ? latest.box + 1 : 1;
-const date = latest
-  ? new Date(new Date(latest.date + 'T12:00:00Z').getTime() + 864e5).toISOString().slice(0, 10)
-  : config.startDate;
+const date = kind === 'principle'
+  ? new Date().toISOString().slice(0, 10)
+  : latest
+    ? new Date(new Date(latest.date + 'T12:00:00Z').getTime() + 864e5).toISOString().slice(0, 10)
+    : config.startDate;
 const title = titleArg || slug.replace(/(^|-)(\w)/g, (_, s, c) => (s ? ' ' : '') + c.toUpperCase());
 const color = config.fields[field].color;
 const dir = path.resolve(ROOT, '..', slug);
 if (fs.existsSync(dir)) { console.error(`${dir} already exists`); process.exit(1); }
 
 const vars = {
-  SLUG: slug, TITLE: title, TITLE_LOWER: title.toLowerCase(), QUESTION: question, NO: String(box).padStart(3, '0'), COLOR: color, COLOR_URL: encodeURIComponent(color),
+  SLUG: slug, TITLE: title, TITLE_LOWER: title.toLowerCase(), QUESTION: question, NO: kind === 'principle' ? `L${String(box).padStart(2, '0')}` : String(box).padStart(3, '0'), COLOR: color, COLOR_URL: encodeURIComponent(color),
   DOMAIN: config.domain, ORG: config.org, HUB_REPO: config.hubRepo,
 };
 const fill = (s) => s.replace(/\{\{([A-Z_]+)\}\}/g, (m, k) => vars[k] ?? m);
@@ -48,7 +59,8 @@ for (const f of FILL) {
   fs.writeFileSync(p, fill(fs.readFileSync(p, 'utf8')));
 }
 fs.writeFileSync(path.join(dir, 'glassbox.json'), JSON.stringify({
-  slug, box, date, title, question,
+  slug, ...(kind === 'principle' ? { kind } : {}), box, date, title, question,
+  ...(kind === 'principle' ? { principle: { type: ptype, name: title, formula, formulaNote: '', idea: '', discovered: '', art: partName, appliesTo: applies, examples: [] } } : {}),
   hook: 'One or two sentences that make someone want to press play.',
   thumbText: title.toUpperCase(),
   field, minutes: 5, tags: [],
