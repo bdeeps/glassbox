@@ -736,3 +736,17 @@ td { color: #c9cedb; }
 .case.feature .ca.ic svg { display: none; }
 .case-actions { flex-wrap: nowrap; min-width: 0; }
 @media (max-width: 480px) { .case:not(.feature) .ca:not(.play) { display: inline-flex; } .case:not(.feature) .ca.ic { width: 28px; height: 28px; } }
+
+/* Legibility: the words sit on a frosted-glass strip, whatever the picture behind them */
+.case:not(.law):not(.sealed) .case-body {
+  background: linear-gradient(180deg, rgba(8,10,15,.55), rgba(8,10,15,.86) 38%, rgba(8,10,15,.94));
+  backdrop-filter: blur(14px) saturate(125%); -webkit-backdrop-filter: blur(14px) saturate(125%);
+  border-top: 1px solid rgba(255,255,255,.09);
+  border-radius: 0 0 17px 17px;
+}
+.case .case-body h3, .case .case-body .hook { text-shadow: 0 1px 2px rgba(0,0,0,.6); }
+.case .case-meta { text-shadow: 0 1px 2px rgba(0,0,0,.7); }
+.case .case-meta .fld { color: #c9cedb; }
+.case .glass::after { background: linear-gradient(180deg, rgba(7,8,12,0) 45%, rgba(7,8,12,.35) 100%) !important; }
+.case.feature .case-body { padding-top: 20px; }
+.case.feature .hook { color: #e3e6ee; }
