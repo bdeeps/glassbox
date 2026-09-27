@@ -196,6 +196,16 @@ async function studioApi(req, res, url) {
   return send(res, 404, 'unknown studio endpoint');
 }
 
+let appCache = null, pageCache = null;
+function cachedApps() {
+  if (!appCache || Date.now() - appCache.at > 3000) appCache = { at: Date.now(), v: localApps().sort((a, b) => b.box - a.box) };
+  return appCache.v;
+}
+function cachedPages(apps) {
+  if (!pageCache || pageCache.apps !== apps) pageCache = { apps, v: pages(apps) };
+  return pageCache.v;
+}
+
 const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url, `http://${req.headers.host}`);
@@ -207,9 +217,11 @@ const server = http.createServer(async (req, res) => {
       if (await adminRoutes(req, res, url, { send: adapter, TYPES, state: { apps: localApps().sort((a, b) => b.box - a.box) }, SECURITY: {} })) return;
     }
 
-    // Generated pages are rebuilt on each request so edits show up on refresh.
-    const apps = localApps().sort((a, b) => b.box - a.box);
-    const gen = pages(apps);
+    // Generated pages are rebuilt so edits show up on refresh, but at most every few seconds:
+    // rebuilding all boxes per request made each box file take seconds to load.
+    const apps = cachedApps();
+    const seg0 = p.split('/')[1];
+    const gen = apps.some((a) => a.slug === seg0) && p !== `/${seg0}` ? {} : cachedPages(apps);
     const key = p === '/' ? 'index.html' : p.replace(/^\//, '').replace(/\/$/, '/index.html');
     if (gen[key]) return send(res, 200, gen[key], TYPES[path.extname(key)] || TYPES['.html']);
 
