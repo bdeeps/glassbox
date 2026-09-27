@@ -177,8 +177,8 @@ function caseTile(a, i, feature) {
 // Sealed boxes fill out the last row of the 5-column desktop cabinet (today's case is 2×2).
 // The cabinet adds columns as boxes arrive so every box stays in the first screen (up to
 // about 21; after that it scrolls). Today's box takes 2×2 cells.
-const cabinetCols = (n) => Math.min(8, Math.max(5, Math.ceil((n + 3) / 3)));
-const sealedCount = (n, cols = cabinetCols(n)) => (n ? (cols - ((n + 3) % cols)) % cols : 5);
+// Enough sealed cases to finish the last row at any width; site.js hides the ones that would spill over.
+const SEALED_MAX = 7;
 
 function sealedCase(date, n, i) {
   return `<article class="case sealed" data-sealed style="--i:${i}" aria-label="Box ${n} opens ${fmtDate(date)}">
@@ -346,9 +346,9 @@ ${nav()}
           ${fields.map((x) => `<button class="chip" data-filter="${esc(x.f)}" style="--c:${esc(x.color)}" aria-pressed="false">${esc(x.label)} <small>${x.n}</small></button>`).join('')}
         </div>
     </header>
-    <div class="cases" id="grid" style="--cols:${cabinetCols(apps.length)};--rows:${Math.max(2, Math.ceil((apps.length + 3) / cabinetCols(apps.length)))}"${cabinetCols(apps.length) > 5 ? ' data-dense' : ''}>
+    <div class="cases" id="grid">
       ${apps.map((a, i) => caseTile(a, i, i === 0)).join('')}
-      ${Array.from({ length: sealedCount(apps.length) }, (_, k) => sealedCase(addDays(nextDate, k), next + k, apps.length + k)).join('')}
+      ${Array.from({ length: SEALED_MAX }, (_, k) => sealedCase(addDays(nextDate, k), next + k, apps.length + k)).join('')}
     </div>
     <p class="empty" id="shelfEmpty" hidden>No box matches that yet. <a href="${SUGGEST}" rel="noopener" target="_blank">Suggest it as a future box →</a></p>
   </section>

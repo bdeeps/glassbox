@@ -188,12 +188,26 @@
         c.hidden = !ok;
         if (ok && !sealedCard) shown++;
       });
+      fillRow();
       chips.forEach((c) => { const on = c.dataset.filter === field; c.classList.toggle('on', on); c.setAttribute('aria-pressed', on); });
       empty.hidden = shown > 0;
       const u = new URL(location.href);
       field === 'all' ? u.searchParams.delete('f') : u.searchParams.set('f', field);
       history.replaceState(null, '', u);
     };
+    // Show just enough sealed cases to finish the last row, whatever the column count.
+    const fillRow = () => {
+      const sealed = $$('[data-sealed]', grid);
+      if (!sealed.length) return;
+      const open = $$('.case:not([data-sealed])', grid).filter((c) => !c.hidden);
+      if (open.length !== items().length - sealed.length) return; // filtered: no sealed cases shown
+      const cols = getComputedStyle(grid).gridTemplateColumns.split(' ').length;
+      const cells = open.reduce((n, c) => n + (c.classList.contains('feature') ? 4 : 1), 0);
+      const want = cols - (cells % cols) || cols;
+      sealed.forEach((c, i) => { c.hidden = i >= want; });
+    };
+    let rz;
+    addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(fillRow, 120); });
     chips.forEach((c) => c.addEventListener('click', () => { field = c.dataset.filter; apply(); }));
     search?.addEventListener('input', apply);
     sortBtn?.addEventListener('click', () => {
