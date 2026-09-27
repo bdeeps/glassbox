@@ -336,10 +336,10 @@ export function home(apps, laws = []) {
     extra: `<script type="application/ld+json">${JSON.stringify(ld)}</script>` })}
 ${nav()}
 <main id="main">
-  <section class="cabinet" id="shelf" aria-label="Every box">
+  <section class="cabinet home-cab" id="shelf" aria-label="Every box">
     <header class="cab-head">
         <h1 class="cab-h1">See inside how things <em>work</em>.</h1>
-        <p class="cab-sub">${today ? `<span class="pulse"></span><span>Box No. ${today.no} is open · ` : '<span>'}a new glass box every day. Play, read, and see its history.</span></p>
+        <p class="cab-sub">${today ? `<span class="pulse"></span><span>Box No. ${today.no} is open · ` : '<span>'}a new glass box every day.<span class="more"> Play, read, and see its history.</span></span></p>
         <label class="cab-search" data-open-search>${ICON.search}<input type="search" placeholder="Search boxes and ideas" aria-label="Search boxes and concepts" readonly><kbd>/</kbd></label>
         <div class="chips" role="group" aria-label="Filter by field">
           <button class="chip on" data-filter="all" aria-pressed="true">All <small>${apps.length}</small></button>
