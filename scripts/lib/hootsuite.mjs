@@ -60,6 +60,18 @@ export async function finishConnect(code, stateId) {
 export const disconnect = () => store.del('hootsuite:token');
 export const connected = async () => !!(await store.get('hootsuite:token'))?.refresh_token;
 
+export async function restCheck() {
+  // Read-only: does the token we hold also open Hootsuite's REST API (which can really publish)?
+  const tok = await accessToken();
+  const out = {};
+  for (const u of ['https://platform.hootsuite.com/v1/me', 'https://platform.hootsuite.com/v1/socialProfiles']) {
+    const r = await fetch(u, { headers: { Authorization: `Bearer ${tok}` } });
+    const b = await r.text();
+    out[u.split('/').pop()] = { status: r.status, body: b.slice(0, 600) };
+  }
+  return out;
+}
+
 async function accessToken() {
   const t = await store.get('hootsuite:token');
   if (!t) throw new Error('Hootsuite is not connected');

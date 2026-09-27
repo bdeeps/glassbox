@@ -245,6 +245,9 @@ async function adminApi(req, res, url, { json, html, state }) {
     try { const w = await hoot.chooseWorkspace(Number(b.index)); profCache = null; await store.log(`Hootsuite workspace: ${w.name}`, { provider: 'hootsuite' }); return json(200, { ok: true }), true; }
     catch (e) { return json(400, { error: e.message }), true; }
   }
+  if (action === 'hootsuite' && arg === 'rest-check') {
+    try { return json(200, await hoot.restCheck()), true; } catch (e) { return json(502, { error: e.message }), true; }
+  }
   if (action === 'hootsuite' && arg === 'tools') {
     try { return json(200, { tools: (await hoot.tools()).map((t) => ({ name: t.name, description: t.description, inputSchema: t.inputSchema })) }), true; }
     catch (e) { return json(502, { error: e.message }), true; }
