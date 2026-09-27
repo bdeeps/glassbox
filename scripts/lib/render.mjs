@@ -191,7 +191,7 @@ function sealedCase(date, n, i) {
 // ---------------------------------------------------------------- laws and principles
 // A principle box's case: the formula is the picture. Clicking opens the law in a modal
 // (site.js) that offers the full principle box; without JavaScript the link just goes there.
-const lawType = (l) => (l.principle?.type === 'law' ? 'Law' : 'Principle');
+const lawType = (l) => ({ law: 'Law', concept: 'Concept' })[l.principle?.type] || 'Principle';
 function lawTile(l, i, boxes) {
   const P = l.principle || {};
   const seen = (P.appliesTo || []).map((s) => boxes.find((b) => b.slug === s)).filter(Boolean);
@@ -245,11 +245,11 @@ const lawModal = () => `<dialog class="law-modal" id="lawModal" aria-labelledby=
 function lawsSection(laws, boxes, { full = false } = {}) {
   if (!laws.length) return '';
   const kinds = [...new Set(laws.map((l) => l.field))].map((f) => ({ f, n: laws.filter((l) => l.field === f).length, ...config.fields[f] }));
-  return `<section class="cabinet laws-shelf" id="laws" aria-label="Laws and principles">
+  return `<section class="cabinet laws-shelf" id="laws" aria-label="Laws, principles and concepts">
     <header class="cab-head">
-      ${full ? '<h1 class="cab-h1">Laws &amp; <em>principles</em>.</h1>' : '<h2 class="cab-h1">Laws &amp; <em>principles</em>.</h2>'}
+      ${full ? '<h1 class="cab-h1">Laws, principles &amp; <em>concepts</em>.</h1>' : '<h2 class="cab-h1">Laws, principles &amp; <em>concepts</em>.</h2>'}
       <p class="cab-sub"><span>The rules behind every box: ${laws.length} so far, each with a model to play with and everyday examples.</span></p>
-      ${full ? '' : `<a class="cab-all" href="/laws/">All laws and principles →</a>`}
+      ${full ? '' : `<a class="cab-all" href="/laws/">All laws, principles and concepts →</a>`}
       <div class="chips" role="group" aria-label="Filter laws">
         <button class="chip on" data-lfilter="all" aria-pressed="true">All <small>${laws.length}</small></button>
         ${kinds.map((x) => `<button class="chip" data-lfilter="${esc(x.f)}" style="--c:${esc(x.color)}" aria-pressed="false">${esc(x.label)} <small>${x.n}</small></button>`).join('')}
@@ -284,7 +284,7 @@ function principleExamples(l, boxes) {
 }
 
 export function lawsPage(laws, boxes) {
-  return `${head({ title: `Laws and principles · ${config.brand}`, description: 'Famous laws and principles of physics and chemistry, each with an interactive model and the everyday things where you can see it at work.', url: '/laws/', cls: 'home laws-page' })}
+  return `${head({ title: `Laws, principles and concepts · ${config.brand}`, description: 'Famous laws, principles and core concepts of physics and chemistry, each with an interactive model and the everyday things where you can see it at work.', url: '/laws/', cls: 'home laws-page' })}
 ${nav()}
 <main id="main">
   ${laws.length ? lawsSection(laws, boxes, { full: true }) : '<section class="cabinet"><h1 class="cab-h1">Laws &amp; <em>principles</em>.</h1><p class="cab-sub">The first ones are on their way.</p></section>'}

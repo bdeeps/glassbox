@@ -139,6 +139,10 @@
     "sound": {
       "label": "Music & Sound",
       "color": "#4fd1c5"
+    },
+    "film": {
+      "label": "Film & Animation",
+      "color": "#38bdf8"
     }
   },
   "analytics": {

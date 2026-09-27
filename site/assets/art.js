@@ -2,6 +2,36 @@
 // on a 64×64 grid with currentColor strokes and an accent (var(--c)) fill, so it
 // sits in any era's colour. Add new ones here; history.json refers to them by name.
 const A = {
+  // film making
+  clapper: '<rect x="8" y="26" width="48" height="30" rx="2"/><path d="M8 26l46-12 2 8-46 12z" class="f" opacity=".35"/><path d="M8 26l46-12 2 8"/><path d="M18 23l6 6M30 20l6 6M42 17l6 6" class="a"/><path d="M14 38h24M14 46h16"/>',
+  storyboard: '<rect x="6" y="10" width="24" height="18" rx="1"/><rect x="34" y="10" width="24" height="18" rx="1"/><rect x="6" y="36" width="24" height="18" rx="1"/><rect x="34" y="36" width="24" height="18" rx="1"/><circle cx="16" cy="20" r="3" class="f"/><path d="M40 24l6-8 6 8M12 50l6-8 6 8" class="a"/><path d="M44 46h8" class="a"/>',
+  palette: '<path d="M32 8C16 8 6 20 6 32s10 24 24 24c4 0 6-3 4-7s0-7 5-7h7c8 0 12-5 12-11C58 18 46 8 32 8z"/><circle cx="20" cy="26" r="3.5" class="f"/><circle cx="30" cy="18" r="3.5" class="a"/><circle cx="42" cy="20" r="3.5" class="f" opacity=".6"/><circle cx="18" cy="38" r="3.5" class="a"/>',
+  keyframe: '<path d="M6 54h52M6 54V8"/><path d="M8 48c10 0 12-34 24-34s14 26 24 26" class="a"/><path d="M8 48l3-3 3 3-3 3z M32 14l3-3 3 3-3 3z M56 40l3-3 3 3-3 3z" class="f"/>',
+  wireframe: '<path d="M32 6 56 20v24L32 58 8 44V20z"/><path d="M8 20l24 14 24-14M32 34v24" class="a"/><path d="M20 13l24 14M44 13 20 27M8 32l24 14 24-14" opacity=".45"/>',
+  greenscreen: '<rect x="6" y="8" width="52" height="36" rx="1" class="f" opacity=".3"/><rect x="6" y="8" width="52" height="36" rx="1"/><circle cx="32" cy="22" r="5"/><path d="M24 44c0-8 4-12 8-12s8 4 8 12"/><path d="M14 44v14M50 44v14M10 58h8M46 58h8" class="a"/>',
+  mocap: '<circle cx="32" cy="10" r="5"/><path d="M32 15v20M20 22l12 4 12-4M24 56l8-21 8 21"/><circle cx="20" cy="22" r="2.5" class="f"/><circle cx="44" cy="22" r="2.5" class="f"/><circle cx="32" cy="35" r="2.5" class="f"/><circle cx="24" cy="56" r="2.5" class="f"/><circle cx="40" cy="56" r="2.5" class="f"/><circle cx="32" cy="10" r="1.5" class="f"/><path d="M6 6l8 6M58 6l-8 6" class="a"/>',
+  spotlight: '<path d="M14 18l12-8 8 12-12 8z"/><path d="M34 22l22 30H22l4-22" class="f" opacity=".25"/><path d="M34 22l22 30M26 30l-4 22" class="a"/><path d="M18 30v28M10 58h16"/>',
+  projector: '<rect x="6" y="28" width="36" height="22" rx="3"/><circle cx="16" cy="18" r="9"/><circle cx="34" cy="18" r="9"/><circle cx="16" cy="18" r="2" class="f"/><circle cx="34" cy="18" r="2" class="f"/><path d="M42 34l16-8v26l-16-8" class="a"/><path d="M12 50l-4 8M36 50l4 8"/>',
+  microphone: '<rect x="24" y="6" width="16" height="28" rx="8"/><path d="M24 18h16M24 24h16" class="a"/><path d="M16 28c0 9 7 16 16 16s16-7 16-16"/><path d="M32 44v12M22 58h20"/>',
+  filmreel: '<circle cx="28" cy="30" r="22"/><circle cx="28" cy="30" r="4" class="f"/><circle cx="28" cy="16" r="5" class="a"/><circle cx="28" cy="44" r="5" class="a"/><circle cx="14" cy="30" r="5" class="a"/><circle cx="42" cy="30" r="5" class="a"/><path d="M40 48c6 4 12 6 18 6"/>',
+  puppet: '<path d="M14 6h36M22 6v10M42 6v14M32 6v4" class="a"/><circle cx="32" cy="16" r="6"/><path d="M32 22v16M22 26l10 4 10-6M26 56l6-18 6 18"/><circle cx="22" cy="26" r="2" class="f"/><circle cx="42" cy="24" r="2" class="f"/>',
+  scissors: '<circle cx="14" cy="46" r="7"/><circle cx="14" cy="18" r="7"/><path d="M20 42 56 14M20 22l36 28" /><circle cx="36" cy="32" r="2" class="f"/><path d="M40 6v8M48 6v8M40 50v8M48 50v8" class="a"/>',
+  colorwheel: '<circle cx="32" cy="32" r="24"/><path d="M32 8v24L53 20" class="a"/><path d="M32 32 11 44M32 32l21 12M32 32 11 20M32 32v24" opacity=".5"/><circle cx="40" cy="26" r="4" class="f"/>',
+  // physics concepts
+  ball: '<circle cx="24" cy="40" r="14"/><path d="M12 34c8 4 16 4 24 0" class="a"/><path d="M40 20l14-10M44 30l14-4M36 12l8-8" class="a"/><path d="M4 58h56"/>',
+  cradle: '<path d="M8 8h48M8 8v50M56 8v50"/><path d="M20 8l-8 32M26 8v34M32 8v34M38 8v34M44 8v34"/><circle cx="12" cy="42" r="5" class="f"/><circle cx="26" cy="46" r="5"/><circle cx="32" cy="46" r="5"/><circle cx="38" cy="46" r="5"/><circle cx="44" cy="46" r="5"/>',
+  block: '<path d="M4 54 60 30"/><path d="M22 38l18-8 6 14-18 8z" class="f" opacity=".35"/><path d="M22 38l18-8 6 14-18 8z"/><path d="M20 26l14-6M34 20l-3-3M34 20l-4 2" class="a"/><path d="M4 54h56"/>',
+  orbit: '<circle cx="32" cy="32" r="9" class="f" opacity=".5"/><circle cx="32" cy="32" r="9"/><ellipse cx="32" cy="32" rx="26" ry="14" class="a"/><circle cx="56" cy="26" r="4" class="f"/>',
+  boat: '<path d="M6 36h52l-8 14H14z"/><path d="M32 36V8l16 22H32" class="a"/><path d="M2 44c6 3 10 3 16 0s10-3 16 0 10 3 16 0 10-3 12-1" class="f" opacity=".3"/><path d="M2 50c6 3 10 3 16 0s10-3 16 0 10 3 16 0 10-3 12-1"/>',
+  wrench: '<path d="M40 8a12 12 0 0 0-11 16L8 45a5 5 0 0 0 7 7l21-21A12 12 0 0 0 52 20l-7 3-5-5 3-7z"/><path d="M48 44a14 14 0 0 1-6 12M44 38l6 6 2-8" class="a"/>',
+  compass: '<circle cx="32" cy="32" r="24"/><path d="M32 12l6 20H26z" class="f"/><path d="M32 52l6-20H26z"/><path d="M32 4v4M32 56v4M4 32h4M56 32h4" class="a"/>',
+  // body systems
+  vessels: '<path d="M32 6v14M32 20c-10 6-18 18-20 34M32 20c10 6 18 18 20 34M32 20v36" /><path d="M20 34c-4 2-8 2-12 0M44 34c4 2 8 2 12 0M22 46c-4 3-8 4-12 3M42 46c4 3 8 4 12 3" class="a"/><circle cx="32" cy="12" r="5" class="f"/>',
+  neuron: '<circle cx="18" cy="24" r="7" class="f" opacity=".5"/><circle cx="18" cy="24" r="7"/><path d="M12 18 6 10M12 28l-8 4M22 17l2-9M18 31v10" class="a"/><path d="M25 26c8 4 14 10 20 18"/><path d="M45 44l4 10M45 44l10 4M45 44l10-2" class="a"/><path d="M30 29l4-3M36 34l4-3" />',
+  muscle: '<path d="M10 40c4-16 14-26 26-26 10 0 18 8 18 18 0 12-12 20-26 20-8 0-14-4-18-12z" class="f" opacity=".3"/><path d="M10 40c4-16 14-26 26-26 10 0 18 8 18 18 0 12-12 20-26 20-8 0-14-4-18-12z"/><path d="M18 36c8-6 18-10 30-8M20 44c10-4 18-6 28-4" class="a"/><path d="M6 44l4-4M54 32l6-2"/>',
+  gland: '<path d="M18 22c0-8 6-14 14-14s14 6 14 14c0 6-4 10-8 12v6H26v-6c-4-2-8-6-8-12z"/><path d="M26 46h12v6H26z" class="a"/><circle cx="12" cy="40" r="2.5" class="f"/><circle cx="52" cy="40" r="2.5" class="f"/><circle cx="16" cy="54" r="2.5" class="f"/><circle cx="48" cy="54" r="2.5" class="f"/>',
+  antibody: '<path d="M32 58V32M32 32 18 14M32 32l14-18"/><path d="M18 14 10 8M18 14l-6 6M46 14l8-6M46 14l6 6" class="a"/><circle cx="12" cy="46" r="6" class="f" opacity=".5"/><path d="M12 38v-3M12 57v-3M4 46h3M17 46h3"/>',
+  cell: '<ellipse cx="32" cy="32" rx="26" ry="20"/><circle cx="30" cy="30" r="8" class="f" opacity=".5"/><circle cx="30" cy="30" r="8"/><path d="M44 22c2 2 4 2 6 0M16 40c2 3 5 3 7 1M44 42c3 1 5 0 6-2" class="a"/>',
   // pens
   reed: '<path d="M52 8 16 52l-4 6 6-4L54 14z"/><path d="M16 52l4-10 6 4z" class="f"/><path d="M40 20l6 6M34 26l6 6" class="a"/>',
   quill: '<path d="M14 54C24 36 36 18 56 8c-4 18-18 34-36 40" /><path d="M14 54l6-8" /><path d="M24 44c8-10 18-20 28-28" class="a"/><path d="M11 57l3-3" class="f"/>',

@@ -2,7 +2,7 @@
 // dated after the latest box, and registered in apps.local.json.
 //   npm run new -- <slug> "How does X work?" --field physics [--title "Name"] [--kit 3d|plain]
 //   npm run new -- <slug> "What is Ohm's law?" --kind principle --field physics --title "Ohm's law"
-//        [--formula "V = I × R"] [--type law|principle] [--art resistor] [--applies a,b,c]
+//        [--formula "V = I × R"] [--type law|principle|concept] [--art resistor] [--applies a,b,c]
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
@@ -15,7 +15,8 @@ const kit = opt('kit') || '3d';  // '3d' (Three.js chapters engine) or 'plain' (
 const titleArg = opt('title');
 const kind = opt('kind') === 'principle' ? 'principle' : 'box';
 const formula = opt('formula') || '';
-const ptype = opt('type') === 'law' ? 'law' : 'principle';
+const ptypeArg = opt('type');
+const ptype = ['law', 'concept'].includes(ptypeArg) ? ptypeArg : 'principle';
 const partName = opt('art') || '';
 const applies = (opt('applies') || '').split(',').map((x) => x.trim()).filter(Boolean);
 const [slug, question] = args;
