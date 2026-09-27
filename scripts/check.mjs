@@ -54,6 +54,9 @@ for (const a of apps.sort((x, y) => x.box - y.box)) {
   warn.forEach((w) => console.log('    - ' + w));
   if (warn.some((w) => /limit|root-absolute|bar\.js|third-party|CSP is stale/.test(w))) bad++;
 }
-const nums = apps.map((a) => a.box).sort((x, y) => x - y);
-nums.forEach((n, i) => { if (i && n !== nums[i - 1] + 1) { console.log(`⚠ box numbers jump from ${nums[i - 1]} to ${n}`); } });
+// Object boxes and principle boxes are numbered separately.
+for (const kind of ['box', 'principle']) {
+  const nums = apps.filter((a) => a.kind === kind).map((a) => a.box).sort((x, y) => x - y);
+  nums.forEach((n, i) => { if (i && n !== nums[i - 1] + 1) console.log(`⚠ ${kind} numbers jump from ${nums[i - 1]} to ${n}`); });
+}
 process.exit(bad ? 1 : 0);
