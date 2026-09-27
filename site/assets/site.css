@@ -728,3 +728,11 @@ td { color: #c9cedb; }
 .law-examples h3 { margin: 0 0 6px; font: 400 21px/1.15 var(--serif); }
 .law-examples p { margin: 0; color: var(--muted); font-size: 14.5px; line-height: 1.55; }
 .law-examples a { display: inline-block; margin-top: 8px; color: var(--c); text-decoration: none; font-size: 14px; }
+
+/* small cases: Read and History become round icon buttons so all three always fit */
+.case:not(.feature) .ca.ic { width: 30px; padding: 0; justify-content: center; }
+.case:not(.feature) .ca.ic span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.case:not(.feature) .ca.ic svg { width: 15px; height: 15px; }
+.case.feature .ca.ic svg { display: none; }
+.case-actions { flex-wrap: nowrap; min-width: 0; }
+@media (max-width: 480px) { .case:not(.feature) .ca:not(.play) { display: inline-flex; } .case:not(.feature) .ca.ic { width: 28px; height: 28px; } }
