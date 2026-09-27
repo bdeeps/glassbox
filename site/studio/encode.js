@@ -21,7 +21,8 @@ async function aacSupported() {
 
 const yieldNow = () => new Promise((r) => setTimeout(r, 0));
 
-export async function createEncoder({ W, H, fps = 30, bitrate = 6_000_000, audio = null }) {
+// 3.5 Mbps: plenty for 1080p screen graphics (the platforms re-encode anyway), and keeps each box repo small.
+export async function createEncoder({ W, H, fps = 30, bitrate = 3_500_000, audio = null }) {
   const { Muxer, ArrayBufferTarget } = await import(MUXER);
   const codec = await pickCodec(W, H, fps, bitrate);
   const withAudio = !!audio && (await aacSupported());
