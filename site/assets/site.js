@@ -175,13 +175,14 @@
   const grid = $('#grid');
   if (grid) {
     const chips = $$('.chip[data-filter]'), search = $('#shelfSearch'), sortBtn = $('#sortBtn'), empty = $('#shelfEmpty');
+    const items = () => $$('.card, .case', grid);
     const params = new URLSearchParams(location.search);
     let field = params.get('f') || 'all', newest = true;
     if (!chips.some((c) => c.dataset.filter === field)) field = 'all';
     const apply = () => {
-      const q = search.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+      const q = (search?.value || '').trim().toLowerCase().split(/\s+/).filter(Boolean);
       let shown = 0;
-      $$('.card', grid).forEach((c) => {
+      items().forEach((c) => {
         const sealedCard = c.hasAttribute('data-sealed');
         const ok = sealedCard ? field === 'all' && !q.length : (field === 'all' || c.dataset.field === field) && q.every((w) => c.dataset.hay.includes(w));
         c.hidden = !ok;
@@ -194,8 +195,8 @@
       history.replaceState(null, '', u);
     };
     chips.forEach((c) => c.addEventListener('click', () => { field = c.dataset.filter; apply(); }));
-    search.addEventListener('input', apply);
-    sortBtn.addEventListener('click', () => {
+    search?.addEventListener('input', apply);
+    sortBtn?.addEventListener('click', () => {
       newest = !newest;
       sortBtn.textContent = newest ? 'Newest first' : 'Oldest first';
       const cards = $$('.card:not([data-sealed])', grid).sort((a, b) => (newest ? b.dataset.box - a.dataset.box : a.dataset.box - b.dataset.box));
@@ -203,6 +204,26 @@
       [...cards, ...sealedCards].forEach((c) => grid.appendChild(c));
     });
     apply();
+  }
+
+  // ---------------------------------------------------------------- cabinet tilt
+  // Cases lean towards the pointer and a sheen follows it, like a glass case catching light.
+  if (!reduce && matchMedia('(hover: hover)').matches) {
+    $$('[data-tilt]').forEach((el) => {
+      let raf = 0;
+      el.addEventListener('pointermove', (e) => {
+        const r = el.getBoundingClientRect(), x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
+        const k = el.classList.contains('feature') ? 4 : 7;
+        cancelAnimationFrame(raf);
+        raf = requestAnimationFrame(() => {
+          el.style.setProperty('--ry', ((x - 0.5) * k).toFixed(2) + 'deg');
+          el.style.setProperty('--rx', ((0.5 - y) * k).toFixed(2) + 'deg');
+          el.style.setProperty('--mx', (x * 100).toFixed(1) + '%');
+          el.style.setProperty('--my', (y * 100).toFixed(1) + '%');
+        });
+      });
+      el.addEventListener('pointerleave', () => { cancelAnimationFrame(raf); el.style.setProperty('--rx', '0deg'); el.style.setProperty('--ry', '0deg'); });
+    });
   }
 
   // ---------------------------------------------------------------- history

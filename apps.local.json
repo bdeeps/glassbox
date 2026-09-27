@@ -4,6 +4,8 @@
     "../penclear",
     "../cycleclear",
     "../fanclear",
-    "../acclear"
+    "../acclear",
+    "../pianoclear",
+    "../carclear"
   ]
 }

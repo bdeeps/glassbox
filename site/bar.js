@@ -28,6 +28,7 @@
       a:hover, button:hover { background: rgba(255,255,255,.1); }
       a:focus-visible, button:focus-visible { outline: 2px solid #8ef0ff; }
       svg { width: 18px; height: 18px; }
+      .hist svg { width: 15px; height: 15px; }
       .no { font-family: 'Geist Mono', ui-monospace, monospace; color: ${esc(a.color)}; }
       .min .x { display: none; }
       @media (max-width: 520px) { .x.opt { display: none; } }
@@ -35,6 +36,7 @@
     <div class="bar ${min ? 'min' : ''}">
       <button class="home" title="${min ? 'Show' : 'Hide'} the Glassbox bar" aria-label="Glassbox"><svg viewBox="0 0 64 64" aria-hidden="true"><path d="M32 5 56 18v28L32 59 8 46V18Z" fill="none" stroke="currentColor" stroke-width="4" stroke-linejoin="round"/><circle cx="32" cy="31" r="8" fill="${esc(a.color)}"/></svg><span class="x no">No. ${esc(a.no)}</span></button>
       <a class="x" href="/e/${esc(a.slug)}/">How it works</a>
+      ${a.historyUrl ? `<a class="x hist" href="${esc(a.historyUrl)}" title="${esc(a.history?.title || 'History')}"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 7v5l3.5 2" fill="none" stroke="${esc(a.color)}" stroke-width="2" stroke-linecap="round"/></svg>History</a>` : ''}
       <a class="x opt" href="${esc(a.repo)}" target="_blank" rel="noopener">Source</a>
       <a class="x opt" href="/">All boxes</a>
       <a class="x opt" href="/privacy/" data-choices>Privacy</a>

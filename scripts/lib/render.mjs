@@ -146,6 +146,41 @@ function sealed(date, n) {
   </div>`;
 }
 
+// A display case in the home page's cabinet. The whole case plays the box; the small
+// buttons open the 60-second read and the history.
+function caseTile(a, i, feature) {
+  const hay = [a.question, a.title, a.fieldLabel, ...a.tags, ...a.concepts.map((c) => c.term)].join(' ').toLowerCase();
+  const img = a.media['still.jpg'] ? mediaUrl(a, 'still.jpg') : coverOf(a);
+  return `<article class="case${feature ? ' feature' : ''}" id="${feature ? 'today' : `box-${a.slug}`}" style="--c:${esc(a.color)};--i:${i}" data-field="${esc(a.field)}" data-box="${a.box}" data-hay="${esc(hay)}" data-tilt>
+    <div class="glass">
+      ${img ? `<img src="${img}" alt="" ${i < 3 ? 'fetchpriority="high"' : 'loading="lazy"'} decoding="async" width="1200" height="630">` : `<div class="art fallback"><span>${a.no}</span></div>`}
+      <i class="sheen" aria-hidden="true"></i><i class="seal" aria-hidden="true"></i>
+    </div>
+    <a class="stretch" href="${a.appUrl}" aria-label="Play: ${esc(a.question)}"></a>
+    <div class="case-body">
+      <p class="case-meta"><span class="no">No. ${a.no}</span><span class="fld"><i></i>${esc(a.fieldLabel)}</span>${feature ? '<span class="now"><i class="pulse"></i>Today</span>' : ''}</p>
+      <h3>${esc(a.question)}</h3>
+      ${feature ? `<p class="hook">${esc(a.hook)}</p>` : ''}
+      <div class="case-actions">
+        <a class="ca play" href="${a.appUrl}" tabindex="-1">${ICON.play}<span>Play</span></a>
+        <a class="ca" href="${a.pageUrl}">Read</a>
+        ${a.historyUrl ? `<a class="ca" href="${a.historyUrl}">History</a>` : ''}
+      </div>
+    </div>
+  </article>`;
+}
+
+// Sealed boxes fill out the last row of the 5-column desktop cabinet (today's case is 2×2).
+const sealedCount = (n) => (n ? (5 - ((n + 3) % 5)) % 5 : 5);
+
+function sealedCase(date, n, i) {
+  return `<article class="case sealed" data-sealed style="--i:${i}" aria-label="Box ${n} opens ${fmtDate(date)}">
+    <div class="glass"><div class="black"><span class="n">${String(n).padStart(3, '0')}</span><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8 11V8a4 4 0 0 1 8 0v3" fill="none" stroke="currentColor" stroke-width="1.6"/></svg></div></div>
+    <div class="case-body"><p class="case-meta"><span class="no">No. ${String(n).padStart(3, '0')}</span><span class="fld">Sealed</span></p>
+    <h3>Opens ${fmtDate(date, { weekday: 'long', day: 'numeric', month: 'short' })}</h3></div>
+  </article>`;
+}
+
 // 365 days from the start date, one cell per day, lit where a box opened.
 function calendar(apps) {
   const byDate = new Map(apps.map((a) => [a.date, a]));
@@ -188,30 +223,21 @@ export function home(apps) {
     extra: `<script type="application/ld+json">${JSON.stringify(ld)}</script>` })}
 ${nav()}
 <main id="main">
-  <section class="hero">
-    <div class="hero-text">
-      <p class="kicker"><span class="pulse"></span>${today ? `Box No. ${today.no} is open` : 'The first box opens soon'}</p>
-      <h1>See inside<br>how things <em>work</em>.</h1>
-      <p class="lede">Everything you use is a black box: your camera, the internet, money, your own heartbeat. <strong>Glassbox opens one every day</strong>, and makes it glass. You get a model to play with, a minute of plain words, and every line of code.</p>
-      <label class="hero-search" data-open-search>
-        ${ICON.search}
-        <input type="search" placeholder="What do you want to see inside?" aria-label="Search boxes and concepts" readonly>
-        <kbd>/</kbd>
-      </label>
-      ${hints.length ? `<p class="hints">Try <span>${hints.map((h) => `<button data-open-search="${esc(h)}">${esc(h)}</button>`).join('')}</span></p>` : ''}
-    </div>
-    ${today ? `
-    <div class="stage" style="--c:${esc(today.color)}">
-      <div class="cube-scene" data-cube aria-hidden="true">
-        <div class="cube">
-          <i class="f front"></i><i class="f back"></i><i class="f left"></i><i class="f right"></i><i class="f top"></i><i class="f bottom"></i>
-          <div class="core">${art(today, 'core-art', true)}</div>
+  <section class="cabinet" id="shelf" aria-label="Every box">
+    <header class="cab-head">
+        <h1 class="cab-h1">See inside how things <em>work</em>.</h1>
+        <p class="cab-sub">${today ? `<span class="pulse"></span><span>Box No. ${today.no} is open · ` : '<span>'}a new glass box every day. Play, read, and see its history.</span></p>
+        <label class="cab-search" data-open-search>${ICON.search}<input type="search" placeholder="Search boxes and ideas" aria-label="Search boxes and concepts" readonly><kbd>/</kbd></label>
+        <div class="chips" role="group" aria-label="Filter by field">
+          <button class="chip on" data-filter="all" aria-pressed="true">All <small>${apps.length}</small></button>
+          ${fields.map((x) => `<button class="chip" data-filter="${esc(x.f)}" style="--c:${esc(x.color)}" aria-pressed="false">${esc(x.label)} <small>${x.n}</small></button>`).join('')}
         </div>
-        <div class="floor"></div>
-      </div>
-      <a class="cube-label" href="${today.pageUrl}"><span class="no">No. ${today.no} · ${esc(today.fieldLabel)}</span><strong>${esc(today.question)}</strong><span class="go">Open today's box ${ICON.arrow}</span></a>
-      <p class="drag-hint">drag the box</p>
-    </div>` : ''}
+    </header>
+    <div class="cases" id="grid">
+      ${apps.map((a, i) => caseTile(a, i, i === 0)).join('')}
+      ${Array.from({ length: sealedCount(apps.length) }, (_, k) => sealedCase(addDays(nextDate, k), next + k, apps.length + k)).join('')}
+    </div>
+    <p class="empty" id="shelfEmpty" hidden>No box matches that yet. <a href="${SUGGEST}" rel="noopener" target="_blank">Suggest it as a future box →</a></p>
   </section>
 
   <section class="manifesto" aria-label="Why Glassbox">
@@ -223,45 +249,6 @@ ${nav()}
       <div class="pillar reveal"><span class="n">02 · Understand</span><h3>A minute of plain words</h3><p>The idea in six short beats, plus a 40-second video. No jargon you won't get a definition for.</p></div>
       <div class="pillar reveal"><span class="n">03 · Fork</span><h3>Nothing hidden</h3><p>Every box is its own public repo, MIT licensed. Read how it's built, remix it, teach with it.</p></div>
     </div>
-  </section>
-
-  ${today ? `
-  <section id="today" class="today" style="--c:${esc(today.color)}">
-    <div class="today-media">
-      ${today.media['reel.mp4']
-        ? `<video class="reel" src="${mediaUrl(today, 'reel.mp4')}" ${poster(today)} muted loop playsinline preload="none" aria-label="40-second video: ${esc(today.question)}"></video><button class="sound" data-sound aria-label="Unmute">Sound off</button>`
-        : art(today)}
-    </div>
-    <div class="today-text">
-      <p class="eyebrow">Today's box · No. ${today.no} · ${esc(today.fieldLabel)}</p>
-      <h2>${esc(today.question)}</h2>
-      <p class="lede">${esc(today.hook)}</p>
-      <ol class="mini-beats">${today.explainer.slice(0, 4).map((b) => `<li>${esc(b.title)}</li>`).join('')}</ol>
-      <div class="ctas">
-        <a class="btn primary big" href="${today.appUrl}">${ICON.play} Play with it</a>
-        <a class="btn big" href="${today.pageUrl}">Read it in 60 seconds</a>
-      </div>
-      <p class="small-links">${today.historyUrl ? `<a href="${today.historyUrl}">The history: ${esc(today.history.tagline)}</a><br>` : ''}<a href="${esc(today.repo)}" rel="noopener" target="_blank">Source on GitHub</a> · ${today.minutes ? `${today.minutes} min to play · ` : ''}free, no sign-up</p>
-    </div>
-  </section>` : ''}
-
-  <section id="shelf" class="shelf">
-    <div class="sec-head">
-      <div><p class="eyebrow">${apps.length} ${apps.length === 1 ? 'box' : 'boxes'} opened · ${concepts.length} concepts</p><h2>The shelf</h2></div>
-      <div class="shelf-tools">
-        <label class="filter-search">${ICON.search}<input type="search" id="shelfSearch" placeholder="Filter the shelf" aria-label="Filter the shelf"></label>
-        <button class="chip ghost" id="sortBtn" aria-label="Sort order">Newest first</button>
-      </div>
-    </div>
-    <div class="chips" role="group" aria-label="Filter by field">
-      <button class="chip on" data-filter="all" aria-pressed="true">All <small>${apps.length}</small></button>
-      ${fields.map((x) => `<button class="chip" data-filter="${esc(x.f)}" style="--c:${esc(x.color)}" aria-pressed="false">${esc(x.label)} <small>${x.n}</small></button>`).join('')}
-    </div>
-    <div class="grid" id="grid">
-      ${apps.map(card).join('')}
-      ${[0, 1, 2].map((k) => sealed(addDays(nextDate, k), next + k)).join('')}
-    </div>
-    <p class="empty" id="shelfEmpty" hidden>No box matches that yet. <a href="${SUGGEST}" rel="noopener" target="_blank">Suggest it as a future box →</a></p>
   </section>
 
   ${concepts.length ? `
