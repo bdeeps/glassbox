@@ -135,6 +135,10 @@
     "chemistry": {
       "label": "Chemistry",
       "color": "#f59ee6"
+    },
+    "sound": {
+      "label": "Music & Sound",
+      "color": "#4fd1c5"
     }
   },
   "analytics": {

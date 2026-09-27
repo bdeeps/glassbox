@@ -21,6 +21,25 @@
     "xrayclear": "2026-09-28",
     "ctscanclear": "2026-09-29",
     "mriclear": "2026-09-30",
-    "motorcycleclear": "2026-10-01"
+    "motorcycleclear": "2026-10-01",
+    "waterheaterclear": "2026-10-02",
+    "guitarclear": "2026-10-03",
+    "fluteclear": "2026-10-04",
+    "tablaclear": "2026-10-05",
+    "harmoniumclear": "2026-10-06",
+    "synthclear": "2026-10-07",
+    "heartclear": "2026-10-08",
+    "lungsclear": "2026-10-09",
+    "brainclear": "2026-10-10",
+    "eyeclear": "2026-10-11",
+    "earclear": "2026-10-12",
+    "noseclear": "2026-10-13",
+    "tongueclear": "2026-10-14",
+    "stomachclear": "2026-10-15",
+    "intestineclear": "2026-10-16",
+    "liverclear": "2026-10-17",
+    "pancreasclear": "2026-10-18",
+    "kidneyclear": "2026-10-19",
+    "skinclear": "2026-10-20"
   }
 }
