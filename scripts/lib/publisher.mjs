@@ -53,6 +53,9 @@ function targetsOf(plan, when, dir) {
       'instagram:carousel': A.slides?.length && { text: c.carousel || c.instagram, media: A.slides.slice(0, 10).map((f) => base + f) },
       'instagram:history-reel': A.historyReel && c.history && { text: c.history.instagram, media: [base + A.historyReel] },
       'instagram:history-carousel': A.historySlides?.length && c.history && { text: c.history.instagram, media: A.historySlides.slice(0, 10).map((f) => base + f) },
+      'youtube:short': reel && c.youtube && { title: (c.youtube.title || '').slice(0, 100), text: c.youtube.description, media: reel },
+      'youtube:video': video && c.youtubeLong && { title: (c.youtubeLong.title || '').slice(0, 100), text: c.youtubeLong.description, media: video },
+      'youtube:history-short': A.historyReel && c.history?.youtube && { title: (c.history.youtube.title || '').slice(0, 100), text: c.history.youtube.description, media: [base + A.historyReel] },
       'linkedin:video': video && { text: c.linkedin, media: video },
       'twitter:video': video && { text: (c.short || '').slice(0, 280), media: video },
       'facebook:video': reel && { text: c.linkedin, media: reel },
@@ -78,13 +81,13 @@ export async function publishBox(box, { dry = false, force = false, when, log = 
   try {
     const plan = { ...r.plan, slug: box.slug };
     const all = targetsOf(plan, when, box.dir);
-    const useHoot = (await hoot.connected().catch(() => false)) && !!(await hoot.workspace());
+    const useHoot = await hoot.connected().catch(() => false);
     let hootProfiles = [];
     if (useHoot) { try { hootProfiles = await hoot.profiles(); } catch (e) { log(`⚠ Hootsuite: ${e.message} (using Buffer instead)`); } }
     const viaHoot = all.filter((p) => p.media && hoot.SERVICES.includes(p.service) && hootProfiles.some((x) => x.service === p.service));
     const viaBuffer = all.filter((p) => !viaHoot.includes(p));
     log(`${box.slug}: ${all.length} target(s) · ${when === 'now' ? 'posting now' : when === 'queue' ? 'next free slot' : 'at its scheduled time'}`);
-    log(`Hootsuite drafts: ${viaHoot.length ? viaHoot.map((p) => p.target).join(', ') : useHoot ? 'none (no matching profiles)' : 'not connected'}`);
+    log(`Hootsuite: ${viaHoot.length ? viaHoot.map((p) => p.target).join(', ') : useHoot ? 'none (no matching profiles)' : 'not connected'}`);
 
     const media = [...new Set(all.flatMap((p) => p.media || []))];
     if (media.length) await checkLive(media, log);

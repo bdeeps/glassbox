@@ -181,12 +181,7 @@ async function hootStatus() {
   if (!(await hoot.connected().catch(() => false))) return { connected: false };
   if (profCache && Date.now() - profCache.at < 5 * 60e3) return profCache.v;
   let v;
-  const w = await hoot.workspace();
-  if (!w) {
-    try { v = { connected: true, needWorkspace: true, workspaces: (await hoot.workspaces()).map((x) => x.name) }; } catch (e) { v = { connected: true, error: e.message, profiles: [] }; }
-  } else {
-    try { v = { connected: true, workspace: w.name, profiles: (await hoot.profiles()).map((x) => ({ service: x.service, name: x.name, type: x.type })) }; } catch (e) { v = { connected: true, workspace: w.name, error: e.message, profiles: [] }; }
-  }
+  try { v = { connected: true, profiles: (await hoot.profiles()).map((x) => ({ service: x.service, name: x.name, type: x.type, reauth: x.reauth })) }; } catch (e) { v = { connected: true, error: e.message, profiles: [] }; }
   profCache = { at: Date.now(), v };
   return v;
 }
@@ -239,11 +234,6 @@ async function adminApi(req, res, url, { json, html, state }) {
   if (action === 'hootsuite' && arg === 'disconnect' && req.method === 'POST') {
     await hoot.disconnect(); profCache = null; await store.log('Hootsuite disconnected', { provider: 'hootsuite' });
     return json(200, { ok: true }), true;
-  }
-  if (action === 'hootsuite' && arg === 'workspace' && req.method === 'POST') {
-    let b; try { b = JSON.parse(await body(req, 1024)); } catch { return json(400, { error: 'bad JSON' }), true; }
-    try { const w = await hoot.chooseWorkspace(Number(b.index)); profCache = null; await store.log(`Hootsuite workspace: ${w.name}`, { provider: 'hootsuite' }); return json(200, { ok: true }), true; }
-    catch (e) { return json(400, { error: e.message }), true; }
   }
   if (action === 'hootsuite' && arg === 'rest-check') {
     try { return json(200, await hoot.restCheck()), true; } catch (e) { return json(502, { error: e.message }), true; }

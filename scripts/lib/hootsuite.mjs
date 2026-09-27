@@ -2,8 +2,8 @@
 // Connecting is one click in the admin: the server registers itself with Hootsuite's OAuth
 // (dynamic client registration, PKCE, no client secret), you sign in to your Hootsuite
 // workspace once, and the refresh token is kept in the admin store.
-// Perch can't publish by itself: it saves each post as a draft in the Hootsuite Planner (media
-// attached, at the planned time) for Instagram, Facebook, LinkedIn, X and TikTok. YouTube stays with Buffer.
+// The same sign-in also opens Hootsuite's REST API (platform.hootsuite.com/v1), which really
+// schedules and publishes: that is what Glassbox uses. Perch's own tools can only save drafts.
 import crypto from 'node:crypto';
 import * as store from './store.mjs';
 
@@ -11,7 +11,7 @@ const MCP = 'https://mcp.hootsuite.com/perch';
 const AUTH = 'https://platform.hootsuite.com/oauth2/auth';
 const TOKEN = 'https://platform.hootsuite.com/oauth2/token';
 const REGISTER = 'https://platform.hootsuite.com/oauth2/register';
-export const SERVICES = ['instagram', 'facebook', 'linkedin', 'twitter', 'tiktok'];
+export const SERVICES = ['instagram', 'facebook', 'linkedin', 'twitter', 'tiktok', 'youtube', 'threads'];
 
 const b64u = (buf) => Buffer.from(buf).toString('base64url');
 
@@ -130,77 +130,63 @@ async function call(name, args) {
   try { return JSON.parse(text); } catch { return { text }; }
 }
 
-// ---- Perch's tools (names as Hootsuite ships them; the prefix is its internal service name)
-// Perch cannot publish: it saves drafts in the Hootsuite Planner at the planned time, with the
-// media attached, and you press Schedule/Publish in Hootsuite. Glassbox fills those drafts.
-const T = (list, suffix) => list.find((t) => t.name.endsWith('_' + suffix) && t.name.startsWith('create-mcp'))?.name || list.find((t) => t.name.endsWith('_' + suffix))?.name;
-const need = async (suffix) => { const n = T(await tools(), suffix); if (!n) throw new Error(`Hootsuite no longer offers ${suffix}`); return n; };
-
-export async function workspaces() {
-  const out = await call(await need('get_entitled_workspaces'), {});
-  const arr = Array.isArray(out) ? out : out.workspaces || Object.values(out).find(Array.isArray) || [];
-  return arr.map((w) => {
-    const scope = w.workspaceScope || w;
-    return { scope, name: scope.organizationName || w.name || w.organizationName || 'Personal workspace', personal: scope.organizationId == null };
-  });
-}
-export const workspace = () => store.get('hootsuite:workspace');
-export async function chooseWorkspace(index) {
-  const list = await workspaces();
-  const w = list[index];
-  if (!w) throw new Error('unknown workspace');
-  await store.set('hootsuite:workspace', w);
-  return w;
+// ---- publishing through the REST API
+const API = 'https://platform.hootsuite.com/v1';
+async function rest(pathname, opts = {}) {
+  const res = await fetch(API + pathname, { ...opts, headers: { Authorization: `Bearer ${await accessToken()}`, ...(opts.body ? { 'Content-Type': 'application/json' } : {}), ...(opts.headers || {}) } });
+  const text = await res.text();
+  let body; try { body = JSON.parse(text); } catch { body = { raw: text }; }
+  if (!res.ok) throw new Error(`Hootsuite ${res.status}: ${(body.errors || []).map((e) => e.message).join('; ') || text.slice(0, 300)}`);
+  return body.data ?? body;
 }
 
-const NET = { instagram: /INSTAGRAM/i, facebook: /FACEBOOK/i, linkedin: /LINKEDIN/i, twitter: /TWITTER|^X$/i, tiktok: /TIKTOK/i, youtube: /YOUTUBE/i, threads: /THREADS/i, pinterest: /PINTEREST/i };
+const NET = { instagram: /INSTAGRAM/i, facebook: /FACEBOOK/i, linkedin: /LINKEDIN/i, twitter: /TWITTER/i, tiktok: /TIKTOK/i, youtube: /YOUTUBE/i, threads: /THREADS/i, pinterest: /PINTEREST/i };
 
 export async function profiles() {
-  const w = await workspace();
-  if (!w) throw new Error('choose a Hootsuite workspace first');
-  const out = await call(await need('get_social_profiles'), { workspaceScope: w.scope });
-  const arr = Array.isArray(out) ? out : out.socialProfiles || out.profiles || Object.values(out).find(Array.isArray) || [];
-  return arr.map((p) => ({ raw: p, id: String(p.socialProfileId ?? p.id), name: p.name || p.username || String(p.socialProfileId), type: p.networkType || p.type || '', service: Object.keys(NET).find((k) => NET[k].test(p.networkType || p.type || '')) || null }));
+  const list = await rest('/socialProfiles');
+  return list.map((p) => ({ id: String(p.id), type: p.type, name: p.socialNetworkUsername || p.type.replace(/CHANNEL|BUSINESS|PAGE|COMPANY/, '').toLowerCase(), service: Object.keys(NET).find((k) => NET[k].test(p.type)) || null, reauth: !!p.isReauthRequired }));
 }
 
-const MIME = { mp4: 'video/mp4', mov: 'video/quicktime', jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif' };
+const MIME = { mp4: 'video/mp4', jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif' };
 async function upload(file, log) {
   const fs = await import('node:fs');
   const bytes = fs.readFileSync(file);
   const mimeType = MIME[file.split('.').pop().toLowerCase()];
-  const slot = await call(await need('request_media_upload'), { mimeType, sizeBytes: bytes.length });
-  const put = await fetch(slot.uploadUrl, { method: 'PUT', headers: { 'Content-Type': mimeType }, body: bytes });
+  const slot = await rest('/media', { method: 'POST', body: JSON.stringify({ sizeBytes: bytes.length, mimeType }) });
+  const put = await fetch(slot.uploadUrl, { method: 'PUT', headers: { 'Content-Type': mimeType, 'Content-Length': String(bytes.length) }, body: bytes });
   if (!put.ok) throw new Error(`upload of ${file.split('/').pop()} failed (${put.status})`);
-  const poll = await need('poll_media_upload');
-  for (let i = 0; i < 40; i++) {
-    const r = await call(poll, { mediaId: slot.mediaId });
-    if (r.ready) { const { ready, ...fields } = r; return fields; }
+  for (let i = 0; i < 60; i++) {
+    const st = await rest('/media/' + encodeURIComponent(slot.id));
+    if (st.state === 'READY') return slot.id;
+    if (/FAIL|ERROR/i.test(st.state || '')) throw new Error(`Hootsuite couldn't process ${file.split('/').pop()}`);
     await new Promise((ok) => setTimeout(ok, 3000));
   }
-  throw new Error(`Hootsuite is still processing ${file.split('/').pop()}; try again in a minute`);
+  throw new Error(`Hootsuite is still processing ${file.split('/').pop()}; try again in a few minutes`);
 }
 
-// posts: [{ target, service, text, files: [local paths], at }]
+// posts: [{ target, service, text, title?, files: [local paths], at }]
 export async function publish(posts, { dry = false, log = console.log } = {}) {
-  const w = await workspace();
-  const profs = await profiles();
-  const create = await need('create_draft');
+  const profs = (await profiles()).filter((p) => !p.reauth);
   const uploaded = new Map();
   const results = [];
   for (const p of posts) {
     const targets = profs.filter((x) => x.service === p.service);
     if (!targets.length) { results.push({ target: p.target, skipped: `no ${p.service} profile in Hootsuite` }); continue; }
-    const when = p.at || new Date(Date.now() + 30 * 60e3).toISOString();
-    if (dry) { log(`  • ${p.target.padEnd(20)} → Hootsuite draft for ${targets.map((t) => t.name).join(', ')} at ${when} (${p.files.length} file${p.files.length === 1 ? '' : 's'})`); results.push({ target: p.target, dry: true }); continue; }
+    // Hootsuite needs video posts at least 15 minutes ahead; give it 20.
+    const earliest = Date.now() + 20 * 60e3;
+    const when = new Date(Math.max(p.at ? Date.parse(p.at) : 0, earliest)).toISOString().replace(/\.\d+Z$/, '.000Z');
+    const text = p.title ? `${p.title}\n\n${p.text}` : p.text;
+    if (dry) { log(`  • ${p.target.padEnd(20)} → Hootsuite ${targets.map((t) => t.name).join(', ')} at ${when} (${p.files.length} file${p.files.length === 1 ? '' : 's'})`); results.push({ target: p.target, dry: true }); continue; }
     try {
       const media = [];
       for (const f of p.files) {
-        if (!uploaded.has(f)) { log(`    uploading ${f.split('/').pop()} to Hootsuite…`); uploaded.set(f, await upload(f, log)); }
-        media.push(uploaded.get(f));
+        if (!uploaded.has(f)) { log(`    uploading ${f.split('/').pop()}…`); uploaded.set(f, await upload(f, log)); }
+        media.push({ id: uploaded.get(f) });
       }
-      const r = await call(create, { workspaceScope: w.scope, socialProfiles: targets.map((t) => t.raw), text: p.text, scheduledDate: when, mediaAttachments: media });
-      results.push({ target: p.target, provider: 'hootsuite', draft: true, id: r.id || r.draftId || r.draft?.id || null, profiles: targets.map((t) => t.name) });
-      log(`  ✓ ${p.target} → Hootsuite draft (${targets.map((t) => t.name).join(', ')}) for ${when}`);
+      const msgs = await rest('/messages', { method: 'POST', body: JSON.stringify({ text, socialProfileIds: targets.map((t) => t.id), scheduledSendTime: when, media, emailNotification: false }) });
+      const ids = (Array.isArray(msgs) ? msgs : [msgs]).map((m) => m.id);
+      results.push({ target: p.target, provider: 'hootsuite', id: ids.join(','), dueAt: when, profiles: targets.map((t) => t.name) });
+      log(`  ✓ ${p.target} → Hootsuite (${targets.map((t) => t.name).join(', ')}) scheduled for ${when}`);
     } catch (e) {
       results.push({ target: p.target, provider: 'hootsuite', error: e.message });
       log(`  ✗ ${p.target} (Hootsuite): ${e.message}`);

@@ -28,13 +28,9 @@ async function load() {
   const h = data.hootsuite;
   $('#hootBtn').textContent = h.connected ? 'Disconnect' : 'Connect Hootsuite';
   $('#hootBtn').dataset.connected = h.connected ? '1' : '';
-  $('#hootSub').textContent = !h.connected ? 'Not connected. Instagram, Facebook, LinkedIn, X and TikTok posts become ready-to-go drafts in your Hootsuite Planner.'
-    : h.needWorkspace ? 'Connected. Pick the workspace to use:'
-    : h.error ? `Connected (${h.workspace || 'no workspace'}), but: ${h.error}`
-    : h.profiles.length ? `${h.workspace}: ${h.profiles.map((p) => `${p.name} (${p.service || p.type})`).join(', ')}. Posts arrive as drafts in your Planner.` : `${h.workspace}: no social profiles in this workspace yet.`;
-  const ws = $('#hootWs');
-  ws.hidden = !h.needWorkspace;
-  if (h.needWorkspace) ws.innerHTML = `<select id="wsSel">${h.workspaces.map((n, i) => `<option value="${i}">${esc(n)}</option>`).join('')}</select><button class="btn small primary" type="button" id="wsGo">Use this workspace</button>`;
+  $('#hootSub').textContent = !h.connected ? 'Not connected. Connect to publish to every network you have in Hootsuite.'
+    : h.error ? `Connected, but: ${h.error}`
+    : h.profiles.length ? `Publishing to: ${h.profiles.map((p) => `${p.service || p.type}${p.name && p.name !== p.service ? ' (' + p.name + ')' : ''}${p.reauth ? ' (reconnect it in Hootsuite)' : ''}`).join(', ')}. Add Instagram, LinkedIn and the rest in Hootsuite and they appear here.` : 'Connected, but no social profiles in your Hootsuite account yet.';
   const b = data.buffer;
   $('#bufSub').textContent = !b.ok ? `Buffer: ${b.error}` : b.list.length ? `Connected: ${b.list.map((c) => `${c.name} (${c.service})`).join(', ')}` : 'No channels connected in Buffer yet (connect YouTube at buffer.com).';
 
@@ -109,11 +105,6 @@ $('#hootBtn').addEventListener('click', async (e) => {
   if (r.url) location.href = r.url; else flash(r.error || 'Could not reach Hootsuite.', true);
 });
 $('#q').addEventListener('input', renderList);
-$('#hootWs').addEventListener('click', async (e) => {
-  if (e.target.id !== 'wsGo') return;
-  const r = await (await api('hootsuite/workspace', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ index: $('#wsSel').value }) })).json();
-  flash(r.ok ? 'Workspace saved.' : r.error, !r.ok); load();
-});
 
 const qs = new URLSearchParams(location.search);
 if (qs.get('hootsuite')) {
