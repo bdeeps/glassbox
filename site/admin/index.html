@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Glassbox Admin</title>
+<link rel="icon" href="/assets/icon.svg" type="image/svg+xml">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
+<meta name="referrer" content="same-origin">
+<link rel="stylesheet" href="/assets/fonts/fonts.css">
+<link rel="stylesheet" href="/assets/site.css">
+<link rel="stylesheet" href="/admin/admin.css">
+</head>
+<body class="adm">
+<header class="nav">
+  <a class="brand" href="/" aria-label="Glassbox home"><svg class="logo" viewBox="0 0 64 64" aria-hidden="true"><path d="M32 5 56 18v28L32 59 8 46V18Z" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/><path d="M8 18l24 13 24-13M32 31v28" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round" opacity=".45"/><circle cx="32" cy="31" r="7" fill="var(--glow, #8ef0ff)"/></svg><span>Glassbox <b class="tag">Admin</b></span></a>
+  <nav><form method="post" action="/__admin/logout"><button class="btn ghost small" type="submit">Sign out</button></form></nav>
+</header>
+
+<main class="adm-main">
+  <p class="flash" id="flash" hidden></p>
+
+  <section class="cards">
+    <article class="card-a" id="autoCard">
+      <div class="row">
+        <div>
+          <h2>Auto-publish</h2>
+          <p class="sub" id="autoSub">When a new box is ready, publish it without asking.</p>
+        </div>
+        <label class="switch"><input type="checkbox" id="auto" role="switch"><span></span></label>
+      </div>
+      <div class="row small">
+        <label for="when">Post</label>
+        <select id="when">
+          <option value="auto">at each box's planned time (6:30 pm IST)</option>
+          <option value="queue">in the next free slot</option>
+          <option value="now">right away</option>
+        </select>
+      </div>
+    </article>
+
+    <article class="card-a" id="chanCard">
+      <h2>Where it posts</h2>
+      <div class="prov" id="hoot">
+        <div><b>Hootsuite</b> <span class="pill primary">primary</span><p class="sub" id="hootSub">Instagram, Facebook, LinkedIn, X and TikTok.</p></div>
+        <button class="btn small" id="hootBtn" type="button">Connect Hootsuite</button>
+      </div>
+      <div class="prov" id="buf">
+        <div><b>Buffer</b> <span class="pill">also</span><p class="sub" id="bufSub">YouTube, and anything Hootsuite can't post.</p></div>
+      </div>
+    </article>
+  </section>
+
+  <section class="boxes-a">
+    <div class="head-a">
+      <h2>Publish a box</h2>
+      <label class="search-a"><input id="q" type="search" placeholder="Find a box" aria-label="Find a box"></label>
+    </div>
+    <ol class="list-a" id="list"><li class="empty-a">Loading…</li></ol>
+  </section>
+
+  <section class="log-a">
+    <h2>Activity</h2>
+    <pre id="out" hidden></pre>
+    <ul id="activity"></ul>
+  </section>
+</main>
+
+<dialog id="confirm" class="dlg">
+  <form method="dialog">
+    <h3 id="cTitle">Publish?</h3>
+    <p id="cText"></p>
+    <label class="again" id="againRow" hidden><input type="checkbox" id="again"> Publish again (it was already posted)</label>
+    <div class="dlg-actions">
+      <button class="btn ghost" value="cancel">Cancel</button>
+      <button class="btn" value="dry" id="cDry">Preview</button>
+      <button class="btn primary" value="go" id="cGo">Publish</button>
+    </div>
+  </form>
+</dialog>
+
+<script src="/admin/admin.js" type="module"></script>
+</body>
+</html>

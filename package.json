@@ -35,5 +35,8 @@
     "html5",
     "open-source",
     "no-tracking"
-  ]
+  ],
+  "dependencies": {
+    "pg": "^8.23.0"
+  }
 }

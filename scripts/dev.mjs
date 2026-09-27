@@ -9,6 +9,7 @@ import { promisify } from 'node:util';
 import { ROOT, config, localApps } from './lib/apps.mjs';
 import { pages } from './build.mjs';
 import { ship, loadEnv, checkLive, assetBase, channels } from './lib/buffer.mjs';
+import { adminRoutes } from './lib/admin.mjs';
 import { active } from './lib/analytics.mjs';
 
 loadEnv();
@@ -200,6 +201,11 @@ const server = http.createServer(async (req, res) => {
     const url = new URL(req.url, `http://${req.headers.host}`);
     const p = decodeURIComponent(url.pathname);
     if (p.startsWith('/__studio/')) return await studioApi(req, res, url);
+    // The publish admin works locally too (same sign-in, state in .data/admin.json unless DATABASE_URL is set).
+    if (p === '/admin' || p.startsWith('/admin/index') || p === '/admin/' || p.startsWith('/__admin/')) {
+      const adapter = (rq, rs, code, body, type) => send(rs, code, body, type);
+      if (await adminRoutes(req, res, url, { send: adapter, TYPES, state: { apps: localApps().sort((a, b) => b.box - a.box) }, SECURITY: {} })) return;
+    }
 
     // Generated pages are rebuilt on each request so edits show up on refresh.
     const apps = localApps().sort((a, b) => b.box - a.box);

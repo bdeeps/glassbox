@@ -7,6 +7,9 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { ROOT, config } from './apps.mjs';
 import { channels, ship, alreadyPosted } from './buffer.mjs';
+import * as store from './store.mjs';
+import * as hoot from './hootsuite.mjs';
+import { settings, saveSettings, readiness, publishBox } from './publisher.mjs';
 
 const COOKIE = 'glassbox_admin';
 const TTL = 12 * 3600;
@@ -86,7 +89,7 @@ export async function adminRoutes(req, res, url, { send, TYPES, state, SECURITY 
     if (wait) return html(429, loginPage({ error: `Too many wrong codes. Try again in ${wait} minute${wait > 1 ? 's' : ''}.` })), true;
     const form = new URLSearchParams(await body(req, 4096).catch(() => ''));
     const given = (form.get('code') || '').trim();
-    const next = /^\/studio\/[\w/?=&.-]*$/.test(form.get('next') || '') ? form.get('next') : '/studio/';
+    const next = /^\/(studio|admin)\/[\w/?=&.-]*$/.test(form.get('next') || '') ? form.get('next') : '/admin/';
     const ok = same(crypto.createHash('sha256').update(given).digest('hex'), crypto.createHash('sha256').update(code()).digest('hex'));
     if (!ok) { fail(req); return html(401, loginPage({ error: 'That code is not right.', next })), true; }
     tries.delete(ipOf(req));
@@ -99,8 +102,17 @@ export async function adminRoutes(req, res, url, { send, TYPES, state, SECURITY 
     return res.end(), true;
   }
 
+  // The Admin (publish) page: sign-in first.
+  if (p === '/admin' || p === '/admin/' || p === '/admin/index.html') {
+    if (isAdmin(req)) return false;   // fall through to the static page
+    return html(adminEnabled() ? 200 : 503, loginPage({ error: adminEnabled() ? '' : 'The admin is switched off: set ADMIN_CODE on the server.', next: '/admin/' })), true;
+  }
+  if (p.startsWith('/__admin/')) return adminApi(req, res, url, { json, html, state, SECURITY });
+
   // The Studio page itself: sign-in first.
   if (p === '/studio' || p === '/studio/' || p === '/studio/index.html') {
+    // On the live site there is nothing to record: publishing lives at /admin/.
+    if (process.env.NODE_ENV === 'production') { res.writeHead(302, { Location: '/admin/', 'Cache-Control': 'no-store' }); return res.end(), true; }
     if (isAdmin(req)) return false;   // fall through to the static Studio page
     return html(adminEnabled() ? 200 : 503, loginPage({ error: adminEnabled() ? '' : 'The admin is switched off: set ADMIN_CODE on the server.', next: '/studio/' + url.search })), true;
   }
@@ -151,6 +163,83 @@ export async function adminRoutes(req, res, url, { send, TYPES, state, SECURITY 
     return json(405, { error: 'On the live site the admin publishes what is already in the box repos. Recording, saving media and changing settings happen in the admin on your computer (npm run dev).' }), true;
   }
   return json(404, { error: 'unknown studio endpoint' }), true;
+}
+
+// ---------------------------------------------------------------- the Admin (publish) API
+const origin = (req) => process.env.SITE_URL?.replace(/\/$/, '') || `${req.headers['x-forwarded-proto'] || 'http'}://${req.headers.host}`;
+let chanCache = null;
+async function bufferChannels() {
+  if (!process.env.BUFFER_API_KEY) return { ok: false, error: 'no API key', list: [] };
+  if (chanCache && Date.now() - chanCache.at < 5 * 60e3) return chanCache.v;
+  let v;
+  try { v = { ok: true, list: (await channels()).map((c) => ({ service: c.service, name: c.displayName || c.name })) }; } catch (e) { v = { ok: false, error: e.message, list: [] }; }
+  chanCache = { at: Date.now(), v };
+  return v;
+}
+let profCache = null;
+async function hootStatus() {
+  if (!(await hoot.connected().catch(() => false))) return { connected: false };
+  if (profCache && Date.now() - profCache.at < 5 * 60e3) return profCache.v;
+  let v;
+  try { v = { connected: true, profiles: (await hoot.profiles()).map((x) => ({ service: x.service, name: x.name, type: x.type })) }; } catch (e) { v = { connected: true, error: e.message, profiles: [] }; }
+  profCache = { at: Date.now(), v };
+  return v;
+}
+
+async function adminApi(req, res, url, { json, html, state }) {
+  const p = url.pathname;
+  // Hootsuite sends the browser back here. The admin cookie is SameSite=Strict, so it isn't
+  // sent on this cross-site redirect; the one-time state (made by a signed-in admin) proves it.
+  if (p === '/__admin/hootsuite/callback') {
+    const back = (q) => { res.writeHead(303, { Location: '/admin/?' + q, 'Cache-Control': 'no-store' }); res.end(); };
+    if (url.searchParams.get('error')) return back('hootsuite=' + encodeURIComponent(url.searchParams.get('error_description') || url.searchParams.get('error'))), true;
+    try { await hoot.finishConnect(url.searchParams.get('code') || '', url.searchParams.get('state') || ''); profCache = null; await store.log('Hootsuite connected', { provider: 'hootsuite' }); back('hootsuite=connected'); }
+    catch (e) { back('hootsuite=' + encodeURIComponent(e.message)); }
+    return true;
+  }
+  if (!p.startsWith('/__admin/api/')) return false;
+  if (!isAdmin(req)) return json(401, { error: 'Sign in to the admin first.' }), true;
+  if (req.method !== 'GET' && !sameOrigin(req)) return json(403, { error: 'cross-origin request refused' }), true;
+  const [action, arg] = p.slice('/__admin/api/'.length).split('/');
+  const apps = state.apps;
+
+  if (action === 'status') {
+    const [s, posted, hs, buf, log, kind] = await Promise.all([settings(), store.list('posted:'), hootStatus(), bufferChannels(), store.recent(30), store.storeKind()]);
+    const boxes = apps.map((a) => {
+      const r = readiness(a), rec = posted['posted:' + a.slug];
+      return { slug: a.slug, no: a.no, title: a.title, question: a.question, kind: a.kind, date: a.date, color: a.color, ready: r.ready, why: r.why || null,
+        posted: rec ? { at: rec.at, by: rec.by, ok: rec.results.filter((x) => !x.error && !x.skipped).length, total: rec.results.length } : null,
+        auto: s.auto && !s.baseline.includes(a.slug) };
+    });
+    return json(200, { settings: { auto: s.auto, when: s.when, since: s.since }, hootsuite: hs, buffer: buf, boxes, log, store: kind }), true;
+  }
+  if (action === 'settings' && req.method === 'POST') {
+    let b; try { b = JSON.parse(await body(req, 4096)); } catch { return json(400, { error: 'bad JSON' }), true; }
+    return json(200, await saveSettings(b, apps)), true;
+  }
+  if (action === 'publish' && req.method === 'POST') {
+    const box = apps.find((a) => a.slug === arg);
+    if (!box) return json(404, { error: 'unknown box' }), true;
+    res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store', 'X-Accel-Buffering': 'no' });
+    const log = (s) => res.write(s + '\n');
+    try {
+      await publishBox(box, { dry: url.searchParams.get('dry') === '1', force: url.searchParams.get('force') === '1', when: url.searchParams.get('when') || undefined, log });
+    } catch (e) { log('✗ ' + e.message); }
+    return res.end(), true;
+  }
+  if (action === 'hootsuite' && arg === 'connect' && req.method === 'POST') {
+    try { return json(200, { url: await hoot.connectUrl(origin(req) + '/__admin/hootsuite/callback') }), true; }
+    catch (e) { return json(502, { error: e.message }), true; }
+  }
+  if (action === 'hootsuite' && arg === 'disconnect' && req.method === 'POST') {
+    await hoot.disconnect(); profCache = null; await store.log('Hootsuite disconnected', { provider: 'hootsuite' });
+    return json(200, { ok: true }), true;
+  }
+  if (action === 'hootsuite' && arg === 'tools') {
+    try { return json(200, { tools: (await hoot.tools()).map((t) => ({ name: t.name, description: t.description, inputSchema: t.inputSchema })) }), true; }
+    catch (e) { return json(502, { error: e.message }), true; }
+  }
+  return json(404, { error: 'unknown admin endpoint' }), true;
 }
 
 export { ROOT };

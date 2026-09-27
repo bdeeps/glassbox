@@ -20,7 +20,7 @@ export function pages(all) {
     'feed.xml': R.feed(apps),
     'sitemap.xml': R.sitemap(all),
     'apps.json': R.appsJson(all),
-    'robots.txt': `User-agent: *\nDisallow: /studio/\nSitemap: https://${config.domain}/sitemap.xml\n`,
+    'robots.txt': `User-agent: *\nDisallow: /studio/\nDisallow: /admin/\nSitemap: https://${config.domain}/sitemap.xml\n`,
     'concepts/index.html': R.conceptsPage(all),
     'privacy/index.html': L.privacy(all),
     'terms/index.html': L.terms(),
