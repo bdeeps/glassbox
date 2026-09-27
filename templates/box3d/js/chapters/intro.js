@@ -4,7 +4,7 @@ import { M, rod, sphere, clamp } from '../kit.js';
 export default {
   id: 'intro',
   short: 'Start here',
-  title: '{{QUESTION}}',
+  title: {{QUESTION_JSON}},
   subtitle: 'Replace this chapter with the first idea.',
   view: { pos: [4, 3, 6], target: [0, 1, 0] },
   learn: `<p>Explain the idea in two or three short paragraphs. Use <b>bold</b> for the words that matter.</p>

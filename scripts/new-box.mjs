@@ -45,7 +45,7 @@ const dir = path.resolve(ROOT, '..', slug);
 if (fs.existsSync(dir)) { console.error(`${dir} already exists`); process.exit(1); }
 
 const vars = {
-  SLUG: slug, TITLE: title, TITLE_LOWER: title.toLowerCase(), QUESTION: question, NO: kind === 'principle' ? `L${String(box).padStart(2, '0')}` : String(box).padStart(3, '0'), COLOR: color, COLOR_URL: encodeURIComponent(color),
+  SLUG: slug, TITLE: title, TITLE_JSON: JSON.stringify(title), TITLE_LOWER: title.toLowerCase(), QUESTION: question, QUESTION_JSON: JSON.stringify(question), NO: kind === 'principle' ? `L${String(box).padStart(2, '0')}` : String(box).padStart(3, '0'), COLOR: color, COLOR_URL: encodeURIComponent(color),
   DOMAIN: config.domain, ORG: config.org, HUB_REPO: config.hubRepo,
 };
 const fill = (s) => s.replace(/\{\{([A-Z_]+)\}\}/g, (m, k) => vars[k] ?? m);
