@@ -89,7 +89,13 @@ async function rpc(method, params, { notify = false } = {}) {
   if (session?.id) headers['Mcp-Session-Id'] = session.id;
   if (session?.version) headers['MCP-Protocol-Version'] = session.version;
   const msg = { jsonrpc: '2.0', method, ...(params ? { params } : {}), ...(notify ? {} : { id: crypto.randomInt(1e9) }) };
-  const res = await fetch(MCP, { method: 'POST', headers, body: JSON.stringify(msg) });
+  let res;
+  for (let i = 0; ; i++) {
+    res = await fetch(MCP, { method: 'POST', headers, body: JSON.stringify(msg) });
+    if (res.status !== 429 || i >= 6) break;
+    await new Promise((ok) => setTimeout(ok, (Number(res.headers.get('retry-after')) || 5 * 2 ** i) * 1000));   // rate limited: back off
+  }
+  if (res.status === 429) throw new Error('Hootsuite is rate-limiting us; try again in a few minutes');
   if (res.status === 404 && session && method !== 'initialize') { session = null; return rpc(method, params, { notify }); }
   if (res.status === 401) throw new Error('Hootsuite sign-in has expired: click Connect Hootsuite again.');
   const sid = res.headers.get('mcp-session-id');
@@ -134,7 +140,12 @@ async function call(name, args) {
 // ---- publishing through the REST API
 const API = 'https://platform.hootsuite.com/v1';
 async function rest(pathname, opts = {}) {
-  const res = await fetch(API + pathname, { ...opts, headers: { Authorization: `Bearer ${await accessToken()}`, ...(opts.body ? { 'Content-Type': 'application/json' } : {}), ...(opts.headers || {}) } });
+  let res;
+  for (let i = 0; ; i++) {
+    res = await fetch(API + pathname, { ...opts, headers: { Authorization: `Bearer ${await accessToken()}`, ...(opts.body ? { 'Content-Type': 'application/json' } : {}), ...(opts.headers || {}) } });
+    if (res.status !== 429 || i >= 6) break;
+    await new Promise((ok) => setTimeout(ok, (Number(res.headers.get('retry-after')) || 5 * 2 ** i) * 1000));
+  }
   const text = await res.text();
   let body; try { body = JSON.parse(text); } catch { body = { raw: text }; }
   if (!res.ok) throw new Error(`Hootsuite ${res.status}: ${(body.errors || []).map((e) => e.message).join('; ') || text.slice(0, 300)}`);
@@ -160,7 +171,7 @@ async function upload({ path: file, name }, log) {
     const st = await rest('/media/' + encodeURIComponent(slot.id));
     if (st.state === 'READY') return slot.id;
     if (/FAIL|ERROR/i.test(st.state || '')) throw new Error(`Hootsuite couldn't process ${name}`);
-    await new Promise((ok) => setTimeout(ok, 3000));
+    await new Promise((ok) => setTimeout(ok, 6000));
   }
   throw new Error(`Hootsuite is still processing ${name}; try again in a few minutes`);
 }
@@ -198,7 +209,7 @@ async function perchDraft(p, when, log) {
     const put = await fetch(slot.uploadUrl, { method: 'PUT', headers: { 'Content-Type': mimeType }, body: bytes });
     if (!put.ok) throw new Error(`upload of ${f.name} failed (${put.status})`);
     let ready = null;
-    for (let i = 0; i < 40 && !ready; i++) { const r = await perch('poll_media_upload', { mediaId: slot.mediaId }); if (r.ready) { const { ready: _, ...fields } = r; ready = fields; } else await new Promise((ok) => setTimeout(ok, 3000)); }
+    for (let i = 0; i < 40 && !ready; i++) { const r = await perch('poll_media_upload', { mediaId: slot.mediaId }); if (r.ready) { const { ready: _, ...fields } = r; ready = fields; } else await new Promise((ok) => setTimeout(ok, 6000)); }
     if (!ready) throw new Error(`Hootsuite is still processing ${f.name}`);
     media.push(ready);
   }

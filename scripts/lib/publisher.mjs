@@ -86,7 +86,10 @@ export async function publishBox(box, { dry = false, force = false, when, log = 
   if (!dry && !(await store.claim('publishing:' + box.slug, { by }))) throw new Error(`${box.slug} is being published right now.`);
   try {
     const plan = { ...r.plan, slug: box.slug };
-    const all = targetsOf(plan, when, box.dir);
+    let all = targetsOf(plan, when, box.dir);
+    // "Publish again" retries only what didn't go out last time, so nothing is posted twice.
+    const doneBefore = new Set((prev?.results || []).filter((x) => !x.error && !x.skipped && !x.dry).map((x) => x.target));
+    if (prev && force && doneBefore.size) { all = all.filter((p) => !doneBefore.has(p.target)); log(`already out: ${[...doneBefore].join(', ')} (not posted again)`); }
     const useHoot = await hoot.connected().catch(() => false);
     let hootProfiles = [];
     if (useHoot) { try { hootProfiles = await hoot.profiles(); } catch (e) { log(`⚠ Hootsuite: ${e.message} (using Buffer instead)`); } }
@@ -128,8 +131,9 @@ export async function publishBox(box, { dry = false, force = false, when, log = 
 
     const posted = results.filter((x) => !x.error && !x.skipped && !x.dry);
     if (dry) { log('dry run: nothing was sent'); return { dry: true, results }; }
-    if (!posted.length) throw new Error('nothing was published: add these networks to your Hootsuite account');
-    const rec = { at: new Date().toISOString(), when, by, results };
+    if (!posted.length) throw new Error(doneBefore.size ? 'nothing new was published' : 'nothing was published: add these networks to your Hootsuite account');
+    const kept = (prev?.results || []).filter((x) => doneBefore.has(x.target));
+    const rec = { at: new Date().toISOString(), when, by, results: [...kept, ...results] };
     await store.set('posted:' + box.slug, rec);
     await store.log(`published ${posted.length} of ${results.length} target(s)`, { slug: box.slug, provider: [...new Set(posted.map((x) => x.provider))].join('+'), ok: posted.length === results.length });
     log(`done: ${posted.length} of ${results.length} target(s) published`);

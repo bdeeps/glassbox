@@ -48,7 +48,7 @@ function renderList() {
       : x.ready ? '<span class="st ready">Ready</span>' : `<span class="st no">${esc(x.why)}</span>`;
     return `<li style="--c:${esc(x.color)}"><span class="no">${x.kind === 'principle' ? '' : 'No. '}${esc(x.no)}</span>
       <span class="t"><b>${esc(x.question)}</b>${state}</span>
-      <button class="btn small ${x.posted ? 'ghost' : 'primary'}" data-slug="${esc(x.slug)}" ${x.ready ? '' : 'disabled'}>${x.posted ? 'Publish again' : 'Publish'}</button></li>`;
+      <button class="btn small ${x.posted ? 'ghost' : 'primary'}" data-slug="${esc(x.slug)}" ${x.ready ? '' : 'disabled'}>${x.posted ? (x.posted.ok < x.posted.total ? 'Retry the rest' : 'Publish again') : 'Publish'}</button></li>`;
   }).join('') || '<li class="empty-a">No box matches.</li>';
 }
 
@@ -64,7 +64,7 @@ async function publish(slug, { dry, force }) {
     const reader = res.body.getReader(), dec = new TextDecoder();
     for (;;) { const { value, done } = await reader.read(); if (done) break; out.textContent += dec.decode(value, { stream: true }); out.scrollTop = out.scrollHeight; }
     const failed = /\n?✗ /.test(out.textContent) && !/done:/.test(out.textContent);
-    flash(dry ? 'Preview only: nothing was sent.' : failed ? 'Publishing failed: see the log below.' : 'Published.', failed);
+    flash(dry ? 'Preview only: nothing was sent.' : failed ? 'Publishing failed: see the log below.' : /draft/.test(out.textContent) ? 'Done. YouTube posts are drafts in your Hootsuite Planner: open Hootsuite and press Schedule on each.' : 'Published.', failed);
   } catch (e) { flash(e.message, true); }
   busy = false;
   await load();
@@ -85,7 +85,7 @@ $('#list').addEventListener('click', (e) => {
   };
   dlg.showModal();
 });
-$('#cGo').addEventListener('click', (e) => { if (!$('#againRow').hidden && !$('#again').checked) { e.preventDefault(); $('#again').focus(); flash('Tick "Publish again" to post this box a second time.', true); } });
+$('#cGo').addEventListener('click', (e) => { if (!$('#againRow').hidden && !$('#again').checked) { e.preventDefault(); $('#again').focus(); flash('Tick the box to publish the parts that didn\'t go out.', true); } });
 
 $('#auto').addEventListener('change', async (e) => {
   const on = e.target.checked;
