@@ -15,6 +15,7 @@ import { pages } from './build.mjs';
 import { csp } from './lib/analytics.mjs';
 import { adminRoutes } from './lib/admin.mjs';
 import { autoPublish } from './lib/publisher.mjs';
+import { niceName } from './lib/buffer.mjs';
 
 const PORT = Number(process.env.PORT || 8080);
 const BOXES = path.join(process.env.BOXES_DIR || path.join(ROOT, '.boxes'));
@@ -262,6 +263,13 @@ const server = http.createServer(async (req, res) => {
     const box = state.apps.find((a) => a.slug === seg);
     if (box) {
       if (p === `/${seg}`) { res.writeHead(301, { Location: `/${seg}/`, ...SECURITY }); return res.end(); }
+      // /<slug>/media/<descriptive-name> → the matching file in glassbox/ (what social posts link to).
+      const mm = p.match(/^\/[\w-]+\/media\/([\w.-]+)$/);
+      if (mm) {
+        let plan = null; try { plan = JSON.parse(fs.readFileSync(path.join(box.dir, 'glassbox', 'post.json'), 'utf8')); } catch {}
+        const file = plan && Object.values(plan.assets || {}).flat().find((f) => typeof f === 'string' && niceName({ ...plan, slug: box.slug }, f) === mm[1]);
+        if (file && serveFile(req, res, path.join(box.dir, 'glassbox', file), box.dir)) return;
+      }
       // Keep repo plumbing private-ish: no dotfiles, no git metadata.
       if (!p.split('/').some((s) => s.startsWith('.'))) {
         const f = inside(box.dir, p.slice(seg.length + 1));

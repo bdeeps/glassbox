@@ -8,7 +8,7 @@ import path from 'node:path';
 import { config } from './apps.mjs';
 import * as store from './store.mjs';
 import * as hoot from './hootsuite.mjs';
-import { channels, buildPosts, createPost, checkLive, assetBase } from './buffer.mjs';
+import { channels, buildPosts, createPost, checkLive, mediaUrl, niceName } from './buffer.mjs';
 
 const DEFAULTS = { auto: false, when: 'auto', baseline: [], since: null };
 export const settings = async () => ({ ...DEFAULTS, ...((await store.get('settings')) || {}) });
@@ -41,30 +41,35 @@ export function readiness(box) {
 
 // Provider-neutral posts: one per enabled target, with its words, media and time.
 function targetsOf(plan, when, dir) {
-  const base = assetBase(plan.slug), A = plan.assets || {}, c = plan.captions || {};
+  const A = plan.assets || {}, c = plan.captions || {};
   const start = plan.schedule?.at ? Date.parse(plan.schedule.at) : NaN;
   const out = [];
   for (const t of plan.targets || config.post.targets) {
     if (t.enabled === false) continue;
-    const at = when === 'now' ? null : when === 'queue' ? null : (start + (t.offsetHours || 0) * 3600e3 > Date.now() + 10 * 60e3 ? new Date(start + (t.offsetHours || 0) * 3600e3).toISOString() : null);
-    const reel = A.reel && [base + A.reel], video = A.video && [base + A.video];
+    const off = start + (t.offsetHours || 0) * 3600e3;
+    const at = when === 'auto' && off > Date.now() + 10 * 60e3 ? new Date(off).toISOString() : null;
+    const reel = A.reel && [A.reel], video = A.video && [A.video], hist = A.historyReel && [A.historyReel];
+    const yt = (cap, files) => cap && files && { title: (cap.title || '').slice(0, 100), text: cap.description, files };
     const map = {
-      'instagram:reel': reel && { text: c.instagram, media: reel },
-      'instagram:carousel': A.slides?.length && { text: c.carousel || c.instagram, media: A.slides.slice(0, 10).map((f) => base + f) },
-      'instagram:history-reel': A.historyReel && c.history && { text: c.history.instagram, media: [base + A.historyReel] },
-      'instagram:history-carousel': A.historySlides?.length && c.history && { text: c.history.instagram, media: A.historySlides.slice(0, 10).map((f) => base + f) },
-      'youtube:short': reel && c.youtube && { title: (c.youtube.title || '').slice(0, 100), text: c.youtube.description, media: reel },
-      'youtube:video': video && c.youtubeLong && { title: (c.youtubeLong.title || '').slice(0, 100), text: c.youtubeLong.description, media: video },
-      'youtube:history-short': A.historyReel && c.history?.youtube && { title: (c.history.youtube.title || '').slice(0, 100), text: c.history.youtube.description, media: [base + A.historyReel] },
-      'linkedin:video': video && { text: c.linkedin, media: video },
-      'twitter:video': video && { text: (c.short || '').slice(0, 280), media: video },
-      'facebook:video': reel && { text: c.linkedin, media: reel },
-      'tiktok:video': reel && { text: c.linkedin, media: reel },
-      'threads:video': reel && { text: c.linkedin, media: reel },
+      'instagram:reel': reel && { text: c.instagram, files: reel },
+      'instagram:carousel': A.slides?.length && { text: c.carousel || c.instagram, files: A.slides.slice(0, 10) },
+      'instagram:history-reel': hist && c.history && { text: c.history.instagram, files: hist },
+      'instagram:history-carousel': A.historySlides?.length && c.history && { text: c.history.instagram, files: A.historySlides.slice(0, 10) },
+      'youtube:short': yt(c.youtube, reel),
+      'youtube:video': yt(c.youtubeLong, video),
+      'youtube:history-short': yt(c.history?.youtube, hist),
+      'linkedin:video': video && { text: c.linkedin, files: video },
+      'twitter:video': video && { text: (c.short || '').slice(0, 280), files: video },
+      'facebook:video': reel && { text: c.linkedin, files: reel },
+      'tiktok:video': reel && { text: c.linkedin, files: reel },
+      'threads:video': reel && { text: c.linkedin, files: reel },
     };
     const key = `${t.service}:${t.kind}`;
     const m = map[key] || {};
-    out.push({ target: key, service: t.service, kind: t.kind, at, ...m, files: (m.media || []).map((u) => path.join(dir, 'glassbox', u.slice(base.length))), raw: t });
+    const names = m.files || [];
+    out.push({ target: key, service: t.service, kind: t.kind, at, title: m.title, text: m.text,
+      media: names.length ? names.map((f) => mediaUrl(plan, f)) : undefined,
+      files: names.map((f) => ({ path: path.join(dir, 'glassbox', f), name: niceName(plan, f) })), raw: t });
   }
   return out;
 }

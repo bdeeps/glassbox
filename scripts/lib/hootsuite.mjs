@@ -148,20 +148,20 @@ export async function profiles() {
 }
 
 const MIME = { mp4: 'video/mp4', jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif' };
-async function upload(file, log) {
+async function upload({ path: file, name }, log) {
   const fs = await import('node:fs');
   const bytes = fs.readFileSync(file);
-  const mimeType = MIME[file.split('.').pop().toLowerCase()];
+  const mimeType = MIME[name.split('.').pop().toLowerCase()];
   const slot = await rest('/media', { method: 'POST', body: JSON.stringify({ sizeBytes: bytes.length, mimeType }) });
   const put = await fetch(slot.uploadUrl, { method: 'PUT', headers: { 'Content-Type': mimeType, 'Content-Length': String(bytes.length) }, body: bytes });
-  if (!put.ok) throw new Error(`upload of ${file.split('/').pop()} failed (${put.status})`);
+  if (!put.ok) throw new Error(`upload of ${name} failed (${put.status})`);
   for (let i = 0; i < 60; i++) {
     const st = await rest('/media/' + encodeURIComponent(slot.id));
     if (st.state === 'READY') return slot.id;
-    if (/FAIL|ERROR/i.test(st.state || '')) throw new Error(`Hootsuite couldn't process ${file.split('/').pop()}`);
+    if (/FAIL|ERROR/i.test(st.state || '')) throw new Error(`Hootsuite couldn't process ${name}`);
     await new Promise((ok) => setTimeout(ok, 3000));
   }
-  throw new Error(`Hootsuite is still processing ${file.split('/').pop()}; try again in a few minutes`);
+  throw new Error(`Hootsuite is still processing ${name}; try again in a few minutes`);
 }
 
 // posts: [{ target, service, text, title?, files: [local paths], at }]
@@ -176,12 +176,12 @@ export async function publish(posts, { dry = false, log = console.log } = {}) {
     const earliest = Date.now() + 20 * 60e3;
     const when = new Date(Math.max(p.at ? Date.parse(p.at) : 0, earliest)).toISOString().replace(/\.\d+Z$/, '.000Z');
     const text = p.title ? `${p.title}\n\n${p.text}` : p.text;
-    if (dry) { log(`  • ${p.target.padEnd(20)} → Hootsuite ${targets.map((t) => t.name).join(', ')} at ${when} (${p.files.length} file${p.files.length === 1 ? '' : 's'})`); results.push({ target: p.target, dry: true }); continue; }
+    if (dry) { log(`  • ${p.target.padEnd(20)} → Hootsuite ${targets.map((t) => t.name).join(', ')} at ${when}: ${p.files.map((f) => f.name).join(', ')}`); results.push({ target: p.target, dry: true }); continue; }
     try {
       const media = [];
       for (const f of p.files) {
-        if (!uploaded.has(f)) { log(`    uploading ${f.split('/').pop()}…`); uploaded.set(f, await upload(f, log)); }
-        media.push({ id: uploaded.get(f) });
+        if (!uploaded.has(f.path)) { log(`    uploading ${f.name}…`); uploaded.set(f.path, await upload(f, log)); }
+        media.push({ id: uploaded.get(f.path) });
       }
       const msgs = await rest('/messages', { method: 'POST', body: JSON.stringify({ text, socialProfileIds: targets.map((t) => t.id), scheduledSendTime: when, media, emailNotification: false }) });
       const ids = (Array.isArray(msgs) ? msgs : [msgs]).map((m) => m.id);

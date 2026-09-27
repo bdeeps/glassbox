@@ -42,6 +42,18 @@ export async function channels() {
 
 export const assetBase = (slug) => `${SITE}/${slug}/glassbox/`;
 
+// Media go out under descriptive names (how-do-the-kidneys-work-glassbox-short.mp4, not reel.mp4):
+// the hub serves /<slug>/media/<name> from the box's glassbox/ folder.
+const KIND = { 'reel.mp4': 'short', 'video.mp4': 'video', 'history-reel.mp4': 'history-short', 'cover.jpg': 'cover', 'thumb.jpg': 'thumbnail', 'still.jpg': 'still' };
+const slugify = (s) => String(s).toLowerCase().replace(/['’]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 70).replace(/-$/, '');
+export function niceName(plan, f) {
+  const base = `${slugify(plan.question || plan.slug)}-glassbox`;
+  if (KIND[f]) return `${base}-${KIND[f]}.${f.split('.').pop()}`;
+  const m = f.match(/^(history-)?slide-(\d+)\.(jpg|png)$/);
+  return m ? `${base}-${m[1] ? 'history-' : ''}slide-${m[2]}.${m[3]}` : `${base}-${f}`;
+}
+export const mediaUrl = (plan, f) => `${SITE}/${plan.slug}/media/${niceName(plan, f)}`;
+
 export async function fetchPlan(slug) {
   const res = await fetch(assetBase(slug) + 'post.json', { cache: 'no-store' });
   if (!res.ok) throw new Error(`post.json is not live yet at ${assetBase(slug)}post.json (${res.status}). Push the box repo and wait for Pages.`);
@@ -65,7 +77,7 @@ const clip = (s, n) => (s.length > n ? s.slice(0, n - 1).trimEnd() + '…' : s);
 export function buildPosts(plan, chans, { mode = 'schedule' } = {}) {
   const base = assetBase(plan.slug);
   const A = plan.assets || {};
-  const u = (f) => base + f;
+  const u = (f) => mediaUrl(plan, f);
   const c = plan.captions;
   const video = (f, extra = {}) => ({ video: { url: u(f), ...extra } });
   const at = plan.schedule?.at ? new Date(plan.schedule.at) : null;
