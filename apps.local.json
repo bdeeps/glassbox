@@ -6,6 +6,14 @@
     "../fanclear",
     "../acclear",
     "../pianoclear",
-    "../carclear"
+    "../carclear",
+    "../microwaveclear",
+    "../upsclear",
+    "../roclear",
+    "../chimneyclear",
+    "../washerclear",
+    "../dishwasherclear",
+    "../tvclear",
+    "../fridgeclear"
   ]
 }
