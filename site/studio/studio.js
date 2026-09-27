@@ -127,7 +127,7 @@ async function openBox(slug, w, h, setup = true) {
   f.setAttribute('aria-hidden', 'true');
   f.src = `/${slug}/?reel=1`;
   document.body.appendChild(f);
-  await new Promise((r, j) => { f.onload = r; setTimeout(() => j(new Error('The box took too long to load.')), 30000); });
+  await new Promise((r, j) => { f.onload = r; setTimeout(() => j(new Error('The box took too long to load.')), 90000); });
   const t0 = Date.now();
   while (!f.contentWindow.glassbox?.director) {
     if (Date.now() - t0 > 20000) { f.remove(); throw new Error('This box has no window.glassbox.director.'); }
