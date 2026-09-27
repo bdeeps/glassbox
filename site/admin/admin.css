@@ -59,3 +59,8 @@
   .list-a li { grid-template-columns: 1fr auto; }
   .list-a .no { grid-column: 1 / -1; }
 }
+
+.prov > div, .card-a { min-width: 0; }
+.adm .sub { overflow-wrap: anywhere; }
+.ws { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.ws select { height: 34px; padding: 0 10px; border-radius: 10px; border: 1px solid rgba(255,255,255,.15); background: #0d0f16; color: var(--text); font: 400 14px var(--sans); }

@@ -2,7 +2,8 @@
 // Connecting is one click in the admin: the server registers itself with Hootsuite's OAuth
 // (dynamic client registration, PKCE, no client secret), you sign in to your Hootsuite
 // workspace once, and the refresh token is kept in the admin store.
-// Perch publishes to Instagram, Facebook, LinkedIn, X and TikTok; YouTube stays with Buffer.
+// Perch can't publish by itself: it saves each post as a draft in the Hootsuite Planner (media
+// attached, at the planned time) for Instagram, Facebook, LinkedIn, X and TikTok. YouTube stays with Buffer.
 import crypto from 'node:crypto';
 import * as store from './store.mjs';
 
@@ -117,59 +118,77 @@ async function call(name, args) {
   try { return JSON.parse(text); } catch { return { text }; }
 }
 
-// ---- mapping Glassbox posts onto Perch's tools
-// Perch's tool names and argument shapes are read from its own tool list at run time,
-// so a renamed field shows up as a clear error (and in the dry run) rather than a bad post.
-const pick = (list, ...res) => { for (const re of res) { const t = list.find((x) => re.test(x.name)); if (t) return t; } return null; };
-const propsOf = (t) => t?.inputSchema?.properties || {};
-const findProp = (t, re) => Object.keys(propsOf(t)).find((k) => re.test(k));
+// ---- Perch's tools (names as Hootsuite ships them; the prefix is its internal service name)
+// Perch cannot publish: it saves drafts in the Hootsuite Planner at the planned time, with the
+// media attached, and you press Schedule/Publish in Hootsuite. Glassbox fills those drafts.
+const T = (list, suffix) => list.find((t) => t.name.endsWith('_' + suffix) && t.name.startsWith('create-mcp'))?.name || list.find((t) => t.name.endsWith('_' + suffix))?.name;
+const need = async (suffix) => { const n = T(await tools(), suffix); if (!n) throw new Error(`Hootsuite no longer offers ${suffix}`); return n; };
 
-const NETWORK = { instagram: /insta/i, facebook: /facebook|^fb/i, linkedin: /linkedin/i, twitter: /twitter|^x$|x_/i, tiktok: /tiktok/i };
-
-export async function profiles() {
-  const list = await tools();
-  const t = pick(list, /list.*(social.?)?profiles?/i, /get.*profiles?/i, /profiles?/i, /accounts?|channels?/i);
-  if (!t) throw new Error(`Perch has no profile-listing tool (tools: ${list.map((x) => x.name).join(', ')})`);
-  const out = await call(t.name, {});
-  const arr = Array.isArray(out) ? out : Object.values(out).find(Array.isArray) || [];
-  return arr.map((p) => {
-    const type = String(p.type || p.network || p.socialNetwork || p.platform || p.socialProfileType || '');
-    const service = Object.keys(NETWORK).find((s) => NETWORK[s].test(type)) || null;
-    return { id: String(p.id ?? p.socialProfileId ?? p.profileId), name: p.name || p.username || p.socialNetworkUsername || p.displayName || type, type, service };
-  }).filter((p) => p.id && p.id !== 'undefined');
+export async function workspaces() {
+  const out = await call(await need('get_entitled_workspaces'), {});
+  const arr = Array.isArray(out) ? out : out.workspaces || Object.values(out).find(Array.isArray) || [];
+  return arr.map((w) => {
+    const scope = w.workspaceScope || w;
+    return { scope, name: scope.organizationName || w.name || w.organizationName || 'Personal workspace', personal: scope.organizationId == null };
+  });
+}
+export const workspace = () => store.get('hootsuite:workspace');
+export async function chooseWorkspace(index) {
+  const list = await workspaces();
+  const w = list[index];
+  if (!w) throw new Error('unknown workspace');
+  await store.set('hootsuite:workspace', w);
+  return w;
 }
 
-// posts: [{ target, service, text, media: [urls], at: ISO|null, title? }]
+const NET = { instagram: /INSTAGRAM/i, facebook: /FACEBOOK/i, linkedin: /LINKEDIN/i, twitter: /TWITTER|^X$/i, tiktok: /TIKTOK/i, youtube: /YOUTUBE/i, threads: /THREADS/i, pinterest: /PINTEREST/i };
+
+export async function profiles() {
+  const w = await workspace();
+  if (!w) throw new Error('choose a Hootsuite workspace first');
+  const out = await call(await need('get_social_profiles'), { workspaceScope: w.scope });
+  const arr = Array.isArray(out) ? out : out.socialProfiles || out.profiles || Object.values(out).find(Array.isArray) || [];
+  return arr.map((p) => ({ raw: p, id: String(p.socialProfileId ?? p.id), name: p.name || p.username || String(p.socialProfileId), type: p.networkType || p.type || '', service: Object.keys(NET).find((k) => NET[k].test(p.networkType || p.type || '')) || null }));
+}
+
+const MIME = { mp4: 'video/mp4', mov: 'video/quicktime', jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif' };
+async function upload(file, log) {
+  const fs = await import('node:fs');
+  const bytes = fs.readFileSync(file);
+  const mimeType = MIME[file.split('.').pop().toLowerCase()];
+  const slot = await call(await need('request_media_upload'), { mimeType, sizeBytes: bytes.length });
+  const put = await fetch(slot.uploadUrl, { method: 'PUT', headers: { 'Content-Type': mimeType }, body: bytes });
+  if (!put.ok) throw new Error(`upload of ${file.split('/').pop()} failed (${put.status})`);
+  const poll = await need('poll_media_upload');
+  for (let i = 0; i < 40; i++) {
+    const r = await call(poll, { mediaId: slot.mediaId });
+    if (r.ready) { const { ready, ...fields } = r; return fields; }
+    await new Promise((ok) => setTimeout(ok, 3000));
+  }
+  throw new Error(`Hootsuite is still processing ${file.split('/').pop()}; try again in a minute`);
+}
+
+// posts: [{ target, service, text, files: [local paths], at }]
 export async function publish(posts, { dry = false, log = console.log } = {}) {
-  const list = await tools();
-  const create = pick(list, /schedule.*(post|message)/i, /create.*(post|message)/i, /publish/i, /(post|message).*create/i);
-  if (!create) throw new Error(`Perch has no create-post tool (tools: ${list.map((x) => x.name).join(', ')})`);
-  const upload = pick(list, /upload.*media/i, /media.*upload/i, /create.*media/i);
+  const w = await workspace();
   const profs = await profiles();
-  const P = {
-    text: findProp(create, /^(text|content|message|body|caption)$/i) || findProp(create, /text|content|caption|message/i),
-    profiles: findProp(create, /profile.*ids?|social.*ids?|channel.*ids?|account.*ids?/i),
-    time: findProp(create, /sched|send.?time|publish.?at|date|time/i),
-    media: findProp(create, /media|asset|attachment|image|video|url/i),
-  };
-  const req = create.inputSchema?.required || [];
-  const unmapped = req.filter((k) => !Object.values(P).includes(k));
-  if (unmapped.length) throw new Error(`Perch's ${create.name} needs ${unmapped.join(', ')}, which Glassbox doesn't know how to fill yet. Schema: ${JSON.stringify(create.inputSchema).slice(0, 600)}`);
+  const create = await need('create_draft');
+  const uploaded = new Map();
   const results = [];
   for (const p of posts) {
     const targets = profs.filter((x) => x.service === p.service);
     if (!targets.length) { results.push({ target: p.target, skipped: `no ${p.service} profile in Hootsuite` }); continue; }
-    let media = p.media;
-    if (P.media && upload && !dry && /id/i.test(P.media)) {
-      media = [];
-      for (const u of p.media) { const r = await call(upload.name, { [findProp(upload, /url/i) || 'url']: u }); media.push(r.id || r.mediaId || r.data?.id); }
-    }
-    const args = { [P.text]: p.text, ...(P.profiles ? { [P.profiles]: targets.map((t) => t.id) } : {}), ...(P.time && p.at ? { [P.time]: p.at } : {}), ...(P.media && media.length ? { [P.media]: /s$|ids$/i.test(P.media) || propsOf(create)[P.media]?.type === 'array' ? media : media[0] } : {}) };
-    if (dry) { log(`  • ${p.target.padEnd(20)} → Hootsuite ${targets.map((t) => t.name).join(', ')} via ${create.name}`); results.push({ target: p.target, dry: true, tool: create.name, args }); continue; }
+    const when = p.at || new Date(Date.now() + 30 * 60e3).toISOString();
+    if (dry) { log(`  • ${p.target.padEnd(20)} → Hootsuite draft for ${targets.map((t) => t.name).join(', ')} at ${when} (${p.files.length} file${p.files.length === 1 ? '' : 's'})`); results.push({ target: p.target, dry: true }); continue; }
     try {
-      const r = await call(create.name, args);
-      results.push({ target: p.target, provider: 'hootsuite', id: r.id || r.messageId || r.data?.id || null, profiles: targets.map((t) => t.name) });
-      log(`  ✓ ${p.target} → Hootsuite (${targets.map((t) => t.name).join(', ')})`);
+      const media = [];
+      for (const f of p.files) {
+        if (!uploaded.has(f)) { log(`    uploading ${f.split('/').pop()} to Hootsuite…`); uploaded.set(f, await upload(f, log)); }
+        media.push(uploaded.get(f));
+      }
+      const r = await call(create, { workspaceScope: w.scope, socialProfiles: targets.map((t) => t.raw), text: p.text, scheduledDate: when, mediaAttachments: media });
+      results.push({ target: p.target, provider: 'hootsuite', draft: true, id: r.id || r.draftId || r.draft?.id || null, profiles: targets.map((t) => t.name) });
+      log(`  ✓ ${p.target} → Hootsuite draft (${targets.map((t) => t.name).join(', ')}) for ${when}`);
     } catch (e) {
       results.push({ target: p.target, provider: 'hootsuite', error: e.message });
       log(`  ✗ ${p.target} (Hootsuite): ${e.message}`);

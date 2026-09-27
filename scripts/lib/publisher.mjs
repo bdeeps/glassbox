@@ -40,7 +40,7 @@ export function readiness(box) {
 }
 
 // Provider-neutral posts: one per enabled target, with its words, media and time.
-function targetsOf(plan, when) {
+function targetsOf(plan, when, dir) {
   const base = assetBase(plan.slug), A = plan.assets || {}, c = plan.captions || {};
   const start = plan.schedule?.at ? Date.parse(plan.schedule.at) : NaN;
   const out = [];
@@ -60,7 +60,8 @@ function targetsOf(plan, when) {
       'threads:video': reel && { text: c.linkedin, media: reel },
     };
     const key = `${t.service}:${t.kind}`;
-    out.push({ target: key, service: t.service, kind: t.kind, at, ...(map[key] || {}), raw: t });
+    const m = map[key] || {};
+    out.push({ target: key, service: t.service, kind: t.kind, at, ...m, files: (m.media || []).map((u) => path.join(dir, 'glassbox', u.slice(base.length))), raw: t });
   }
   return out;
 }
@@ -76,14 +77,14 @@ export async function publishBox(box, { dry = false, force = false, when, log = 
   if (!dry && !(await store.claim('publishing:' + box.slug, { by }))) throw new Error(`${box.slug} is being published right now.`);
   try {
     const plan = { ...r.plan, slug: box.slug };
-    const all = targetsOf(plan, when);
-    const useHoot = await hoot.connected().catch(() => false);
+    const all = targetsOf(plan, when, box.dir);
+    const useHoot = (await hoot.connected().catch(() => false)) && !!(await hoot.workspace());
     let hootProfiles = [];
     if (useHoot) { try { hootProfiles = await hoot.profiles(); } catch (e) { log(`⚠ Hootsuite: ${e.message} (using Buffer instead)`); } }
     const viaHoot = all.filter((p) => p.media && hoot.SERVICES.includes(p.service) && hootProfiles.some((x) => x.service === p.service));
     const viaBuffer = all.filter((p) => !viaHoot.includes(p));
     log(`${box.slug}: ${all.length} target(s) · ${when === 'now' ? 'posting now' : when === 'queue' ? 'next free slot' : 'at its scheduled time'}`);
-    log(`Hootsuite: ${viaHoot.length ? viaHoot.map((p) => p.target).join(', ') : useHoot ? 'nothing it can take' : 'not connected'}`);
+    log(`Hootsuite drafts: ${viaHoot.length ? viaHoot.map((p) => p.target).join(', ') : useHoot ? 'none (no matching profiles)' : 'not connected'}`);
 
     const media = [...new Set(all.flatMap((p) => p.media || []))];
     if (media.length) await checkLive(media, log);
