@@ -8,6 +8,12 @@ export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '
 export const config = JSON.parse(fs.readFileSync(path.join(ROOT, 'glassbox.config.json'), 'utf8'));
 // Where the site actually lives. The brand domain until it's pointed at the host;
 // SITE_URL (env) or siteUrl (config) override it, e.g. the Railway URL.
+// Box dates live in the hub (dates.json, written by scripts/redate.mjs) so the newest box is
+// always today's and earlier boxes fill the days before it. A box's own glassbox.json date is
+// only a fallback.
+const DATES_FILE = path.join(ROOT, 'dates.json');
+export const DATES = fs.existsSync(DATES_FILE) ? JSON.parse(fs.readFileSync(DATES_FILE, 'utf8')) : {};
+if (DATES.startDate) config.startDate = DATES.startDate;
 export const SITE = (process.env.SITE_URL || config.siteUrl || `https://${config.domain}`).replace(/\/$/, '');
 
 // The media files the studio writes into <app>/glassbox/.
@@ -18,6 +24,7 @@ const RESERVED = new Set(['e', 'studio', 'assets', 'about', 'privacy', 'terms', 
 
 export function normalize(raw, extra = {}) {
   const m = { ...raw, ...extra };
+  if (m.kind !== 'principle' && DATES.boxes?.[m.slug]) m.date = DATES.boxes[m.slug];
   const errs = [];
   if (!SLUG.test(m.slug || '')) errs.push('slug must be lowercase letters, digits and dashes');
   if (RESERVED.has(m.slug)) errs.push(`slug "${m.slug}" is reserved by the hub`);
