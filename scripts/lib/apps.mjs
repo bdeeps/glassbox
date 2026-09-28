@@ -78,10 +78,15 @@ export function appsFromDirs(dirs) {
 export async function githubApps() {
   const headers = { 'User-Agent': 'glassbox-build', Accept: 'application/vnd.github+json' };
   if (process.env.GITHUB_TOKEN) headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
-  const q = encodeURIComponent(`user:${config.org} topic:${config.topic} is:public`);
-  const res = await fetch(`https://api.github.com/search/repositories?q=${q}&per_page=100`, { headers });
-  if (!res.ok) throw new Error(`GitHub search failed: ${res.status} ${await res.text()}`);
-  const { items } = await res.json();
+  // Every page of the account's repos (search is capped at 10 requests a minute and 100 a page).
+  const items = [];
+  for (let page = 1; page <= 20; page++) {
+    const res = await fetch(`https://api.github.com/users/${config.org}/repos?per_page=100&page=${page}`, { headers });
+    if (!res.ok) throw new Error(`GitHub repos failed: ${res.status} ${await res.text()}`);
+    const list = await res.json();
+    items.push(...list.filter((r) => !r.private && !r.archived && (r.topics || []).includes(config.topic)));
+    if (list.length < 100) break;
+  }
   const out = [];
   for (const r of items) {
     const raw = `https://raw.githubusercontent.com/${r.full_name}/${r.default_branch}`;
