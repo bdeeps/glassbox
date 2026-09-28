@@ -265,6 +265,13 @@ const server = http.createServer(async (req, res) => {
     }
     if (p === '/healthz') return send(req, res, state.ready && state.apps.length ? 200 : 503, JSON.stringify({ ok: state.ready && state.apps.length > 0, boxes: state.apps.map((a) => a.slug), synced: state.synced, error: state.error }), TYPES['.json'], 'no-store');
 
+    // A fresh replica has no boxes until its first sync finishes (~30 s). Never show an empty
+    // shelf: pages get a short self-refreshing holding page instead.
+    if (!state.apps.length && !p.startsWith('/assets/') && !/\.\w+$/.test(p)) {
+      res.writeHead(503, { ...headers(TYPES['.html'], { 'Cache-Control': 'no-store', 'Retry-After': '5' }), 'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'" });
+      return res.end(`<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="refresh" content="4"><meta name="robots" content="noindex"><title>Glassbox</title><body style="margin:0;display:grid;place-items:center;min-height:100vh;background:#07080c;color:#c9cedb;font:16px/1.5 system-ui,sans-serif"><p>Opening the cabinet&hellip; this page refreshes in a moment.</p></body>`);
+    }
+
     const key = p === '/' ? 'index.html' : p.replace(/^\//, '').replace(/\/$/, '/index.html');
     const gen = state.pages[key];
     if (gen) {
