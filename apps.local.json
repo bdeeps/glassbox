@@ -111,6 +111,15 @@
     "../unaniclear",
     "../medicineclear",
     "../siddhaclear",
-    "../naturopathyclear"
+    "../naturopathyclear",
+    "../transformerclear",
+    "../powerlineclear",
+    "../solarheaterclear",
+    "../mcbclear",
+    "../hairdryerclear",
+    "../roomheaterclear",
+    "../radioclear",
+    "../fmclear",
+    "../tvstationclear"
   ]
 }
