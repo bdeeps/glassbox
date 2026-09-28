@@ -16,6 +16,7 @@ import { csp } from './lib/analytics.mjs';
 import { adminRoutes } from './lib/admin.mjs';
 import { autoPublish } from './lib/publisher.mjs';
 import { niceName } from './lib/buffer.mjs';
+import { injectBoxSeo } from './lib/seo.mjs';
 
 const PORT = Number(process.env.PORT || 8080);
 const BOXES = path.join(process.env.BOXES_DIR || path.join(ROOT, '.boxes'));
@@ -136,9 +137,11 @@ const notModified = (req, etag) => (req.headers['if-none-match'] || '').split(/\
 // A box page gets <link rel="modulepreload"> for its whole module graph, so the browser fetches
 // app.js, the chapters, the kit and three.js in parallel instead of one import at a time.
 // Its stylesheets and entry script get ?v=<content hash> and are cached for a year.
+// It also gets the hub's title, description, canonical, share cards, JSON-LD and a
+// crawlable summary linking to its explainer (injectBoxSeo in lib/seo.mjs).
 const boxPages = new Map();
 function boxPage(dir, file, st) {
-  const k = `${file}:${st.mtimeMs}:${st.size}`;
+  const k = `${file}:${st.mtimeMs}:${st.size}:${state.synced}`;
   if (boxPages.has(k)) return boxPages.get(k);
   let html = fs.readFileSync(file, 'utf8');
   const base = path.dirname(file);
@@ -167,6 +170,7 @@ function boxPage(dir, file, st) {
   }
   const pre = [...seen].filter((r) => !entries.includes(r)).map((r) => `<link rel="modulepreload" href="${r}">`).join('\n');
   if (pre) html = html.replace(/<\/head>/, `${pre}\n</head>`);
+  try { html = injectBoxSeo(html, state.apps.find((a) => a.dir === dir)); } catch (e) { log(`seo ${path.basename(dir)}: ${e.message}`); }
   const out = { body: html, etag: hashOf(Buffer.from(html)) };
   if (boxPages.size > 200) boxPages.clear();
   boxPages.set(k, out);

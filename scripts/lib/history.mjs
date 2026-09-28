@@ -6,6 +6,7 @@
 import { config, SITE, esc } from './apps.mjs';
 import { head, nav, footer, fmtDate } from './render.mjs';
 import { art } from '../../site/assets/art.js';
+import * as SEO from './seo.mjs';
 
 export const yearLabel = (y) => (y < 0 ? `${-y} BCE` : String(y));
 const mediaUrl = (a, f) => `/${a.slug}/glassbox/${f}`;
@@ -120,11 +121,20 @@ export function historyPage(a, apps) {
   const withHistory = apps.filter((x) => x.historyUrl);
   const hi = withHistory.findIndex((x) => x.slug === a.slug);
   const older = withHistory[hi + 1], newer = withHistory[hi - 1];
-  const ld = {
-    '@context': 'https://schema.org', '@type': 'Article', headline: h.title, description: h.tagline, url: SITE + url,
-    datePublished: a.date, ...(img ? { image: SITE + img } : {}), publisher: { '@type': 'Organization', name: config.brand, url: SITE },
-    citation: h.sources.map((s) => s.url), license: 'https://creativecommons.org/licenses/by/4.0/',
-  };
+  // An Article, the moments as an ItemList (history, not upcoming events, so no Event type), breadcrumbs.
+  const ld = { '@context': 'https://schema.org', '@graph': [
+    { '@type': 'Article', '@id': `${SITE}${url}#article`, headline: h.title, name: h.title, description: h.tagline, abstract: h.intro || h.tagline, url: SITE + url, mainEntityOfPage: SITE + url,
+      datePublished: a.date, dateModified: SEO.updatedOf(a), inLanguage: 'en', isAccessibleForFree: true, ...(img ? { image: SITE + img } : {}),
+      author: { '@id': `${SITE}/#org` }, publisher: { '@id': `${SITE}/#org` }, isPartOf: { '@id': `${SITE}/#website` },
+      about: { '@type': 'Thing', name: a.title }, keywords: ['history', ...(a.tags || [])].join(', '),
+      citation: (h.sources || []).map((s) => s.url).filter(Boolean), license: 'https://creativecommons.org/licenses/by/4.0/',
+      ...((h.people || []).length ? { mentions: h.people.map((p) => ({ '@type': 'Person', name: p.name, ...(p.role ? { description: p.role } : {}) })) } : {}),
+      hasPart: { '@id': `${SITE}${url}#moments` } },
+    { '@type': 'ItemList', '@id': `${SITE}${url}#moments`, name: `${h.title}: key moments`, itemListOrder: 'https://schema.org/ItemListOrderAscending', numberOfItems: evs.length,
+      itemListElement: evs.map((e, k) => ({ '@type': 'ListItem', position: k + 1, url: `${SITE}${url}#${idFor(e)}`, name: `${yearLabel(e.year)}: ${e.title}`, description: [e.who, e.text].filter(Boolean).join('. ') })) },
+    SEO.crumbs([[config.brand, '/'], [a.question, a.pageUrl], [h.title, url]]),
+    SEO.orgNode(),
+  ] };
   let body = '';
   for (const era of eras) {
     const list = evs.filter((e) => e.era === era.id);
@@ -136,8 +146,8 @@ export function historyPage(a, apps) {
     for (const s of (h.series || []).filter((x) => x.after === era.id)) body += chart(s, era.color);
   }
   const loose = (h.series || []).filter((s) => !s.after || !eras.some((e) => e.id === s.after));
-  return `${head({ title: `${h.title} · ${config.brand} No. ${a.no}`, description: h.tagline, url, image: img, type: 'article', cls: 'history-page', style: `--c:${esc(a.color)}`,
-    extra: `<script type="application/ld+json">${JSON.stringify(ld).replace(/</g, '\\u003c')}</script>` })}
+  return `${head({ title: SEO.titleFor(h.title), description: SEO.describeText(h.tagline, [h.intro || '']), url, image: img, imageAlt: h.title, type: 'article', cls: 'history-page', style: `--c:${esc(a.color)}`,
+    ld, published: a.date, modified: SEO.updatedOf(a), robots: SEO.robotsFor(a) })}
 ${nav()}
 <main id="main" class="h-main">
   <section class="h-hero">
@@ -215,7 +225,12 @@ export function allHistory(apps) {
     if (!centuries.has(c)) centuries.set(c, []);
     centuries.get(c).push(e);
   }
-  return `${head({ title: `Every history, one timeline · ${config.brand}`, description: `The history behind every Glassbox explainer, merged into one timeline: ${all.length} moments over ${roundSpan(span)} years.`, url: '/history/', cls: 'history-page all' })}
+  const ld = { '@context': 'https://schema.org', '@graph': [
+    { '@type': 'CollectionPage', '@id': `${SITE}/history/#page`, url: `${SITE}/history/`, name: 'Every history, one timeline', inLanguage: 'en', isPartOf: { '@id': `${SITE}/#website` },
+      mainEntity: { '@type': 'ItemList', numberOfItems: boxes.length, itemListElement: boxes.map((b, i) => ({ '@type': 'ListItem', position: i + 1, url: SITE + b.historyUrl, name: b.history.title })) } },
+    SEO.crumbs([[config.brand, '/'], ['Every history', '/history/']]),
+  ] };
+  return `${head({ title: `Every history, one timeline · ${config.brand}`, description: SEO.describeText(`The history behind every ${config.brand} explainer, merged into one timeline: ${all.length} moments over ${roundSpan(span)} years.`, [`From ${boxes.slice(0, 3).map((b) => b.title).join(', ')} and more.`]), url: '/history/', cls: 'history-page all', ld })}
 ${nav()}
 <main id="main" class="h-main">
   <section class="h-hero">

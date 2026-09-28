@@ -8,6 +8,7 @@ import * as R from './lib/render.mjs';
 import * as L from './lib/legal.mjs';
 import { analyticsJs } from './lib/analytics.mjs';
 import * as HI from './lib/history.mjs';
+import * as SEO from './lib/seo.mjs';
 
 export function pages(all) {
   // Object boxes (one a day) and principle boxes (laws and principles) have separate shelves.
@@ -20,7 +21,9 @@ export function pages(all) {
     'feed.xml': R.feed(apps),
     'sitemap.xml': R.sitemap(all),
     'apps.json': R.appsJson(all),
-    'robots.txt': `User-agent: *\nDisallow: /studio/\nDisallow: /admin/\nSitemap: https://${config.domain}/sitemap.xml\n`,
+    'robots.txt': SEO.robots(),
+    'llms.txt': SEO.llmsTxt(all),
+    'llms-full.txt': SEO.llmsFull(all),
     'concepts/index.html': R.conceptsPage(all),
     'privacy/index.html': L.privacy(all),
     'terms/index.html': L.terms(),

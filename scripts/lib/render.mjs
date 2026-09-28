@@ -7,6 +7,7 @@ import crypto from 'node:crypto';
 import { csp, active, analyticsJs } from './analytics.mjs';
 import { historyTeaser } from './history.mjs';
 import { art as artByName } from '../../site/assets/art.js';
+import * as SEO from './seo.mjs';
 
 export const fmtDate = (d, opts = { day: 'numeric', month: 'short', year: 'numeric' }) => new Date(d + 'T12:00:00Z').toLocaleDateString('en-GB', { ...opts, timeZone: 'UTC' });
 export const addDays = (d, n) => { const t = new Date(d + 'T12:00:00Z'); t.setUTCDate(t.getUTCDate() + n); return t.toISOString().slice(0, 10); };
@@ -43,8 +44,10 @@ export function asset(p) {
   return vcache.get(p);
 }
 
-export function head({ title, description, url, image, type = 'website', extra = '', cls = '' , style = '' }) {
+// Every hub page's <head>: title, description, canonical, share cards and JSON-LD (`ld`).
+export function head({ title, description, url, image, imageAlt, type = 'website', extra = '', cls = '' , style = '', ld, robots, published, modified }) {
   const img = image ? (image.startsWith('http') ? image : SITE + image) : `${SITE}/assets/og.png`;
+  const lds = (Array.isArray(ld) ? ld : ld ? [ld] : []).map(SEO.ldScript).join('\n');
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -55,6 +58,7 @@ export function head({ title, description, url, image, type = 'website', extra =
 <title>${esc(title)}</title>
 <meta name="description" content="${esc(description)}">
 <link rel="canonical" href="${SITE}${url}">
+<meta name="robots" content="${robots || 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1'}">
 <meta name="theme-color" content="#07080c">
 <meta name="color-scheme" content="dark">
 <meta property="og:type" content="${type}">
@@ -62,9 +66,15 @@ export function head({ title, description, url, image, type = 'website', extra =
 <meta property="og:title" content="${esc(title)}">
 <meta property="og:description" content="${esc(description)}">
 <meta property="og:url" content="${SITE}${url}">
+<meta property="og:locale" content="en_GB">
 <meta property="og:image" content="${esc(img)}">
-<meta name="twitter:card" content="summary_large_image">
-${H.x ? `<meta name="twitter:site" content="@${esc(H.x)}">` : ''}
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="${esc(imageAlt || title)}">
+${published ? `<meta property="article:published_time" content="${esc(published)}">\n` : ''}${modified ? `<meta property="article:modified_time" content="${esc(modified)}">\n` : ''}<meta name="twitter:card" content="summary_large_image">
+${H.x ? `<meta name="twitter:site" content="@${esc(H.x)}">\n` : ''}<meta name="twitter:title" content="${esc(title)}">
+<meta name="twitter:description" content="${esc(description)}">
+<meta name="twitter:image" content="${esc(img)}">
 <link rel="icon" href="${asset('/assets/icon.svg')}" type="image/svg+xml">
 <link rel="alternate" type="application/rss+xml" title="${esc(config.brand)}" href="/feed.xml">
 <link rel="preload" href="/assets/fonts/instrument-serif-latin-5.woff2" as="font" type="font/woff2" crossorigin>
@@ -74,6 +84,7 @@ ${H.x ? `<meta name="twitter:site" content="@${esc(H.x)}">` : ''}
 <link rel="stylesheet" href="${asset('/assets/fonts/fonts.css')}">
 <link rel="stylesheet" href="${asset('/assets/site.css')}">
 <script src="${asset('/assets/analytics.js')}" defer></script>
+${lds}
 ${extra}
 </head>
 <body class="${cls}"${style ? ` style="${style}"` : ''}>
@@ -265,7 +276,7 @@ function lawsAtWork(a, laws) {
   if (!here.length) return '';
   return `<section class="ex-laws">
     <p class="eyebrow">Laws at work here</p>
-    <div class="law-chips">${here.map((l) => `<a class="law-chip" href="${l.appUrl}" data-law="${esc(l.slug)}" style="--c:${esc(l.color)}"><b>${esc(l.principle?.name || l.title)}</b><span>${esc(l.principle?.formula || '')}</span></a>`).join('')}</div>
+    <div class="law-chips">${here.map((l) => `<a class="law-chip" href="${l.pageUrl}" data-law="${esc(l.slug)}" style="--c:${esc(l.color)}"><b>${esc(l.principle?.name || l.title)}</b><span>${esc(l.principle?.formula || '')}</span></a>`).join('')}</div>
   </section>`;
 }
 
@@ -273,6 +284,8 @@ function lawsAtWork(a, laws) {
 function principleExamples(l, boxes) {
   const P = l.principle || {};
   if (!P.examples?.length) return '';
+  const inExamples = new Set(P.examples.map((e) => e.box));
+  const more = (P.appliesTo || []).filter((s) => !inExamples.has(s)).map((s) => boxes.find((b) => b.slug === s)).filter(Boolean);
   return `<section class="ex-laws">
     <p class="eyebrow">Where you'll meet it</p>
     ${P.formula ? `<p class="law-big">${esc(P.formula)}</p>${P.formulaNote ? `<p class="law-note">${esc(P.formulaNote)}</p>` : ''}` : ''}
@@ -280,11 +293,18 @@ function principleExamples(l, boxes) {
       const b = boxes.find((x) => x.slug === e.box);
       return `<li style="--c:${esc(b?.color || l.color)}"><h3>${esc(e.title)}</h3><p>${esc(e.text)}</p>${b ? `<a href="${b.pageUrl}">See it in ${esc(b.title)} →</a>` : ''}</li>`;
     }).join('')}</ul>
+    ${more.length ? `<p class="law-more">Also at work in ${more.map((b) => `<a href="${b.pageUrl}">${esc(b.title)}</a>`).join(', ')}.</p>` : ''}
   </section>`;
 }
 
 export function lawsPage(laws, boxes) {
-  return `${head({ title: `Laws, principles and concepts · ${config.brand}`, description: 'Famous laws, principles and core concepts of physics and chemistry, each with an interactive model and the everyday things where you can see it at work.', url: '/laws/', cls: 'home laws-page' })}
+  const ld = { '@context': 'https://schema.org', '@graph': [
+    { '@type': ['CollectionPage', 'DefinedTermSet'], '@id': `${SITE}/laws/#set`, url: `${SITE}/laws/`, name: `${config.brand} laws, principles and concepts`, inLanguage: 'en', isPartOf: { '@id': `${SITE}/#website` },
+      hasDefinedTerm: laws.map((l) => ({ '@type': 'DefinedTerm', '@id': `${SITE}${l.pageUrl}#term`, name: l.principle?.name || l.title, description: l.principle?.idea || SEO.answerOf(l), url: SITE + l.pageUrl, ...(l.principle?.formula ? { termCode: l.principle.formula } : {}) })) },
+    { '@type': 'ItemList', name: 'Laws, principles and concepts', numberOfItems: laws.length, itemListElement: laws.map((l, i) => ({ '@type': 'ListItem', position: i + 1, url: SITE + l.pageUrl, name: l.principle?.name || l.title })) },
+    SEO.crumbs([[config.brand, '/'], ['Laws, principles and concepts', '/laws/']]),
+  ] };
+  return `${head({ title: `Laws, principles and concepts · ${config.brand}`, description: SEO.describeText(`Famous laws, principles and core concepts of physics and chemistry: ${laws.slice(0, 3).map((l) => l.principle?.name || l.title).join(', ')} and more.`, ['Each has an interactive model and the everyday things where you can see it at work.']), url: '/laws/', cls: 'home laws-page', ld })}
 ${nav()}
 <main id="main">
   ${laws.length ? lawsSection(laws, boxes, { full: true }) : '<section class="cabinet"><h1 class="cab-h1">Laws &amp; <em>principles</em>.</h1><p class="cab-sub">The first ones are on their way.</p></section>'}
@@ -328,12 +348,14 @@ export function home(apps, laws = []) {
   const nextDate = today ? addDays(today.date, 1) : config.startDate;
   const concepts = allConcepts(apps);
   const hints = concepts.slice(0, 5).map((c) => c.term);
-  const ld = {
-    '@context': 'https://schema.org', '@type': 'WebSite', name: config.brand, url: SITE + '/', description: config.pitch,
-    potentialAction: { '@type': 'SearchAction', target: `${SITE}/?q={search_term_string}`, 'query-input': 'required name=search_term_string' },
-  };
-  return `${head({ title: `${config.brand}: ${config.tagline}`, description: config.pitch, url: '/', cls: 'home', style: today ? `--c:${esc(today.color)}` : '',
-    extra: `<script type="application/ld+json">${JSON.stringify(ld)}</script>` })}
+  const live = apps.filter((a) => !SEO.isDraft(a));
+  const ld = { '@context': 'https://schema.org', '@graph': [
+    SEO.websiteNode(), SEO.orgNode(),
+    { '@type': 'ItemList', '@id': `${SITE}/#boxes`, name: `Every ${config.brand} box`, itemListOrder: 'https://schema.org/ItemListOrderDescending', numberOfItems: live.length,
+      itemListElement: live.map((a, i) => ({ '@type': 'ListItem', position: i + 1, url: SITE + a.pageUrl, name: a.question })) },
+  ] };
+  const desc = SEO.describeText(`${config.tagline} ${config.pitch}`, [`${live.length} free explainers so far, from ${live.slice(0, 2).map((a) => a.title).join(' to ')}.`]);
+  return `${head({ title: `${config.brand}: ${config.tagline}`, description: desc, url: '/', cls: 'home', style: today ? `--c:${esc(today.color)}` : '', ld })}
 ${nav()}
 <main id="main">
   <section class="cabinet home-cab" id="shelf" aria-label="Every box">
@@ -413,22 +435,19 @@ export function explainer(a, apps, { laws = [], apps: boxes = apps } = {}) {
   const url = a.pageUrl;
   const img = a.media['cover.jpg'] ? mediaUrl(a, 'cover.jpg') : null;
   const hasReel = a.media['reel.mp4'];
-  const ld = {
-    '@context': 'https://schema.org', '@type': 'LearningResource', name: a.question, headline: a.title,
-    description: a.hook, url: SITE + url, datePublished: a.date, learningResourceType: 'Interactive simulation',
-    isAccessibleForFree: true, license: 'https://creativecommons.org/licenses/by/4.0/', keywords: a.tags.join(', '),
-    ...(img ? { image: SITE + img } : {}), publisher: { '@type': 'Organization', name: config.brand, url: SITE },
-    ...(a.media['reel.mp4'] ? { video: { '@type': 'VideoObject', name: a.question, description: a.hook, contentUrl: SITE + mediaUrl(a, 'reel.mp4'), thumbnailUrl: SITE + (img || '/assets/og.png'), uploadDate: a.date } } : {}),
-  };
+  const answer = SEO.answerOf(a);
+  const chapters = SEO.chaptersOf(a);
+  const faq = SEO.faqOf(a);
   const yt = a.links.youtube ? a.links.youtube.match(/(?:v=|youtu\.be\/|shorts\/)([\w-]{11})/)?.[1] : null;
-  return `${head({ title: `${a.question} · ${config.brand} No. ${a.no}`, description: a.hook, url, image: img, type: 'article', cls: 'explainer', style: `--c:${esc(a.color)}`,
-    extra: `<script type="application/ld+json">${JSON.stringify(ld).replace(/</g, '\\u003c')}</script>` })}
+  return `${head({ title: SEO.titleFor(a.question), description: SEO.describe(a), url, image: img, imageAlt: a.question, type: 'article', cls: 'explainer', style: `--c:${esc(a.color)}`,
+    ld: SEO.explainerLd(a, { laws, boxes }), published: a.date, modified: SEO.updatedOf(a), robots: SEO.robotsFor(a) })}
 ${nav()}
 <main id="main" data-prev="${older ? older.pageUrl : ''}" data-next="${newer ? newer.pageUrl : ''}">
   <section class="ex-hero">
     <nav class="crumbs" aria-label="Breadcrumb"><a href="/">${esc(config.brand)}</a><span>/</span>${a.kind === 'principle' ? '<a href="/laws/">Laws &amp; principles</a>' : `<a href="/?f=${esc(a.field)}#shelf">${esc(a.fieldLabel)}</a>`}<span>/</span><span class="no" aria-current="page">No. ${a.no}</span></nav>
     <h1>${esc(a.question)}</h1>
-    <p class="lede">${esc(a.hook)}</p>
+    <p class="lede ex-answer">${esc(answer)}</p>
+    ${answer !== a.hook ? `<p class="ex-hook">${esc(a.hook)}</p>` : ''}
     <div class="ctas">
       <a class="btn primary big" href="${a.appUrl}">${ICON.play} Open the box</a>
       <a class="btn big" href="${esc(a.repo)}" rel="noopener" target="_blank">Read the source</a>
@@ -457,6 +476,25 @@ ${nav()}
   ${historyTeaser(a)}
 
   ${yt ? `<section class="ex-yt"><p class="eyebrow">The video</p><div class="yt" data-yt="${yt}" ${a.media['thumb.jpg'] ? `style="background-image:url(${mediaUrl(a, 'thumb.jpg')})"` : ''}><button class="btn primary big">${ICON.play} Play on YouTube</button><p class="yt-note">Loads a YouTube player (youtube-nocookie.com) only when you press play.</p></div></section>` : ''}
+
+  ${chapters.length ? `<section class="ex-chapters" id="chapters" aria-labelledby="chapters-h">
+    <p class="eyebrow">The full explanation</p>
+    <h2 id="chapters-h">${esc(a.title)}, chapter by chapter</h2>
+    <nav class="ex-toc" aria-label="Chapters"><ol>${chapters.map((c) => `<li><a href="#ch-${esc(c.id)}">${esc(c.title)}</a></li>`).join('')}</ol></nav>
+    ${chapters.map((c, k) => `<article class="ex-chapter" id="ch-${esc(c.id)}">
+      <p class="ex-ch-no">Chapter ${k + 1}</p>
+      <h3>${esc(c.title)}</h3>
+      ${c.subtitle ? `<p class="ex-ch-sub">${esc(c.subtitle)}</p>` : ''}
+      <div class="ex-learn">${c.learn}</div>
+      <p class="ex-ch-play"><a href="${a.appUrl}#${esc(c.id)}">Try “${esc(c.short || c.title)}” in the interactive model →</a></p>
+    </article>`).join('')}
+  </section>` : ''}
+
+  ${faq.length ? `<section class="ex-faq" id="faq" aria-labelledby="faq-h">
+    <p class="eyebrow">Test yourself</p>
+    <h2 id="faq-h">Frequently asked</h2>
+    ${faq.map((x) => `<details class="ex-q"><summary><h3>${esc(x.q)}</h3></summary><p><b>${esc(SEO.stop(x.options[x.answer]))}</b>${x.why ? ` ${esc(x.why)}` : ''}</p></details>`).join('')}
+  </section>` : ''}
 
   ${a.concepts.length ? `<section class="ex-concepts" id="concepts">
     <p class="eyebrow">Words worth knowing</p>
@@ -496,7 +534,12 @@ export function conceptsPage(apps) {
     groups.get(L).push(c);
   }
   const letters = [...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'];
-  return `${head({ title: `Concepts A–Z · ${config.brand}`, description: `Every term explained across Glassbox's interactive explainers, with a link to the box where you can play with it.`, url: '/concepts/', cls: 'page' })}
+  const ld = { '@context': 'https://schema.org', '@graph': [
+    { '@type': ['CollectionPage', 'DefinedTermSet'], '@id': `${SITE}/concepts/#set`, url: `${SITE}/concepts/`, name: `Concepts A to Z · ${config.brand}`, inLanguage: 'en', isPartOf: { '@id': `${SITE}/#website` },
+      hasDefinedTerm: all.map((c) => ({ '@type': 'DefinedTerm', name: c.term, description: c.def, url: `${SITE}/concepts/#${c.id}`, subjectOf: { '@type': 'Article', url: SITE + c.box.pageUrl, headline: c.box.question } })) },
+    SEO.crumbs([[config.brand, '/'], ['Concepts A to Z', '/concepts/']]),
+  ] };
+  return `${head({ title: `Concepts A–Z · ${config.brand}`, description: SEO.describeText(`${all.length} terms from ${apps.length} interactive explainers, defined in plain words: ${all.slice(0, 4).map((c) => c.term).join(', ')} and more.`, ['Each links to the box where you can see it working.']), url: '/concepts/', cls: 'page', ld })}
 ${nav()}
 <main id="main" class="doc wide">
   <p class="eyebrow">${all.length} concepts from ${apps.length} ${apps.length === 1 ? 'box' : 'boxes'}</p>
@@ -514,7 +557,7 @@ ${footer()}`;
 }
 
 export function notFound() {
-  return `${head({ title: `Not found · ${config.brand}`, description: config.pitch, url: '/404.html', cls: 'nf' })}${nav()}<main id="main" class="nf-main"><p class="eyebrow">404</p><h1>This box is empty.</h1><p class="lede">The page you're after isn't here. Maybe that box hasn't been opened yet.</p><div class="ctas center"><a class="btn primary" href="/">Back to the shelf</a><button class="btn" data-open-search>Search</button></div></main>${footer()}`;
+  return `${head({ title: `Not found · ${config.brand}`, description: config.pitch, url: '/404.html', cls: 'nf', robots: 'noindex' })}${nav()}<main id="main" class="nf-main"><p class="eyebrow">404</p><h1>This box is empty.</h1><p class="lede">The page you're after isn't here. Maybe that box hasn't been opened yet.</p><div class="ctas center"><a class="btn primary" href="/">Back to the shelf</a><button class="btn" data-open-search>Search</button></div></main>${footer()}`;
 }
 
 export function feed(apps) {
@@ -522,10 +565,7 @@ export function feed(apps) {
   return `<?xml version="1.0" encoding="UTF-8"?><rss version="2.0"><channel><title>${esc(config.brand)}</title><link>${SITE}/</link><description>${esc(config.pitch)}</description>${items}</channel></rss>`;
 }
 
-export function sitemap(apps) {
-  const urls = ['/', '/concepts/', '/history/', '/privacy/', '/terms/', ...apps.flatMap((a) => [a.pageUrl, a.appUrl, ...(a.historyUrl ? [a.historyUrl] : [])])];
-  return `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls.map((u) => `<url><loc>${SITE}${u}</loc></url>`).join('')}</urlset>`;
-}
+export const sitemap = (apps) => SEO.sitemap(apps);
 
 // Public index for search, the bar and the studio. Media flags let the studio skip missing files.
 export function appsJson(apps) {

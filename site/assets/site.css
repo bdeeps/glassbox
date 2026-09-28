@@ -757,6 +757,40 @@ td { color: #c9cedb; }
 .law-examples p { margin: 0; color: var(--muted); font-size: 14.5px; line-height: 1.55; }
 .law-examples a { display: inline-block; margin-top: 8px; color: var(--c); text-decoration: none; font-size: 14px; }
 
+/* explainer: the direct answer, chapter by chapter, and the FAQ (all plain HTML for readers and crawlers) */
+.ex-answer { color: var(--text); }
+.ex-hook { max-width: 40em; margin: 12px 0 0; color: var(--muted); font-size: 15.5px; }
+.law-more { margin: 16px 0 0; color: var(--muted); font-size: 14.5px; }
+.law-more a { color: var(--c); }
+.ex-chapters, .ex-faq { padding: 34px 0 10px; max-width: 820px; }
+.ex-chapters h2, .ex-faq h2 { font: 400 clamp(30px, 4vw, 44px)/1.05 var(--serif); margin: 0 0 18px; }
+.ex-toc ol { margin: 0 0 10px; padding-left: 1.3em; columns: 2 240px; column-gap: 32px; color: var(--dim); }
+.ex-toc li { margin: 0 0 6px; break-inside: avoid; }
+.ex-toc a { color: var(--muted); text-decoration: none; }
+.ex-toc a:hover { color: var(--text); }
+.ex-chapter { padding: 26px 0; border-top: 1px solid var(--line); scroll-margin-top: 90px; }
+.ex-ch-no { margin: 0 0 6px; font: 500 12px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--c); }
+.ex-chapter h3 { margin: 0; font: 400 clamp(24px, 3vw, 32px)/1.1 var(--serif); }
+.ex-ch-sub { margin: 6px 0 0; color: var(--muted); font-style: italic; }
+.ex-learn { margin-top: 14px; color: var(--muted); line-height: 1.7; }
+.ex-learn p, .ex-learn ul, .ex-learn ol { margin: 0 0 12px; }
+.ex-learn b, .ex-learn strong { color: var(--text); font-weight: 600; }
+.ex-learn a { color: var(--c); }
+.ex-learn h4 { margin: 16px 0 6px; font: 600 16px var(--sans); color: var(--text); }
+.ex-learn table { border-collapse: collapse; margin: 0 0 12px; font-size: 14.5px; }
+.ex-learn th, .ex-learn td { padding: 6px 10px; border: 1px solid var(--line); text-align: left; }
+.ex-ch-play { margin: 4px 0 0; font-size: 14.5px; }
+.ex-ch-play a { color: var(--c); text-decoration: none; }
+.ex-q { border-top: 1px solid var(--line); }
+.ex-q:last-child { border-bottom: 1px solid var(--line); }
+.ex-q summary { display: flex; align-items: baseline; gap: 12px; padding: 16px 0; cursor: pointer; list-style: none; }
+.ex-q summary::-webkit-details-marker { display: none; }
+.ex-q summary::before { content: '+'; font: 500 16px var(--mono); color: var(--c); }
+.ex-q[open] summary::before { content: '−'; }
+.ex-q summary h3 { margin: 0; font: 500 17px/1.4 var(--sans); }
+.ex-q p { margin: 0 0 18px 26px; color: var(--muted); }
+.ex-q p b { color: var(--text); font-weight: 600; }
+
 /* small cases: Read and History become round icon buttons so all three always fit */
 .case:not(.feature) .ca.ic { width: 30px; padding: 0; justify-content: center; }
 .case:not(.feature) .ca.ic span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }

@@ -11,6 +11,7 @@ import { pages } from './build.mjs';
 import { ship, loadEnv, checkLive, assetBase, channels } from './lib/buffer.mjs';
 import { adminRoutes } from './lib/admin.mjs';
 import { active } from './lib/analytics.mjs';
+import { injectBoxSeo } from './lib/seo.mjs';
 
 loadEnv();
 const run = promisify(execFile);
@@ -230,6 +231,10 @@ const server = http.createServer(async (req, res) => {
     const box = apps.find((a) => a.slug === seg);
     if (box) {
       if (p === `/${seg}`) { res.writeHead(301, { Location: `/${seg}/` }); return res.end(); }
+      // The box's own page gets the same head tags and summary as in production (serve.mjs).
+      if (p === `/${seg}/` || p === `/${seg}/index.html`) {
+        try { return send(res, 200, injectBoxSeo(fs.readFileSync(path.join(box.dir, 'index.html'), 'utf8'), box), TYPES['.html']); } catch { /* fall through */ }
+      }
       const f = inside(box.dir, p.slice(seg.length + 1));
       if (f && serveFile(req, res, f)) return;
     } else {
