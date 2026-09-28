@@ -42,11 +42,21 @@ const stateFile = path.join(BOXES, 'state.json');
 const readState = () => { try { return JSON.parse(fs.readFileSync(stateFile, 'utf8')); } catch { return {}; } };
 
 async function listRepos() {
+  // Search by topic across every page: listing the account's repos only returns the 100 most
+  // recently pushed, so older boxes fell off once the account had more than 100 repos.
   const headers = { 'User-Agent': 'glassbox-server', Accept: 'application/vnd.github+json' };
   if (process.env.GITHUB_TOKEN) headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
-  const res = await fetch(`https://api.github.com/users/${config.org}/repos?per_page=100&type=owner&sort=pushed`, { headers });
-  if (!res.ok) throw new Error(`GitHub ${res.status}`);
-  return (await res.json()).filter((r) => !r.private && !r.archived && (r.topics || []).includes(config.topic));
+  const all = [];
+  for (let page = 1; page <= 10; page++) {
+    const q = encodeURIComponent(`user:${config.org} topic:${config.topic}`);
+    const res = await fetch(`https://api.github.com/search/repositories?q=${q}&per_page=100&page=${page}`, { headers });
+    if (!res.ok) throw new Error(`GitHub search ${res.status}`);
+    const body = await res.json();
+    all.push(...(body.items || []));
+    if (body.incomplete_results) throw new Error('GitHub search returned incomplete results');
+    if (all.length >= (body.total_count || 0) || !(body.items || []).length) break;
+  }
+  return all.filter((r) => !r.private && !r.archived && (r.topics || []).includes(config.topic));
 }
 
 // Streams the repo's tarball into a fresh folder, then swaps it in.
@@ -79,7 +89,12 @@ async function sync(reason) {
       const results = await Promise.allSettled(stale.map(async (r) => { log(`sync ${r.name} (${reason})`); await download(r); seen[r.name] = r.pushed_at; }));
       const failed = results.find((x) => x.status === 'rejected');
       if (failed) throw failed.reason;
-      for (const name of Object.keys(seen)) if (!repos.some((r) => r.name === name)) { fs.rmSync(path.join(BOXES, name), { recursive: true, force: true }); delete seen[name]; }
+      // Only drop boxes GitHub no longer lists when the list looks complete; a short list from a
+      // flaky API must never empty the site.
+      const known = Object.keys(seen);
+      if (repos.length >= known.length * 0.9) {
+        for (const name of known) if (!repos.some((r) => r.name === name)) { fs.rmSync(path.join(BOXES, name), { recursive: true, force: true }); delete seen[name]; }
+      } else log(`sync: GitHub listed ${repos.length} boxes but ${known.length} are known; keeping them all`);
       fs.writeFileSync(stateFile, JSON.stringify(seen, null, 2));
       state.error = null;
     } catch (e) {
