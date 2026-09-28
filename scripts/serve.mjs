@@ -42,21 +42,36 @@ const stateFile = path.join(BOXES, 'state.json');
 const readState = () => { try { return JSON.parse(fs.readFileSync(stateFile, 'utf8')); } catch { return {}; } };
 
 async function listRepos() {
-  // Search by topic across every page: listing the account's repos only returns the 100 most
-  // recently pushed, so older boxes fell off once the account had more than 100 repos.
+  // Walk every page of the account's repos (core API: 60/h unauthenticated, 5000/h with a
+  // token) and keep the ones with the box topic. Topic search is the fallback: its limit is
+  // only 10 a minute, and shared egress IPs used it up, leaving fresh replicas empty.
   const headers = { 'User-Agent': 'glassbox-server', Accept: 'application/vnd.github+json' };
   if (process.env.GITHUB_TOKEN) headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
-  const all = [];
-  for (let page = 1; page <= 10; page++) {
-    const q = encodeURIComponent(`user:${config.org} topic:${config.topic}`);
-    const res = await fetch(`https://api.github.com/search/repositories?q=${q}&per_page=100&page=${page}`, { headers });
-    if (!res.ok) throw new Error(`GitHub search ${res.status}`);
-    const body = await res.json();
-    all.push(...(body.items || []));
-    if (body.incomplete_results) throw new Error('GitHub search returned incomplete results');
-    if (all.length >= (body.total_count || 0) || !(body.items || []).length) break;
+  const keep = (list) => list.filter((r) => !r.private && !r.archived && (r.topics || []).includes(config.topic));
+  try {
+    const all = [];
+    for (let page = 1; page <= 20; page++) {
+      const res = await fetch(`https://api.github.com/users/${config.org}/repos?per_page=100&page=${page}&sort=pushed`, { headers });
+      if (!res.ok) throw new Error(`GitHub repos ${res.status}`);
+      const items = await res.json();
+      all.push(...items);
+      if (items.length < 100) break;
+    }
+    return keep(all);
+  } catch (e) {
+    log(`${e.message}; trying topic search`);
+    const all = [];
+    for (let page = 1; page <= 10; page++) {
+      const q = encodeURIComponent(`user:${config.org} topic:${config.topic}`);
+      const res = await fetch(`https://api.github.com/search/repositories?q=${q}&per_page=100&page=${page}`, { headers });
+      if (!res.ok) throw new Error(`${e.message}, search ${res.status}`);
+      const body = await res.json();
+      all.push(...(body.items || []));
+      if (body.incomplete_results) throw new Error('GitHub search returned incomplete results');
+      if (all.length >= (body.total_count || 0) || !(body.items || []).length) break;
+    }
+    return keep(all);
   }
-  return all.filter((r) => !r.private && !r.archived && (r.topics || []).includes(config.topic));
 }
 
 // Streams the repo's tarball into a fresh folder, then swaps it in.
@@ -77,7 +92,7 @@ async function download(repo) {
   fs.renameSync(tmp, dest);
 }
 
-let syncing = null;
+let syncing = null, retryIn = 10e3;
 async function sync(reason) {
   if (syncing) return syncing;
   syncing = (async () => {
@@ -104,6 +119,8 @@ async function sync(reason) {
     }
     rebuild();
     state.ready = true;
+    // A replica with nothing to serve retries soon instead of waiting for the timer.
+    if (!state.apps.length) { retryIn = Math.min(retryIn * 2, 300e3); setTimeout(() => sync('retry'), retryIn).unref(); } else retryIn = 10e3;
     // New boxes go out on their own when auto-publish is on (one replica wins each box).
     autoPublish(state.apps, (m) => log(m)).catch((e) => log('auto-publish:', e.message));
   })().finally(() => { syncing = null; });
