@@ -248,7 +248,7 @@ const server = http.createServer(async (req, res) => {
       }
       return send(req, res, 405, 'method not allowed', TYPES['.txt']);
     }
-    if (p === '/healthz') return send(req, res, state.ready ? 200 : 503, JSON.stringify({ ok: true, boxes: state.apps.map((a) => a.slug), synced: state.synced, error: state.error }), TYPES['.json'], 'no-store');
+    if (p === '/healthz') return send(req, res, state.ready && state.apps.length ? 200 : 503, JSON.stringify({ ok: state.ready && state.apps.length > 0, boxes: state.apps.map((a) => a.slug), synced: state.synced, error: state.error }), TYPES['.json'], 'no-store');
 
     const key = p === '/' ? 'index.html' : p.replace(/^\//, '').replace(/\/$/, '/index.html');
     const gen = state.pages[key];
