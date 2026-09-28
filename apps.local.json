@@ -105,6 +105,12 @@
     "../llmclear",
     "../inferenceclear",
     "../visionclear",
-    "../videomodelclear"
+    "../videomodelclear",
+    "../ayurvedaclear",
+    "../homeopathyclear",
+    "../unaniclear",
+    "../medicineclear",
+    "../siddhaclear",
+    "../naturopathyclear"
   ]
 }
