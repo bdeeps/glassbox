@@ -93,6 +93,15 @@
     "../virtualprodclear",
     "../editclear",
     "../gradeclear",
-    "../projectorclear"
+    "../projectorclear",
+    "../printerclear",
+    "../faxclear",
+    "../telephoneclear",
+    "../mobileclear",
+    "../pagerclear",
+    "../calculatorclear",
+    "../computerclear",
+    "../neuralnetclear",
+    "../llmclear"
   ]
 }
