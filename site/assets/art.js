@@ -2,6 +2,15 @@
 // on a 64×64 grid with currentColor strokes and an accent (var(--c)) fill, so it
 // sits in any era's colour. Add new ones here; history.json refers to them by name.
 const A = {
+  // devices, communication and AI
+  printer: '<rect x="10" y="24" width="44" height="20" rx="3"/><path d="M18 24V8h28v16" /><path d="M18 38h28v18H18z" class="f" opacity=".3"/><path d="M18 38h28v18H18z"/><path d="M23 44h18M23 49h12" class="a"/><circle cx="47" cy="30" r="2" class="f"/>',
+  fax: '<rect x="8" y="26" width="48" height="26" rx="3"/><path d="M16 26V10h22l6 6v10"/><path d="M38 10v6h6" /><rect x="14" y="32" width="14" height="8" rx="1" class="a"/><path d="M34 34h4M42 34h4M34 40h4M42 40h4M34 46h4M42 46h4"/><path d="M4 18c3-3 3-7 0-10M8 16c2-2 2-4 0-6" class="a"/>',
+  telephone: '<path d="M12 26c0-8 10-14 20-14s20 6 20 14l-8 2-2-6c-6-2-14-2-20 0l-2 6z" class="f" opacity=".35"/><path d="M12 26c0-8 10-14 20-14s20 6 20 14l-8 2-2-6c-6-2-14-2-20 0l-2 6z"/><path d="M16 34h32l4 20H12z"/><circle cx="32" cy="44" r="6" class="a"/>',
+  pager: '<rect x="10" y="16" width="44" height="32" rx="5"/><rect x="16" y="22" width="32" height="12" rx="1" class="f" opacity=".35"/><path d="M19 28h14" class="a"/><circle cx="20" cy="41" r="2.5"/><circle cx="32" cy="41" r="2.5"/><circle cx="44" cy="41" r="2.5"/>',
+  calculator: '<rect x="14" y="6" width="36" height="52" rx="4"/><rect x="20" y="12" width="24" height="10" rx="1" class="f" opacity=".35"/><path d="M36 17h5" class="a"/><path d="M22 30h4M30 30h4M38 30h4M22 38h4M30 38h4M38 38h4M22 46h4M30 46h4M38 46h4M22 52h12"/>',
+  computer: '<rect x="8" y="10" width="48" height="32" rx="3"/><rect x="13" y="15" width="38" height="22" class="f" opacity=".25"/><path d="M18 22l5 4-5 4M27 30h8" class="a"/><path d="M26 42l-3 10h18l-3-10M18 52h28"/>',
+  neuralnet: '<circle cx="12" cy="16" r="4"/><circle cx="12" cy="32" r="4"/><circle cx="12" cy="48" r="4"/><circle cx="32" cy="22" r="4" class="f"/><circle cx="32" cy="42" r="4" class="f"/><circle cx="52" cy="32" r="4"/><path d="M16 16l12 6M16 16l12 26M16 32l12-10M16 32l12 10M16 48l12-26M16 48l12-6M36 22l12 10M36 42l12-10" class="a"/>',
+  llm: '<path d="M8 12h36a4 4 0 0 1 4 4v18a4 4 0 0 1-4 4H22l-10 8v-8H8a4 4 0 0 1-4-4V16a4 4 0 0 1 4-4z"/><path d="M12 21h24M12 28h16" class="a"/><path d="M40 40h16a4 4 0 0 1 4 4v8a4 4 0 0 1-4 4h-2v5l-6-5h-8a4 4 0 0 1-4-4" class="f" opacity=".4"/>',
   // film making
   clapper: '<rect x="8" y="26" width="48" height="30" rx="2"/><path d="M8 26l46-12 2 8-46 12z" class="f" opacity=".35"/><path d="M8 26l46-12 2 8"/><path d="M18 23l6 6M30 20l6 6M42 17l6 6" class="a"/><path d="M14 38h24M14 46h16"/>',
   storyboard: '<rect x="6" y="10" width="24" height="18" rx="1"/><rect x="34" y="10" width="24" height="18" rx="1"/><rect x="6" y="36" width="24" height="18" rx="1"/><rect x="34" y="36" width="24" height="18" rx="1"/><circle cx="16" cy="20" r="3" class="f"/><path d="M40 24l6-8 6 8M12 50l6-8 6 8" class="a"/><path d="M44 46h8" class="a"/>',
