@@ -10,6 +10,7 @@ import path from 'node:path';
 import zlib from 'node:zlib';
 import { spawn } from 'node:child_process';
 import { Readable } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
 import { ROOT, SITE, config, appsFromDirs } from './lib/apps.mjs';
 import { pages } from './build.mjs';
 import { csp } from './lib/analytics.mjs';
@@ -81,12 +82,15 @@ async function download(repo) {
   if (!res.ok) throw new Error(`${repo.name}: download ${res.status}`);
   const tmp = path.join(BOXES, `.${repo.name}-${Date.now()}`);
   fs.mkdirSync(tmp, { recursive: true });
-  await new Promise((ok, fail) => {
-    const tar = spawn('tar', ['-xzf', '-', '-C', tmp, '--strip-components=1']);
-    tar.on('error', fail);
-    tar.on('close', (code) => (code === 0 ? ok() : fail(new Error(`${repo.name}: tar exited ${code}`))));
-    Readable.fromWeb(res.body).pipe(tar.stdin);
-  });
+  try {
+    await new Promise((ok, fail) => {
+      const tar = spawn('tar', ['-xzf', '-', '-C', tmp, '--strip-components=1']);
+      tar.on('error', fail);
+      tar.on('close', (code) => (code === 0 ? ok() : fail(new Error(`${repo.name}: tar exited ${code}`))));
+      // pipeline() surfaces a dropped connection as a rejection; a bare pipe() crashed the server.
+      pipeline(Readable.fromWeb(res.body), tar.stdin).catch((e) => { tar.kill(); fail(new Error(`${repo.name}: ${e.message}`)); });
+    });
+  } catch (e) { fs.rmSync(tmp, { recursive: true, force: true }); throw e; }
   const dest = path.join(BOXES, repo.name);
   fs.rmSync(dest, { recursive: true, force: true });
   fs.renameSync(tmp, dest);
@@ -101,7 +105,17 @@ async function sync(reason) {
     try {
       const repos = await listRepos();
       const stale = repos.filter((r) => !(seen[r.name] === r.pushed_at && fs.existsSync(path.join(BOXES, r.name, 'glassbox.json'))));
-      const results = await Promise.allSettled(stale.map(async (r) => { log(`sync ${r.name} (${reason})`); await download(r); seen[r.name] = r.pushed_at; }));
+      // A few at a time, each retried: 100+ parallel downloads made GitHub drop connections.
+      const queue = [...stale], results = [];
+      await Promise.all(Array.from({ length: 8 }, async () => {
+        for (let r; (r = queue.shift());) {
+          log(`sync ${r.name} (${reason})`);
+          for (let attempt = 1; ; attempt++) {
+            try { await download(r); seen[r.name] = r.pushed_at; results.push({ status: 'fulfilled' }); break; }
+            catch (e) { if (attempt >= 3) { results.push({ status: 'rejected', reason: e }); break; } await new Promise((ok) => setTimeout(ok, 2000 * attempt)); }
+          }
+        }
+      }));
       const failed = results.find((x) => x.status === 'rejected');
       if (failed) throw failed.reason;
       // Only drop boxes GitHub no longer lists when the list looks complete; a short list from a
@@ -120,7 +134,7 @@ async function sync(reason) {
     rebuild();
     state.ready = true;
     // A replica with nothing to serve retries soon instead of waiting for the timer.
-    if (!state.apps.length) { retryIn = Math.min(retryIn * 2, 300e3); setTimeout(() => sync('retry'), retryIn).unref(); } else retryIn = 10e3;
+    if (!state.apps.length || state.error) { retryIn = Math.min(retryIn * 2, 300e3); setTimeout(() => sync('retry'), retryIn).unref(); } else retryIn = 10e3;
     // New boxes go out on their own when auto-publish is on (one replica wins each box).
     autoPublish(state.apps, (m) => log(m)).catch((e) => log('auto-publish:', e.message));
   })().finally(() => { syncing = null; });
@@ -328,6 +342,10 @@ const server = http.createServer(async (req, res) => {
     if (!res.headersSent) send(req, res, 500, 'Something went wrong.', TYPES['.txt']);
   }
 });
+
+// One bad download or socket must never take the whole site down.
+process.on('uncaughtException', (e) => log('uncaught:', e.message));
+process.on('unhandledRejection', (e) => log('unhandled:', e?.message || e));
 
 rebuild();
 server.listen(PORT, '0.0.0.0', () => log(`${config.brand} on :${PORT} as ${SITE}`));
