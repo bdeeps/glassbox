@@ -102,6 +102,9 @@
     "../calculatorclear",
     "../computerclear",
     "../neuralnetclear",
-    "../llmclear"
+    "../llmclear",
+    "../inferenceclear",
+    "../visionclear",
+    "../videomodelclear"
   ]
 }
