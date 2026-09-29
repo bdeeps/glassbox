@@ -204,7 +204,7 @@ async function adminApi(req, res, url, { json, html, state }) {
   const apps = state.apps;
 
   if (action === 'status') {
-    const [s, posted, hs, buf, log, kind] = await Promise.all([settings(), store.list('posted:'), hootStatus(), bufferChannels(), store.recent(30), store.storeKind()]);
+    const [s, posted, hs, buf, log, kind] = await Promise.all([settings(), store.list('posted:'), hootStatus(), bufferChannels(), store.recent(200), store.storeKind()]);
     const boxes = apps.map((a) => {
       const r = readiness(a), rec = posted['posted:' + a.slug];
       return { slug: a.slug, no: a.no, title: a.title, question: a.question, kind: a.kind, date: a.date, color: a.color, ready: r.ready, why: r.why || null,

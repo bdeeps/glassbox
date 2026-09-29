@@ -3,6 +3,12 @@ const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const when = (iso) => new Date(iso).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 let data = null, busy = false;
+const live = {};   // slug → { text, done, bad } for a publish run in this tab
+const ago = (iso) => {
+  const m = Math.round((Date.now() - new Date(iso)) / 60e3);
+  return m < 1 ? 'just now' : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} h ago` : when(iso);
+};
+const entry = (l) => `<li class="${l.ok === false ? 'bad' : ''}"><time datetime="${esc(l.at)}" title="${esc(when(l.at))}">${ago(l.at)}</time> ${esc(l.message)}${l.provider ? ` <span class="via">${esc(l.provider)}</span>` : ''}</li>`;
 
 async function api(path, opts = {}) {
   const res = await fetch('/__admin/api/' + path, { credentials: 'same-origin', ...opts });
@@ -37,17 +43,24 @@ async function load() {
   if (!s.buffer) $('#bufSub').textContent = 'Off: Hootsuite only. Switch on to send networks Hootsuite lacks to Buffer.'; else $('#bufSub').textContent = !b.ok ? `Buffer: ${b.error}` : b.list.length ? `Connected: ${b.list.map((c) => `${c.name} (${c.service})`).join(', ')}` : 'No channels connected in Buffer yet (connect YouTube at buffer.com).';
 
   renderList();
-  $('#activity').innerHTML = data.log.map((l) => `<li class="${l.ok === false ? 'bad' : ''}"><time>${when(l.at)}</time> ${l.slug ? `<b>${esc(l.slug)}</b> ` : ''}${esc(l.message)}${l.provider ? ` <span class="pill">${esc(l.provider)}</span>` : ''}</li>`).join('') || '<li class="empty-a">Nothing yet.</li>';
+  const general = data.log.filter((l) => !l.slug).slice(0, 8);
+  $('#activity').innerHTML = general.map(entry).join('');
+  $('.log-a').hidden = !general.length;
 }
 
 function renderList() {
+  const opened = new Set([...document.querySelectorAll('#list li[data-box] details.act[open]')].map((d) => d.closest('li').dataset.box));
   const q = $('#q').value.trim().toLowerCase();
   const rows = data.boxes.filter((x) => !q || `${x.no} ${x.title} ${x.question} ${x.slug}`.toLowerCase().includes(q));
   $('#list').innerHTML = rows.map((x) => {
     const state = x.posted ? `<span class="st ok">Published ${when(x.posted.at)}${x.posted.by === 'auto' ? ' (auto)' : ''} · ${x.posted.ok}/${x.posted.total}</span>`
       : x.ready ? '<span class="st ready">Ready</span>' : `<span class="st no">${esc(x.why)}</span>`;
-    return `<li style="--c:${esc(x.color)}"><span class="no">${x.kind === 'principle' ? '' : 'No. '}${esc(x.no)}</span>
-      <span class="t"><b>${esc(x.question)}</b>${state}</span>
+    const L = live[x.slug], mine = data.log.filter((l) => l.slug === x.slug);
+    const act = L
+      ? `<details class="act live${L.done ? '' : ' run'}${L.bad ? ' bad' : ''}"${L.open || opened.has(x.slug) ? ' open' : ''}><summary>${esc(L.last || 'Starting…')}</summary><pre>${esc(L.text)}</pre></details>`
+      : mine.length ? `<details class="act${mine[0].ok === false ? ' bad' : ''}"${opened.has(x.slug) ? ' open' : ''}><summary>${mine.length > 1 ? `<span class="more">+${mine.length - 1}</span> ` : ''}${ago(mine[0].at)} · ${esc(mine[0].message)}</summary>${mine.length > 1 ? `<ul>${mine.slice(1, 8).map(entry).join('')}</ul>` : ''}</details>` : '';
+    return `<li style="--c:${esc(x.color)}" class="${L && !L.done ? 'busy' : ''}" data-box="${esc(x.slug)}"><span class="no">${x.kind === 'principle' ? '' : 'No. '}${esc(x.no)}</span>
+      <span class="t"><b>${esc(x.question)}</b>${state}${act}</span>
       <button class="btn small ${x.posted ? 'ghost' : 'primary'}" data-slug="${esc(x.slug)}" ${x.ready ? '' : 'disabled'}>${x.posted ? (x.posted.ok < x.posted.total ? 'Retry the rest' : 'Publish again') : 'Publish'}</button></li>`;
   }).join('') || '<li class="empty-a">No box matches.</li>';
 }
@@ -55,17 +68,30 @@ function renderList() {
 async function publish(slug, { dry, force }) {
   if (busy) return;
   busy = true;
-  const out = $('#out');
-  out.hidden = false; out.textContent = '';
-  out.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  const L = live[slug] = { text: '', last: dry ? 'Previewing…' : 'Publishing…', done: false, bad: false };
+  const paint = () => {
+    const card = document.querySelector(`#list li[data-box="${CSS.escape(slug)}"]`);
+    if (!card) return;
+    const d = card.querySelector('details.act.live');
+    if (d) { L.open = d.open; d.querySelector('summary').textContent = L.last; d.querySelector('pre').textContent = L.text; d.classList.toggle('run', !L.done); d.classList.toggle('bad', L.bad); }
+    else renderList();
+  };
+  renderList();
   document.querySelectorAll('#list button').forEach((b) => { b.disabled = true; });
   try {
     const res = await api(`publish/${encodeURIComponent(slug)}?${new URLSearchParams({ dry: dry ? '1' : '0', force: force ? '1' : '0', when: $('#when').value })}`, { method: 'POST' });
     const reader = res.body.getReader(), dec = new TextDecoder();
-    for (;;) { const { value, done } = await reader.read(); if (done) break; out.textContent += dec.decode(value, { stream: true }); out.scrollTop = out.scrollHeight; }
-    const failed = /\n?✗ /.test(out.textContent) && !/done:/.test(out.textContent);
-    flash(dry ? 'Preview only: nothing was sent.' : failed ? 'Publishing failed: see the log below.' : /draft/.test(out.textContent) ? 'Done. YouTube posts are drafts in your Hootsuite Planner: open Hootsuite and press Schedule on each.' : 'Published.', failed);
-  } catch (e) { flash(e.message, true); }
+    for (;;) {
+      const { value, done } = await reader.read(); if (done) break;
+      L.text += dec.decode(value, { stream: true });
+      L.last = L.text.trim().split('\n').filter(Boolean).pop()?.replace(/^\s*[•✓–]\s*/, '') || L.last;
+      paint();
+    }
+    L.bad = /\n?✗ /.test(L.text) && !/done:/.test(L.text);
+    L.last = dry ? 'Preview only: nothing was sent.' : L.bad ? L.last : /draft/.test(L.text) ? 'Done. YouTube drafts are in your Hootsuite Planner: press Schedule.' : 'Published.';
+    flash(L.bad ? 'Publishing failed: open the box\'s activity for details.' : '', L.bad);
+  } catch (e) { L.bad = true; L.last = e.message; }
+  L.done = true;
   busy = false;
   await load();
 }
