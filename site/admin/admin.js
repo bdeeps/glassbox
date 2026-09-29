@@ -35,22 +35,21 @@ async function load() {
     : 'Off. When on, each new box publishes as soon as it is ready.';
   $('#autoCard').classList.toggle('on', s.auto);
 
-  const h = data.hootsuite, useSP = (s.channel || 'socialpilot') === 'socialpilot';
+  const h = data.hootsuite, split = (s.channel || 'split') === 'split';
+  const hprof = h.profiles?.length ? ` Profiles: ${h.profiles.map((p) => p.service || p.type).join(', ')}.` : '';
   $('#hootBtn').textContent = h.connected ? 'Disconnect' : 'Connect Hootsuite';
   $('#hootBtn').dataset.connected = h.connected ? '1' : '';
-  $('#hootPill').textContent = useSP ? 'off' : 'default';
-  $('#hootPill').classList.toggle('primary', !useSP);
-  $('#hootUse').textContent = useSP ? 'Use instead' : 'Switch back to SocialPilot';
-  $('#hootSub').textContent = useSP ? 'Switched off: nothing is sent to Hootsuite.'
-    : !h.connected ? 'Not connected.'
-    : h.error ? `Connected, but: ${h.error}`
-    : h.profiles?.length ? `YouTube posts arrive as drafts in your Hootsuite Planner. Profiles: ${h.profiles.map((p) => p.service || p.type).join(', ')}.` : 'Connected, but no social profiles yet.';
+  $('#hootPill').textContent = split ? 'videos' : 'everything';
+  $('#hootPill').classList.add('primary');
+  $('#hootUse').textContent = split ? 'Use for everything' : 'Split again';
+  $('#hootSub').textContent = !h.connected ? 'Not connected: videos have nowhere to go.' : h.error ? `Connected, but: ${h.error}`
+    : `${split ? 'YouTube Shorts, YouTube videos and Instagram Reels go here.' : 'Everything goes here.'} YouTube arrives as drafts to schedule in the Planner.${hprof}`;
   const spc = !!data.socialpilot?.connected;
   $('#spBtn').textContent = spc ? 'Disconnect' : 'Connect SocialPilot';
   $('#spBtn').dataset.connected = spc ? '1' : '';
-  $('#spPill').textContent = useSP ? 'default' : 'off';
-  $('#spPill').classList.toggle('primary', useSP);
-  $('#spSub').textContent = !useSP ? 'Switched off.' : spc ? 'Connected. Every box you publish goes through SocialPilot.' : 'Not connected yet: click Connect SocialPilot and sign in once.';
+  $('#spPill').textContent = split ? 'images & links' : 'off';
+  $('#spPill').classList.toggle('primary', split);
+  $('#spSub').textContent = !split ? 'Switched off.' : spc ? 'Carousels and link posts go here (only to @glassbox.how on Instagram).' : 'Not connected yet: click Connect SocialPilot and sign in once.';
   const b = data.buffer;
   $('#bufOn').checked = !!s.buffer;
   $('#buf .pill').textContent = s.buffer ? 'on' : 'off';
@@ -125,7 +124,7 @@ $('#list').addEventListener('click', (e) => {
   const btn = e.target.closest('button[data-slug]');
   if (!btn) return;
   const box = data.boxes.find((x) => x.slug === btn.dataset.slug), mode = btn.dataset.mode;
-  const targets = (data.settings.channel || 'socialpilot') === 'socialpilot' ? 'SocialPilot' : 'Hootsuite';
+  const targets = (data.settings.channel || 'split') === 'split' ? 'Hootsuite (videos) and SocialPilot (carousels and links)' : 'Hootsuite';
   const timing = ({ auto: 'at its planned time', queue: 'in the next free slot', now: 'right away' })[$('#when').value];
   $('#cTitle').textContent = `${({ new: 'Publish', retry: 'Retry', again: 'Publish again' })[mode]}: ${box.question}`;
   $('#cText').textContent = mode === 'retry'
@@ -172,10 +171,10 @@ $('#spBtn').addEventListener('click', async (e) => {
   if (r.url) location.href = r.url; else flash(r.error || 'Could not reach SocialPilot.', true);
 });
 $('#hootUse').addEventListener('click', async () => {
-  const to = (data.settings.channel || 'socialpilot') === 'socialpilot' ? 'hootsuite' : 'socialpilot';
-  if (!confirm(to === 'hootsuite' ? 'Publish through Hootsuite instead of SocialPilot?' : 'Publish through SocialPilot again?')) return;
+  const to = (data.settings.channel || 'split') === 'split' ? 'hootsuite' : 'split';
+  if (!confirm(to === 'hootsuite' ? 'Send everything through Hootsuite (SocialPilot off)?' : 'Videos through Hootsuite and the rest through SocialPilot?')) return;
   await api('settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ channel: to }) });
-  flash(to === 'hootsuite' ? 'Publishing through Hootsuite.' : 'Publishing through SocialPilot.'); load();
+  flash(to === 'hootsuite' ? 'Everything goes through Hootsuite.' : 'Videos through Hootsuite, the rest through SocialPilot.'); load();
 });
 $('#q').addEventListener('input', renderList);
 $('#bufOn').addEventListener('change', async (e) => {

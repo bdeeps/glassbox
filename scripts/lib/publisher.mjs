@@ -11,9 +11,10 @@ import * as hoot from './hootsuite.mjs';
 import * as sp from './socialpilot.mjs';
 import { channels, buildPosts, createPost, checkLive, mediaUrl, niceName } from './buffer.mjs';
 
-// `channel` is the one service that publishes: SocialPilot by default; Hootsuite only if chosen.
-const DEFAULTS = { auto: false, when: 'auto', baseline: [], since: null, buffer: false, channel: 'socialpilot' };
-export const settings = async () => ({ ...DEFAULTS, ...((await store.get('settings')) || {}) });
+// `channel`: 'split' (default) sends videos through Hootsuite and everything else through
+// SocialPilot; 'hootsuite' sends everything through Hootsuite.
+const DEFAULTS = { auto: false, when: 'auto', baseline: [], since: null, buffer: false, channel: 'split' };
+export const settings = async () => { const s = { ...DEFAULTS, ...((await store.get('settings')) || {}) }; if (s.channel === 'socialpilot') s.channel = 'split'; return s; };
 
 export async function saveSettings(next, apps) {
   const cur = await settings();
@@ -27,7 +28,7 @@ export async function saveSettings(next, apps) {
   }
   if (['auto', 'queue', 'now'].includes(next.when)) s.when = next.when;
   if (typeof next.buffer === 'boolean') s.buffer = next.buffer;
-  if (['socialpilot', 'hootsuite'].includes(next.channel) && next.channel !== cur.channel) { s.channel = next.channel; await store.log(`publishing through ${next.channel === 'socialpilot' ? 'SocialPilot' : 'Hootsuite'}`); }
+  if (['split', 'hootsuite'].includes(next.channel) && next.channel !== cur.channel) { s.channel = next.channel; await store.log(next.channel === 'split' ? 'videos through Hootsuite, the rest through SocialPilot' : 'everything through Hootsuite'); }
   await store.set('settings', s);
   return s;
 }
@@ -109,11 +110,21 @@ export async function publishBox(box, { dry = false, force = false, all: everyth
       log(`done: ${posted.length} of ${results.length} target(s) published`);
       return rec;
     };
-    if (s.channel === 'socialpilot') {
-      log(`${box.slug}: ${all.length} target(s) through SocialPilot${drafts ? ' · as drafts' : ''}`);
+    if (s.channel === 'split') {
+      const isVideo = (p) => (p.media || []).some((u) => /\.mp4(\?|$)/i.test(u));
+      const vids = all.filter((p) => p.media && isVideo(p)), rest = all.filter((p) => p.media && !isVideo(p));
+      log(`${box.slug}: ${vids.length} video(s) through Hootsuite, ${rest.length} other post(s) through SocialPilot${drafts ? ' · as drafts' : ''}`);
       const media = [...new Set(all.flatMap((p) => p.media || []))];
       if (media.length) await checkLive(media, log);
-      const results = (await sp.publish(all.filter((p) => p.media), { dry, drafts, log })).map((x) => ({ provider: 'socialpilot', ...x }));
+      const results = [];
+      if (vids.length) {
+        if (!(await hoot.connected().catch(() => false))) vids.forEach((p) => results.push({ provider: 'hootsuite', target: p.target, skipped: 'Hootsuite is not connected' }));
+        else {
+          try { results.push(...(await hoot.publish(vids, { dry, drafts, log })).map((x) => ({ provider: 'hootsuite', ...x }))); }
+          catch (e) { log(`✗ Hootsuite: ${e.message}`); vids.forEach((p) => results.push({ provider: 'hootsuite', target: p.target, error: e.message })); }
+        }
+      }
+      if (rest.length) results.push(...(await sp.publish(rest, { dry, drafts, log })).map((x) => ({ provider: 'socialpilot', ...x })));
       all.filter((p) => !p.media).forEach((p) => results.push({ provider: 'socialpilot', target: p.target, skipped: 'nothing to post' }));
       return finish(results);
     }

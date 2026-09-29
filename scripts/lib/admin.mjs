@@ -236,7 +236,7 @@ async function adminApi(req, res, url, { json, html, state }) {
   const apps = state.apps;
 
   if (action === 'status') {
-    const [s, posted, hs, buf, log, kind, sched] = await Promise.all([settings(), store.list('posted:'), settings().then((x) => (x.channel === 'hootsuite' ? hootStatus() : hoot.connected().then((c) => ({ connected: c, off: true })).catch(() => ({ connected: false, off: true })))), settings().then((x) => (x.buffer ? bufferChannels() : { ok: true, off: true, list: [] })), store.recent(200), store.storeKind(), scheduleItems()]);
+    const [s, posted, hs, buf, log, kind, sched] = await Promise.all([settings(), store.list('posted:'), hootStatus(), settings().then((x) => (x.buffer ? bufferChannels() : { ok: true, off: true, list: [] })), store.recent(200), store.storeKind(), scheduleItems()]);
     const boxes = apps.map((a) => {
       const r = readiness(a), rec = posted['posted:' + a.slug];
       return { slug: a.slug, no: a.no, title: a.title, question: a.question, kind: a.kind, date: a.date, color: a.color, ready: r.ready, why: r.why || null,
