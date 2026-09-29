@@ -4,7 +4,7 @@
 import { config, SITE, esc } from './apps.mjs';
 import fs from 'node:fs';
 import crypto from 'node:crypto';
-import { csp, active, analyticsJs } from './analytics.mjs';
+import { csp, active, analyticsJs, gtmNoscript } from './analytics.mjs';
 import { historyTeaser } from './history.mjs';
 import { art as artByName } from '../../site/assets/art.js';
 import * as SEO from './seo.mjs';
@@ -88,7 +88,7 @@ ${lds}
 ${extra}
 </head>
 <body class="${cls}"${style ? ` style="${style}"` : ''}>
-<a class="skip" href="#main">Skip to content</a>`;
+${gtmNoscript()}<a class="skip" href="#main">Skip to content</a>`;
 }
 
 export function nav() {
@@ -118,7 +118,7 @@ export function footer() {
     <div><h4>Follow</h4>${H.youtube ? `<a href="https://youtube.com/${esc(H.youtube)}" rel="noopener" target="_blank">YouTube</a>` : ''}${H.instagram ? `<a href="https://instagram.com/${esc(H.instagram)}" rel="noopener" target="_blank">Instagram</a>` : ''}<a href="/feed.xml">RSS feed</a><a href="https://github.com/${esc(config.org)}" rel="noopener" target="_blank">GitHub</a></div>
     <div><h4>The small print</h4><a href="/privacy/">Privacy</a>${active().ga4 ? '<a href="/privacy/#choices" data-privacy-choices>Privacy choices</a>' : ''}<a href="/terms/">Terms</a><a href="/terms/#licences">Licences</a><a href="${SUGGEST}" rel="noopener" target="_blank">Suggest a box</a></div>
   </div>
-  <p class="colophon">Code under ${esc(config.licenses.code)}. Words, images and videos under ${esc(config.licenses.content)}. Static files on GitHub Pages; fonts self-hosted; visits measured with Google Analytics, bots detected with ClickTrust. © ${new Date(config.policyDate).getUTCFullYear()} ${esc(config.owner)}.</p>
+  <p class="colophon">Code under ${esc(config.licenses.code)}. Words, images and videos under ${esc(config.licenses.content)}. Static files on GitHub Pages; fonts self-hosted; visits measured with Google Analytics through Google Tag Manager, bots detected with ClickTrust. © ${new Date(config.policyDate).getUTCFullYear()} ${esc(config.owner)}.</p>
 </footer>
 <div class="palette" id="palette" hidden>
   <div class="palette-card" role="dialog" aria-modal="true" aria-label="Search">
@@ -404,8 +404,8 @@ ${nav()}
     <ul class="promise-list">
       <li><b>No accounts</b><span>Nothing to sign up for, ever.</span></li>
       <li><b>No ads, nothing sold</b><span>Your visit is never sold or used for advertising.</span></li>
-      <li><b>Two analytics tools, named</b><span>Google Analytics for visits, ClickTrust for bots. Nothing else.</span></li>
-      <li><b>Privacy signals respected</b><span>Send Global Privacy Control or Do Not Track and Google Analytics stays off.</span></li>
+      <li><b>Our measuring tools, named</b><span>Google Tag Manager and Google Analytics for visits, ClickTrust for bots. Nothing else.</span></li>
+      <li><b>Privacy signals respected</b><span>Send Global Privacy Control or Do Not Track and Google Analytics and Tag Manager stay off.</span></li>
       <li><b>Open source</b><span>Every box's code is public under ${esc(config.licenses.code)}.</span></li>
       <li><b>Free to reuse</b><span>Explanations, images and videos under ${esc(config.licenses.content)}.</span></li>
     </ul>

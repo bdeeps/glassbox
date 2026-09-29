@@ -42,6 +42,12 @@ async function load() {
   $('#buf .pill').textContent = s.buffer ? 'on' : 'off';
   if (!s.buffer) $('#bufSub').textContent = 'Off: Hootsuite only. Switch on to send networks Hootsuite lacks to Buffer.'; else $('#bufSub').textContent = !b.ok ? `Buffer: ${b.error}` : b.list.length ? `Connected: ${b.list.map((c) => `${c.name} (${c.service})`).join(', ')}` : 'No channels connected in Buffer yet (connect YouTube at buffer.com).';
 
+  const tr = data.tracking || {};
+  $('#tagCard').hidden = !tr.gtm;
+  if (tr.gtm) {
+    $('#tagSub').innerHTML = `Container <code>${esc(tr.gtm)}</code> is on every page of the site and every box. It loads with the same consent rules as Google Analytics (after “Allow” in the EU/UK, never with a privacy signal) and never on localhost or while recording.`;
+    $('#tagHead').textContent = tr.snippets.head; $('#tagBody').textContent = tr.snippets.body;
+  }
   renderList();
   const general = data.log.filter((l) => !l.slug).slice(0, 8);
   $('#activity').innerHTML = general.map(entry).join('');
@@ -153,3 +159,9 @@ if (qs.get('hootsuite')) {
 }
 load().catch((e) => flash(e.message, true));
 setInterval(() => { if (!busy && document.visibilityState === 'visible') load().catch(() => {}); }, 60e3);
+
+document.addEventListener('click', async (e) => {
+  const b = e.target.closest('button[data-copy]'); if (!b) return;
+  try { await navigator.clipboard.writeText($('#' + b.dataset.copy).textContent); b.textContent = 'Copied'; } catch { b.textContent = 'Select and copy'; }
+  setTimeout(() => { b.textContent = 'Copy'; }, 1600);
+});

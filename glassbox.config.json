@@ -147,6 +147,7 @@
   },
   "analytics": {
     "ga4": "",
+    "gtm": "GTM-MC8F24KK",
     "clicktrust": {
       "snippet": "",
       "policyUrl": "https://clicktrust.cc"

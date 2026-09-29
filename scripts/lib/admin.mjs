@@ -10,6 +10,7 @@ import { channels, ship, alreadyPosted } from './buffer.mjs';
 import * as store from './store.mjs';
 import * as hoot from './hootsuite.mjs';
 import { settings, saveSettings, readiness, publishBox } from './publisher.mjs';
+import { active as analyticsActive, gtmSnippets } from './analytics.mjs';
 
 const COOKIE = 'glassbox_admin';
 const TTL = 12 * 3600;
@@ -222,7 +223,8 @@ async function adminApi(req, res, url, { json, html, state }) {
         posted: rec ? { at: rec.at, by: rec.by, ok: rec.results.filter((x) => !x.error && !x.skipped).length, total: rec.results.length } : null,
         auto: s.auto && !s.baseline.includes(a.slug) };
     });
-    return json(200, { settings: { auto: s.auto, when: s.when, since: s.since, buffer: s.buffer }, hootsuite: hs, buffer: buf, boxes, log, store: kind }), true;
+    const an = analyticsActive();
+    return json(200, { settings: { auto: s.auto, when: s.when, since: s.since, buffer: s.buffer }, hootsuite: hs, buffer: buf, boxes, log, store: kind, tracking: { gtm: an.gtm, ga4: an.ga4, clicktrust: an.clicktrust, snippets: gtmSnippets(an.gtm) } }), true;
   }
   if (action === 'settings' && req.method === 'POST') {
     let b; try { b = JSON.parse(await body(req, 4096)); } catch { return json(400, { error: 'bad JSON' }), true; }

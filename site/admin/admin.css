@@ -5,7 +5,7 @@
 .flash { margin: 0 0 16px; padding: 10px 14px; border-radius: 12px; background: rgba(142, 240, 255, .1); border: 1px solid rgba(142, 240, 255, .3); font-size: 14.5px; }
 .flash.bad { background: rgba(255, 92, 92, .1); border-color: rgba(255, 92, 92, .4); }
 
-.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; margin-bottom: 22px; }
+.cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-bottom: 22px; }
 .card-a { padding: 18px 20px; border-radius: 18px; border: 1px solid var(--line2, rgba(255,255,255,.12)); background: rgba(255, 255, 255, .03); }
 .card-a.on { border-color: rgba(92, 225, 169, .5); background: rgba(92, 225, 169, .06); }
 .card-a .row { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
@@ -82,3 +82,17 @@
 .list-a > li.busy { border-color: color-mix(in srgb, var(--c) 45%, transparent); box-shadow: 0 0 0 1px color-mix(in srgb, var(--c) 25%, transparent), 0 10px 30px -18px var(--c); }
 @media (prefers-reduced-motion: reduce) { .act.run summary::before { animation: none; } }
 .again.need { color: #ffb4b4; }
+
+/* Tracking card */
+.pill.ok { color: #07080c; background: #5ce1a9; border-color: transparent; }
+.card-a code { font: 500 13px var(--mono); color: var(--text); }
+.code-a { margin-top: 12px; }
+.code-a summary { cursor: pointer; font-size: 14px; color: var(--glow, #8ef0ff); }
+.code-a .sub { margin: 12px 0 6px; }
+.snip { position: relative; }
+.snip pre { margin: 0; padding: 12px 14px; padding-right: 84px; border-radius: 12px; background: #05060a; border: 1px solid rgba(255, 255, 255, .08); font: 400 12px/1.55 var(--mono); white-space: pre-wrap; word-break: break-all; color: #c9cedb; }
+.snip .btn { position: absolute; top: 8px; right: 8px; }
+#tagCard { grid-column: 1 / -1; }
+@media (max-width: 700px) { .cards { grid-template-columns: minmax(0, 1fr); } }
+.card-a select { max-width: 100%; min-width: 0; }
+.card-a .row.small { flex-wrap: wrap; }
