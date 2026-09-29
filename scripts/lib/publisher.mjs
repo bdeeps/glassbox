@@ -76,7 +76,7 @@ function targetsOf(plan, when, dir) {
 }
 
 // Publishes one box. Streams progress through log(). Returns the stored record.
-export async function publishBox(box, { dry = false, force = false, when, log = () => {}, by = 'you' } = {}) {
+export async function publishBox(box, { dry = false, force = false, all = false, when, log = () => {}, by = 'you' } = {}) {
   const s = await settings();
   when ||= s.when;
   const r = readiness(box);
@@ -88,7 +88,8 @@ export async function publishBox(box, { dry = false, force = false, when, log = 
     const plan = { ...r.plan, slug: box.slug };
     let all = targetsOf(plan, when, box.dir);
     // "Publish again" retries only what didn't go out last time, so nothing is posted twice.
-    const doneBefore = new Set((prev?.results || []).filter((x) => !x.error && !x.skipped && !x.dry).map((x) => x.target));
+    // "Publish again" with all=true sends everything once more, on purpose.
+    const doneBefore = new Set(all ? [] : (prev?.results || []).filter((x) => !x.error && !x.skipped && !x.dry).map((x) => x.target));
     if (prev && force && doneBefore.size) { all = all.filter((p) => !doneBefore.has(p.target)); log(`already out: ${[...doneBefore].join(', ')} (not posted again)`); }
     const useHoot = await hoot.connected().catch(() => false);
     let hootProfiles = [];

@@ -104,7 +104,18 @@ export async function adminRoutes(req, res, url, { send, TYPES, state, SECURITY 
 
   // The Admin (publish) page: sign-in first.
   if (p === '/admin' || p === '/admin/' || p === '/admin/index.html') {
-    if (isAdmin(req)) return false;   // fall through to the static page
+    if (isAdmin(req)) {
+      // Stamp the stylesheet and script with a content hash so a browser never pairs this
+      // page with an old admin.css/admin.js.
+      const dir = path.join(ROOT, 'site', 'admin');
+      const v = (f) => crypto.createHash('sha1').update(fs.readFileSync(path.join(dir, f))).digest('hex').slice(0, 10);
+      const page = fs.readFileSync(path.join(dir, 'index.html'), 'utf8')
+        .replace('/admin/admin.css"', `/admin/admin.css?v=${v('admin.css')}"`)
+        .replace('/admin/admin.js"', `/admin/admin.js?v=${v('admin.js')}"`);
+      const csp = (page.match(/http-equiv="Content-Security-Policy" content="([^"]+)"/) || [])[1];
+      res.writeHead(200, { 'Content-Type': TYPES['.html'], 'Cache-Control': 'no-store', ...SECURITY, ...(csp ? { 'Content-Security-Policy': csp } : {}) });
+      return res.end(page), true;
+    }
     return html(adminEnabled() ? 200 : 503, loginPage({ error: adminEnabled() ? '' : 'The admin is switched off: set ADMIN_CODE on the server.', next: '/admin/' })), true;
   }
   if (p.startsWith('/__admin/')) return adminApi(req, res, url, { json, html, state, SECURITY });
@@ -223,7 +234,7 @@ async function adminApi(req, res, url, { json, html, state }) {
     res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store', 'X-Accel-Buffering': 'no' });
     const log = (s) => res.write(s + '\n');
     try {
-      await publishBox(box, { dry: url.searchParams.get('dry') === '1', force: url.searchParams.get('force') === '1', when: url.searchParams.get('when') || undefined, log });
+      await publishBox(box, { dry: url.searchParams.get('dry') === '1', force: url.searchParams.get('force') === '1', all: url.searchParams.get('all') === '1', when: url.searchParams.get('when') || undefined, log });
     } catch (e) { log('✗ ' + e.message); }
     return res.end(), true;
   }

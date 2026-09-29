@@ -61,11 +61,13 @@ function renderList() {
       : mine.length ? `<details class="act${mine[0].ok === false ? ' bad' : ''}"${opened.has(x.slug) ? ' open' : ''}><summary>${mine.length > 1 ? `<span class="more">+${mine.length - 1}</span> ` : ''}${ago(mine[0].at)} · ${esc(mine[0].message)}</summary>${mine.length > 1 ? `<ul>${mine.slice(1, 8).map(entry).join('')}</ul>` : ''}</details>` : '';
     return `<li style="--c:${esc(x.color)}" class="${L && !L.done ? 'busy' : ''}" data-box="${esc(x.slug)}"><span class="no">${x.kind === 'principle' ? '' : 'No. '}${esc(x.no)}</span>
       <span class="t"><b>${esc(x.question)}</b>${state}${act}</span>
-      <button class="btn small ${x.posted ? 'ghost' : 'primary'}" data-slug="${esc(x.slug)}" ${x.ready ? '' : 'disabled'}>${x.posted ? (x.posted.ok < x.posted.total ? 'Retry the rest' : 'Publish again') : 'Publish'}</button></li>`;
+      <span class="acts">${!x.posted
+        ? `<button class="btn small primary" data-slug="${esc(x.slug)}" data-mode="new" ${x.ready ? '' : 'disabled'}>Publish</button>`
+        : `${x.posted.ok < x.posted.total ? `<button class="btn small primary" data-slug="${esc(x.slug)}" data-mode="retry" ${x.ready ? '' : 'disabled'}>Retry the rest</button>` : ''}<button class="btn small ghost" data-slug="${esc(x.slug)}" data-mode="again" ${x.ready ? '' : 'disabled'}>Publish again</button>`}</span></li>`;
   }).join('') || '<li class="empty-a">No box matches.</li>';
 }
 
-async function publish(slug, { dry, force }) {
+async function publish(slug, { dry, force, all }) {
   if (busy) return;
   busy = true;
   const L = live[slug] = { text: '', last: dry ? 'Previewing…' : 'Publishing…', done: false, bad: false };
@@ -79,7 +81,7 @@ async function publish(slug, { dry, force }) {
   renderList();
   document.querySelectorAll('#list button').forEach((b) => { b.disabled = true; });
   try {
-    const res = await api(`publish/${encodeURIComponent(slug)}?${new URLSearchParams({ dry: dry ? '1' : '0', force: force ? '1' : '0', when: $('#when').value })}`, { method: 'POST' });
+    const res = await api(`publish/${encodeURIComponent(slug)}?${new URLSearchParams({ dry: dry ? '1' : '0', force: force ? '1' : '0', all: all ? '1' : '0', when: $('#when').value })}`, { method: 'POST' });
     const reader = res.body.getReader(), dec = new TextDecoder();
     for (;;) {
       const { value, done } = await reader.read(); if (done) break;
@@ -99,19 +101,25 @@ async function publish(slug, { dry, force }) {
 $('#list').addEventListener('click', (e) => {
   const btn = e.target.closest('button[data-slug]');
   if (!btn) return;
-  const box = data.boxes.find((x) => x.slug === btn.dataset.slug);
+  const box = data.boxes.find((x) => x.slug === btn.dataset.slug), mode = btn.dataset.mode;
   const targets = [data.hootsuite.connected && 'Hootsuite', data.settings.buffer && data.buffer.list.length && 'Buffer'].filter(Boolean).join(' and ') || 'your channels';
-  $('#cTitle').textContent = `Publish ${box.question}`;
-  $('#cText').textContent = `This posts the video, reel and carousel to ${targets}, ${({ auto: 'at its planned time', queue: 'in the next free slot', now: 'right away' })[$('#when').value]}.`;
-  $('#againRow').hidden = !box.posted; $('#again').checked = false;
+  const timing = ({ auto: 'at its planned time', queue: 'in the next free slot', now: 'right away' })[$('#when').value];
+  $('#cTitle').textContent = `${({ new: 'Publish', retry: 'Retry', again: 'Publish again' })[mode]}: ${box.question}`;
+  $('#cText').textContent = mode === 'retry'
+    ? `${box.posted.ok} of ${box.posted.total} parts went out last time. This sends only the rest to ${targets}, ${timing}. Nothing is posted twice.`
+    : mode === 'again'
+      ? `This sends the video, reel and carousel to ${targets} once more, ${timing}, including the parts that are already out, so they will appear twice.`
+      : `This posts the video, reel and carousel to ${targets}, ${timing}.`;
+  $('#againRow').hidden = mode !== 'again'; $('#again').checked = false;
+  $('#cGo').textContent = mode === 'retry' ? 'Retry' : mode === 'again' ? 'Publish again' : 'Publish';
   const dlg = $('#confirm');
   dlg.onclose = () => {
-    if (dlg.returnValue === 'go') publish(box.slug, { dry: false, force: box.posted && $('#again').checked });
-    if (dlg.returnValue === 'dry') publish(box.slug, { dry: true, force: true });
+    if (dlg.returnValue === 'go') publish(box.slug, { dry: false, force: mode !== 'new', all: mode === 'again' });
+    if (dlg.returnValue === 'dry') publish(box.slug, { dry: true, force: true, all: mode === 'again' });
   };
   dlg.showModal();
 });
-$('#cGo').addEventListener('click', (e) => { if (!$('#againRow').hidden && !$('#again').checked) { e.preventDefault(); $('#again').focus(); flash('Tick the box to publish the parts that didn\'t go out.', true); } });
+$('#cGo').addEventListener('click', (e) => { if (!$('#againRow').hidden && !$('#again').checked) { e.preventDefault(); $('#again').focus(); $('#againRow').classList.add('need'); } });
 
 $('#auto').addEventListener('change', async (e) => {
   const on = e.target.checked;
