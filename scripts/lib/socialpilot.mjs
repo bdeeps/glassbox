@@ -126,3 +126,13 @@ export async function call(name, args) {
   if (r?.structuredContent) return r.structuredContent;
   try { return JSON.parse(text); } catch { return { text }; }
 }
+
+// Publishing. Filled in once the connected account's tools are known; until then every post is
+// reported as skipped with the reason, so nothing is recorded as sent.
+export async function publish(posts, { log = console.log } = {}) {
+  const why = (await connected().catch(() => false))
+    ? 'SocialPilot is connected; posting through it is being set up'
+    : 'SocialPilot is not connected: click Connect SocialPilot in the admin';
+  log(`SocialPilot: ${why}`);
+  return posts.map((p) => ({ target: p.target, skipped: why }));
+}

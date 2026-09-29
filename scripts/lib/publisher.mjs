@@ -8,9 +8,11 @@ import path from 'node:path';
 import { config } from './apps.mjs';
 import * as store from './store.mjs';
 import * as hoot from './hootsuite.mjs';
+import * as sp from './socialpilot.mjs';
 import { channels, buildPosts, createPost, checkLive, mediaUrl, niceName } from './buffer.mjs';
 
-const DEFAULTS = { auto: false, when: 'auto', baseline: [], since: null, buffer: false };
+// `channel` is the one service that publishes: SocialPilot by default; Hootsuite only if chosen.
+const DEFAULTS = { auto: false, when: 'auto', baseline: [], since: null, buffer: false, channel: 'socialpilot' };
 export const settings = async () => ({ ...DEFAULTS, ...((await store.get('settings')) || {}) });
 
 export async function saveSettings(next, apps) {
@@ -25,6 +27,7 @@ export async function saveSettings(next, apps) {
   }
   if (['auto', 'queue', 'now'].includes(next.when)) s.when = next.when;
   if (typeof next.buffer === 'boolean') s.buffer = next.buffer;
+  if (['socialpilot', 'hootsuite'].includes(next.channel) && next.channel !== cur.channel) { s.channel = next.channel; await store.log(`publishing through ${next.channel === 'socialpilot' ? 'SocialPilot' : 'Hootsuite'}`); }
   await store.set('settings', s);
   return s;
 }
@@ -92,6 +95,28 @@ export async function publishBox(box, { dry = false, force = false, all: everyth
     // "Publish again" with all=true sends everything once more, on purpose.
     const doneBefore = new Set(everything ? [] : (prev?.results || []).filter((x) => !x.error && !x.skipped && !x.dry).map((x) => x.target));
     if (prev && force && doneBefore.size) { all = all.filter((p) => !doneBefore.has(p.target)); log(`already out: ${[...doneBefore].join(', ')} (not posted again)`); }
+    // Records what went out (whichever service sent it) and reports.
+    const finish = async (results) => {
+      results.filter((x) => x.skipped).forEach((x) => log(`  – ${x.target}: ${x.skipped}`));
+
+      const posted = results.filter((x) => !x.error && !x.skipped && !x.dry);
+      if (dry) { log('dry run: nothing was sent'); return { dry: true, results }; }
+      if (!posted.length) { const why = results.find((x) => x.error || x.skipped); throw new Error(doneBefore.size ? 'nothing new was published' : `nothing was published${why ? ': ' + (why.error || why.skipped) : ''}`); }
+      const kept = (prev?.results || []).filter((x) => doneBefore.has(x.target));
+      const rec = { at: new Date().toISOString(), when, by, ...(drafts && at ? { draftFor: at } : {}), results: [...kept, ...results] };
+      await store.set('posted:' + box.slug, rec);
+      await store.log(`published ${posted.length} of ${results.length} target(s)`, { slug: box.slug, provider: [...new Set(posted.map((x) => x.provider))].join('+'), ok: posted.length === results.length });
+      log(`done: ${posted.length} of ${results.length} target(s) published`);
+      return rec;
+    };
+    if (s.channel === 'socialpilot') {
+      log(`${box.slug}: ${all.length} target(s) through SocialPilot${drafts ? ' · as drafts' : ''}`);
+      const media = [...new Set(all.flatMap((p) => p.media || []))];
+      if (media.length) await checkLive(media, log);
+      const results = (await sp.publish(all.filter((p) => p.media), { dry, drafts, log })).map((x) => ({ provider: 'socialpilot', ...x }));
+      all.filter((p) => !p.media).forEach((p) => results.push({ provider: 'socialpilot', target: p.target, skipped: 'nothing to post' }));
+      return finish(results);
+    }
     const useHoot = await hoot.connected().catch(() => false);
     let hootProfiles = [];
     if (useHoot) { try { hootProfiles = await hoot.profiles(); } catch (e) { log(`⚠ Hootsuite: ${e.message} (using Buffer instead)`); } }
@@ -129,17 +154,7 @@ export async function publishBox(box, { dry = false, force = false, all: everyth
         }
       }
     }
-    results.filter((x) => x.skipped).forEach((x) => log(`  – ${x.target}: ${x.skipped}`));
-
-    const posted = results.filter((x) => !x.error && !x.skipped && !x.dry);
-    if (dry) { log('dry run: nothing was sent'); return { dry: true, results }; }
-    if (!posted.length) throw new Error(doneBefore.size ? 'nothing new was published' : 'nothing was published: add these networks to your Hootsuite account');
-    const kept = (prev?.results || []).filter((x) => doneBefore.has(x.target));
-    const rec = { at: new Date().toISOString(), when, by, ...(drafts && at ? { draftFor: at } : {}), results: [...kept, ...results] };
-    await store.set('posted:' + box.slug, rec);
-    await store.log(`published ${posted.length} of ${results.length} target(s)`, { slug: box.slug, provider: [...new Set(posted.map((x) => x.provider))].join('+'), ok: posted.length === results.length });
-    log(`done: ${posted.length} of ${results.length} target(s) published`);
-    return rec;
+    return finish(results);
   } catch (e) {
     if (!dry) await store.log(e.message, { slug: box.slug, ok: false });
     throw e;

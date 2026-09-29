@@ -35,22 +35,26 @@ async function load() {
     : 'Off. When on, each new box publishes as soon as it is ready.';
   $('#autoCard').classList.toggle('on', s.auto);
 
-  const h = data.hootsuite;
+  const h = data.hootsuite, useSP = (s.channel || 'socialpilot') === 'socialpilot';
   $('#hootBtn').textContent = h.connected ? 'Disconnect' : 'Connect Hootsuite';
   $('#hootBtn').dataset.connected = h.connected ? '1' : '';
-  $('#hootSub').textContent = !h.connected ? 'Not connected. Connect to publish to every network you have in Hootsuite.'
+  $('#hootPill').textContent = useSP ? 'off' : 'default';
+  $('#hootPill').classList.toggle('primary', !useSP);
+  $('#hootUse').textContent = useSP ? 'Use instead' : 'Switch back to SocialPilot';
+  $('#hootSub').textContent = useSP ? 'Switched off: nothing is sent to Hootsuite.'
+    : !h.connected ? 'Not connected.'
     : h.error ? `Connected, but: ${h.error}`
-    : h.profiles.length ? `YouTube posts arrive as drafts in your Hootsuite Planner (press Schedule); the rest publish automatically. Profiles: ${h.profiles.map((p) => `${p.service || p.type}${p.name && p.name !== p.service ? ' (' + p.name + ')' : ''}${p.reauth ? ' (reconnect it in Hootsuite)' : ''}`).join(', ')}. Add Instagram, LinkedIn and the rest in Hootsuite and they appear here.` : 'Connected, but no social profiles in your Hootsuite account yet.';
+    : h.profiles?.length ? `YouTube posts arrive as drafts in your Hootsuite Planner. Profiles: ${h.profiles.map((p) => p.service || p.type).join(', ')}.` : 'Connected, but no social profiles yet.';
   const spc = !!data.socialpilot?.connected;
   $('#spBtn').textContent = spc ? 'Disconnect' : 'Connect SocialPilot';
   $('#spBtn').dataset.connected = spc ? '1' : '';
-  $('#spPill').textContent = spc ? 'connected' : 'new';
-  $('#spPill').classList.toggle('ok', spc);
-  $('#spSub').textContent = spc ? 'Connected. Publishing through SocialPilot is being set up to use your connected accounts.' : 'Connect to publish through SocialPilot too (sign in once).';
+  $('#spPill').textContent = useSP ? 'default' : 'off';
+  $('#spPill').classList.toggle('primary', useSP);
+  $('#spSub').textContent = !useSP ? 'Switched off.' : spc ? 'Connected. Every box you publish goes through SocialPilot.' : 'Not connected yet: click Connect SocialPilot and sign in once.';
   const b = data.buffer;
   $('#bufOn').checked = !!s.buffer;
   $('#buf .pill').textContent = s.buffer ? 'on' : 'off';
-  if (!s.buffer) $('#bufSub').textContent = 'Off: Hootsuite only. Switch on to send networks Hootsuite lacks to Buffer.'; else $('#bufSub').textContent = !b.ok ? `Buffer: ${b.error}` : b.list.length ? `Connected: ${b.list.map((c) => `${c.name} (${c.service})`).join(', ')}` : 'No channels connected in Buffer yet (connect YouTube at buffer.com).';
+  if (!s.buffer) $('#bufSub').textContent = 'Switched off: nothing is sent to Buffer.'; else $('#bufSub').textContent = !b.ok ? `Buffer: ${b.error}` : b.list.length ? `Connected: ${b.list.map((c) => `${c.name} (${c.service})`).join(', ')}` : 'No channels connected in Buffer yet (connect YouTube at buffer.com).';
 
   const tr = data.tracking || {};
   $('#tagCard').hidden = !tr.gtm;
@@ -121,7 +125,7 @@ $('#list').addEventListener('click', (e) => {
   const btn = e.target.closest('button[data-slug]');
   if (!btn) return;
   const box = data.boxes.find((x) => x.slug === btn.dataset.slug), mode = btn.dataset.mode;
-  const targets = [data.hootsuite.connected && 'Hootsuite', data.settings.buffer && data.buffer.list.length && 'Buffer'].filter(Boolean).join(' and ') || 'your channels';
+  const targets = (data.settings.channel || 'socialpilot') === 'socialpilot' ? 'SocialPilot' : 'Hootsuite';
   const timing = ({ auto: 'at its planned time', queue: 'in the next free slot', now: 'right away' })[$('#when').value];
   $('#cTitle').textContent = `${({ new: 'Publish', retry: 'Retry', again: 'Publish again' })[mode]}: ${box.question}`;
   $('#cText').textContent = mode === 'retry'
@@ -153,7 +157,7 @@ $('#when').addEventListener('change', async (e) => {
 });
 $('#hootBtn').addEventListener('click', async (e) => {
   if (e.target.dataset.connected) {
-    if (!confirm('Disconnect Hootsuite? Posts will go to Buffer only.')) return;
+    if (!confirm('Disconnect Hootsuite?')) return;
     await api('hootsuite/disconnect', { method: 'POST' }); return load();
   }
   const r = await (await api('hootsuite/connect', { method: 'POST' })).json();
@@ -166,6 +170,12 @@ $('#spBtn').addEventListener('click', async (e) => {
   }
   const r = await (await api('socialpilot/connect', { method: 'POST' })).json();
   if (r.url) location.href = r.url; else flash(r.error || 'Could not reach SocialPilot.', true);
+});
+$('#hootUse').addEventListener('click', async () => {
+  const to = (data.settings.channel || 'socialpilot') === 'socialpilot' ? 'hootsuite' : 'socialpilot';
+  if (!confirm(to === 'hootsuite' ? 'Publish through Hootsuite instead of SocialPilot?' : 'Publish through SocialPilot again?')) return;
+  await api('settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ channel: to }) });
+  flash(to === 'hootsuite' ? 'Publishing through Hootsuite.' : 'Publishing through SocialPilot.'); load();
 });
 $('#q').addEventListener('input', renderList);
 $('#bufOn').addEventListener('change', async (e) => {

@@ -124,3 +124,4 @@ body.planning .adm-main { padding-bottom: 170px; }
 .plan-list .q { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media (max-width: 560px) { .plan-list li { grid-template-columns: 1fr; } }
 body.planning .list-a .acts { visibility: hidden; }
+.prov-btns { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
