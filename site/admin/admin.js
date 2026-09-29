@@ -41,6 +41,12 @@ async function load() {
   $('#hootSub').textContent = !h.connected ? 'Not connected. Connect to publish to every network you have in Hootsuite.'
     : h.error ? `Connected, but: ${h.error}`
     : h.profiles.length ? `YouTube posts arrive as drafts in your Hootsuite Planner (press Schedule); the rest publish automatically. Profiles: ${h.profiles.map((p) => `${p.service || p.type}${p.name && p.name !== p.service ? ' (' + p.name + ')' : ''}${p.reauth ? ' (reconnect it in Hootsuite)' : ''}`).join(', ')}. Add Instagram, LinkedIn and the rest in Hootsuite and they appear here.` : 'Connected, but no social profiles in your Hootsuite account yet.';
+  const spc = !!data.socialpilot?.connected;
+  $('#spBtn').textContent = spc ? 'Disconnect' : 'Connect SocialPilot';
+  $('#spBtn').dataset.connected = spc ? '1' : '';
+  $('#spPill').textContent = spc ? 'connected' : 'new';
+  $('#spPill').classList.toggle('ok', spc);
+  $('#spSub').textContent = spc ? 'Connected. Publishing through SocialPilot is being set up to use your connected accounts.' : 'Connect to publish through SocialPilot too (sign in once).';
   const b = data.buffer;
   $('#bufOn').checked = !!s.buffer;
   $('#buf .pill').textContent = s.buffer ? 'on' : 'off';
@@ -153,6 +159,14 @@ $('#hootBtn').addEventListener('click', async (e) => {
   const r = await (await api('hootsuite/connect', { method: 'POST' })).json();
   if (r.url) location.href = r.url; else flash(r.error || 'Could not reach Hootsuite.', true);
 });
+$('#spBtn').addEventListener('click', async (e) => {
+  if (e.target.dataset.connected) {
+    if (!confirm('Disconnect SocialPilot?')) return;
+    await api('socialpilot/disconnect', { method: 'POST' }); return load();
+  }
+  const r = await (await api('socialpilot/connect', { method: 'POST' })).json();
+  if (r.url) location.href = r.url; else flash(r.error || 'Could not reach SocialPilot.', true);
+});
 $('#q').addEventListener('input', renderList);
 $('#bufOn').addEventListener('change', async (e) => {
   await api('settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ buffer: e.target.checked }) });
@@ -160,6 +174,10 @@ $('#bufOn').addEventListener('change', async (e) => {
 });
 
 const qs = new URLSearchParams(location.search);
+if (qs.get('socialpilot')) {
+  flash(qs.get('socialpilot') === 'connected' ? 'SocialPilot is connected.' : `SocialPilot: ${qs.get('socialpilot')}`, qs.get('socialpilot') !== 'connected');
+  history.replaceState(null, '', '/admin/');
+}
 if (qs.get('hootsuite')) {
   flash(qs.get('hootsuite') === 'connected' ? 'Hootsuite is connected.' : `Hootsuite: ${qs.get('hootsuite')}`, qs.get('hootsuite') !== 'connected');
   history.replaceState(null, '', '/admin/');

@@ -9,6 +9,7 @@ import { ROOT, config } from './apps.mjs';
 import { channels, ship, alreadyPosted } from './buffer.mjs';
 import * as store from './store.mjs';
 import * as hoot from './hootsuite.mjs';
+import * as sp from './socialpilot.mjs';
 import { settings, saveSettings, readiness, publishBox, scheduleItems, addToSchedule, removeFromSchedule, runSchedule } from './publisher.mjs';
 import { active as analyticsActive, gtmSnippets } from './analytics.mjs';
 
@@ -214,6 +215,13 @@ async function adminApi(req, res, url, { json, html, state }) {
   const p = url.pathname;
   // Hootsuite sends the browser back here. The admin cookie is SameSite=Strict, so it isn't
   // sent on this cross-site redirect; the one-time state (made by a signed-in admin) proves it.
+  if (p === '/__admin/socialpilot/callback') {
+    const back = (q) => { res.writeHead(303, { Location: '/admin/?' + q, 'Cache-Control': 'no-store' }); res.end(); };
+    if (url.searchParams.get('error')) return back('socialpilot=' + encodeURIComponent(url.searchParams.get('error_description') || url.searchParams.get('error'))), true;
+    try { await sp.finishConnect(url.searchParams.get('code') || '', url.searchParams.get('state') || ''); await store.log('SocialPilot connected', { provider: 'socialpilot' }); back('socialpilot=connected'); }
+    catch (e) { back('socialpilot=' + encodeURIComponent(e.message)); }
+    return true;
+  }
   if (p === '/__admin/hootsuite/callback') {
     const back = (q) => { res.writeHead(303, { Location: '/admin/?' + q, 'Cache-Control': 'no-store' }); res.end(); };
     if (url.searchParams.get('error')) return back('hootsuite=' + encodeURIComponent(url.searchParams.get('error_description') || url.searchParams.get('error'))), true;
@@ -237,7 +245,7 @@ async function adminApi(req, res, url, { json, html, state }) {
         auto: s.auto && !s.baseline.includes(a.slug) };
     });
     const an = analyticsActive();
-    return json(200, { settings: { auto: s.auto, when: s.when, since: s.since, buffer: s.buffer }, hootsuite: hs, buffer: buf, boxes, log, store: kind, tracking: { gtm: an.gtm, ga4: an.ga4, clicktrust: an.clicktrust, snippets: gtmSnippets(an.gtm) } }), true;
+    return json(200, { settings: { auto: s.auto, when: s.when, since: s.since, buffer: s.buffer }, hootsuite: hs, socialpilot: { connected: await sp.connected().catch(() => false) }, buffer: buf, boxes, log, store: kind, tracking: { gtm: an.gtm, ga4: an.ga4, clicktrust: an.clicktrust, snippets: gtmSnippets(an.gtm) } }), true;
   }
   if (action === 'settings' && req.method === 'POST') {
     let b; try { b = JSON.parse(await body(req, 4096)); } catch { return json(400, { error: 'bad JSON' }), true; }
@@ -265,6 +273,18 @@ async function adminApi(req, res, url, { json, html, state }) {
       await publishBox(box, { dry: url.searchParams.get('dry') === '1', force: url.searchParams.get('force') === '1', all: url.searchParams.get('all') === '1', when: url.searchParams.get('when') || undefined, log });
     } catch (e) { log('✗ ' + e.message); }
     return res.end(), true;
+  }
+  if (action === 'socialpilot' && arg === 'connect' && req.method === 'POST') {
+    try { return json(200, { url: await sp.connectUrl(origin(req) + '/__admin/socialpilot/callback') }), true; }
+    catch (e) { return json(502, { error: e.message }), true; }
+  }
+  if (action === 'socialpilot' && arg === 'disconnect' && req.method === 'POST') {
+    await sp.disconnect(); await store.log('SocialPilot disconnected', { provider: 'socialpilot' });
+    return json(200, { ok: true }), true;
+  }
+  if (action === 'socialpilot' && arg === 'tools') {
+    try { return json(200, { tools: (await sp.tools()).map((t) => ({ name: t.name, description: t.description, inputSchema: t.inputSchema })) }), true; }
+    catch (e) { return json(502, { error: e.message }), true; }
   }
   if (action === 'hootsuite' && arg === 'connect' && req.method === 'POST') {
     try { return json(200, { url: await hoot.connectUrl(origin(req) + '/__admin/hootsuite/callback') }), true; }
