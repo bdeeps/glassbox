@@ -4,6 +4,46 @@ const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<
 const when = (iso) => new Date(iso).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 let data = null, busy = false;
 const plan = { on: false, sel: new Set() };
+const LABEL = { 'youtube:short': 'YouTube Short', 'youtube:video': 'YouTube video', 'youtube:history-short': 'YouTube history Short', 'instagram:reel': 'Instagram Reel', 'instagram:carousel': 'Instagram carousel', 'instagram:history-reel': 'Instagram history Reel', 'instagram:history-carousel': 'Instagram history carousel', 'linkedin:video': 'LinkedIn video', 'twitter:video': 'X video', 'facebook:video': 'Facebook video', 'tiktok:video': 'TikTok video', 'threads:video': 'Threads video' };
+const LINKS_OK = new Set(['facebook', 'linkedin', 'twitter', 'threads']);
+let dest = null;
+// Options for one post: Hootsuite / SocialPilot accounts on that network, or don't post.
+function routeOptions(t) {
+  const o = [];
+  for (const a of dest.hootsuite.filter((x) => x.service === t.service)) o.push({ v: `hootsuite:${a.id}`, l: `Hootsuite · ${a.name || a.service}` });
+  for (const a of dest.socialpilot.filter((x) => x.service === t.service)) {
+    const who = `@${a.name || a.handle}`;
+    if (!t.video) o.push({ v: `socialpilot:${a.id}`, l: `SocialPilot · ${who}` });
+    else if (LINKS_OK.has(t.service)) o.push({ v: `socialpilot:${a.id}`, l: `SocialPilot · ${who} (as a link)` });
+    else o.push({ v: '', l: `SocialPilot · ${who} (can't post video)`, off: true });
+  }
+  o.push({ v: 'skip', l: "Don't post" });
+  return o;
+}
+function defaultRoute(t, opts) {
+  const saved = data.settings.routes?.[t.target];
+  if (saved) { const v = saved.via === 'skip' ? 'skip' : `${saved.via}:${saved.account}`; if (opts.some((o) => o.v === v && !o.off)) return v; }
+  const prefer = t.video ? ['hootsuite', 'socialpilot'] : ['socialpilot', 'hootsuite'];
+  for (const via of prefer) { const hit = opts.find((o) => !o.off && o.v.startsWith(via + ':')); if (hit) return hit.v; }
+  return 'skip';
+}
+async function loadRoutes(slug) {
+  const box = $('#routes');
+  box.innerHTML = '<p class="sub">Loading where each post can go…</p>';
+  try {
+    const [t, d] = await Promise.all([api('targets/' + encodeURIComponent(slug)).then((r) => r.json()), dest ? dest : api('destinations').then((r) => r.json())]);
+    dest = d;
+    const note = [d.hootsuiteError && `Hootsuite: ${d.hootsuiteError}`, d.socialpilotError && `SocialPilot: ${d.socialpilotError}`].filter(Boolean).join(' · ');
+    box.innerHTML = `<table class="rt"><tbody>${(t.targets || []).map((x) => {
+      const opts = routeOptions(x), def = defaultRoute(x, opts);
+      return `<tr><th scope="row">${esc(LABEL[x.target] || x.target)}<small>${x.video ? 'video' : 'images'}</small></th><td><select data-route="${esc(x.target)}" aria-label="Where to post the ${esc(LABEL[x.target] || x.target)}">${opts.map((o) => `<option value="${esc(o.v)}"${o.off ? ' disabled' : ''}${o.v === def ? ' selected' : ''}>${esc(o.l)}</option>`).join('')}</select></td></tr>`;
+    }).join('')}</tbody></table>${note ? `<p class="sub bad">${esc(note)}</p>` : ''}`;
+  } catch (e) { box.innerHTML = `<p class="sub bad">Couldn't load the accounts: ${esc(e.message)}</p>`; }
+}
+const chosenRoutes = () => Object.fromEntries([...document.querySelectorAll('#routes [data-route]')].map((sel) => {
+  const [via, ...rest] = sel.value.split(':');
+  return [sel.dataset.route, via === 'skip' ? { via: 'skip' } : { via, account: rest.join(':') }];
+}));
 const day = (iso) => new Date(iso).toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 const pad = (n) => String(n).padStart(2, '0');
 const ymd = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -89,7 +129,7 @@ function renderList() {
   }).join('') || '<li class="empty-a">No box matches.</li>';
 }
 
-async function publish(slug, { dry, force, all }) {
+async function publish(slug, { dry, force, all, routes }) {
   if (busy) return;
   busy = true;
   const L = live[slug] = { text: '', last: dry ? 'Previewing…' : 'Publishing…', done: false, bad: false };
@@ -103,7 +143,7 @@ async function publish(slug, { dry, force, all }) {
   renderList();
   document.querySelectorAll('#list button').forEach((b) => { b.disabled = true; });
   try {
-    const res = await api(`publish/${encodeURIComponent(slug)}?${new URLSearchParams({ dry: dry ? '1' : '0', force: force ? '1' : '0', all: all ? '1' : '0', when: $('#when').value })}`, { method: 'POST' });
+    const res = await api(`publish/${encodeURIComponent(slug)}?${new URLSearchParams({ dry: dry ? '1' : '0', force: force ? '1' : '0', all: all ? '1' : '0', when: $('#when').value, ...(routes ? { routes: JSON.stringify(routes) } : {}) })}`, { method: 'POST' });
     const reader = res.body.getReader(), dec = new TextDecoder();
     for (;;) {
       const { value, done } = await reader.read(); if (done) break;
@@ -124,7 +164,7 @@ $('#list').addEventListener('click', (e) => {
   const btn = e.target.closest('button[data-slug]');
   if (!btn) return;
   const box = data.boxes.find((x) => x.slug === btn.dataset.slug), mode = btn.dataset.mode;
-  const targets = (data.settings.channel || 'split') === 'split' ? 'Hootsuite (videos) and SocialPilot (carousels and links)' : 'Hootsuite';
+  const targets = (data.settings.channel || 'split') === 'split' ? 'the accounts you pick below' : 'Hootsuite';
   const timing = ({ auto: 'at its planned time', queue: 'in the next free slot', now: 'right away' })[$('#when').value];
   $('#cTitle').textContent = `${({ new: 'Publish', retry: 'Retry', again: 'Publish again' })[mode]}: ${box.question}`;
   $('#cText').textContent = mode === 'retry'
@@ -135,9 +175,17 @@ $('#list').addEventListener('click', (e) => {
   $('#againRow').hidden = mode !== 'again'; $('#again').checked = false;
   $('#cGo').textContent = mode === 'retry' ? 'Retry' : mode === 'again' ? 'Publish again' : 'Publish';
   const dlg = $('#confirm');
-  dlg.onclose = () => {
-    if (dlg.returnValue === 'go') publish(box.slug, { dry: false, force: mode !== 'new', all: mode === 'again' });
-    if (dlg.returnValue === 'dry') publish(box.slug, { dry: true, force: true, all: mode === 'again' });
+  const split = (data.settings.channel || 'split') === 'split';
+  $('#routes').hidden = !split; $('#remember').parentElement.hidden = !split;
+  if (split) loadRoutes(box.slug);
+  dlg.onclose = async () => {
+    if (dlg.returnValue !== 'go' && dlg.returnValue !== 'dry') return;
+    const routes = split ? chosenRoutes() : null;
+    if (routes && $('#remember').checked && dlg.returnValue === 'go') {
+      await api('settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ routes: { ...(data.settings.routes || {}), ...routes } }) }).catch(() => {});
+    }
+    if (dlg.returnValue === 'go') publish(box.slug, { dry: false, force: mode !== 'new', all: mode === 'again', routes });
+    if (dlg.returnValue === 'dry') publish(box.slug, { dry: true, force: true, all: mode === 'again', routes });
   };
   dlg.showModal();
 });

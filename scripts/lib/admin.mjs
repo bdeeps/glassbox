@@ -10,7 +10,7 @@ import { channels, ship, alreadyPosted } from './buffer.mjs';
 import * as store from './store.mjs';
 import * as hoot from './hootsuite.mjs';
 import * as sp from './socialpilot.mjs';
-import { settings, saveSettings, readiness, publishBox, scheduleItems, addToSchedule, removeFromSchedule, runSchedule } from './publisher.mjs';
+import { settings, saveSettings, readiness, publishBox, boxTargets, scheduleItems, addToSchedule, removeFromSchedule, runSchedule } from './publisher.mjs';
 import { active as analyticsActive, gtmSnippets } from './analytics.mjs';
 
 const COOKIE = 'glassbox_admin';
@@ -192,7 +192,7 @@ async function bufferChannels() {
 // Hootsuite can take seconds to list profiles. The admin never waits for it: it answers with
 // the last known status (kept in the shared store, so every replica has it) and refreshes in
 // the background when that is more than 5 minutes old.
-let profCache = null, profRefresh = null;
+let profCache = null, profRefresh = null, destCache = null;
 function refreshHoot() {
   return (profRefresh ||= (async () => {
     let v;
@@ -245,11 +245,29 @@ async function adminApi(req, res, url, { json, html, state }) {
         auto: s.auto && !s.baseline.includes(a.slug) };
     });
     const an = analyticsActive();
-    return json(200, { settings: { auto: s.auto, when: s.when, since: s.since, buffer: s.buffer, channel: s.channel }, hootsuite: hs, socialpilot: { connected: await sp.connected().catch(() => false) }, buffer: buf, boxes, log, store: kind, tracking: { gtm: an.gtm, ga4: an.ga4, clicktrust: an.clicktrust, snippets: gtmSnippets(an.gtm) } }), true;
+    return json(200, { settings: { auto: s.auto, when: s.when, since: s.since, buffer: s.buffer, channel: s.channel, routes: s.routes || {} }, hootsuite: hs, socialpilot: { connected: await sp.connected().catch(() => false) }, buffer: buf, boxes, log, store: kind, tracking: { gtm: an.gtm, ga4: an.ga4, clicktrust: an.clicktrust, snippets: gtmSnippets(an.gtm) } }), true;
   }
   if (action === 'settings' && req.method === 'POST') {
     let b; try { b = JSON.parse(await body(req, 4096)); } catch { return json(400, { error: 'bad JSON' }), true; }
     return json(200, await saveSettings(b, apps)), true;
+  }
+  if (action === 'targets' && arg) {
+    const box = apps.find((a) => a.slug === decodeURIComponent(arg));
+    return box ? json(200, { targets: boxTargets(box) }) : json(404, { error: 'unknown box' }), true;
+  }
+  if (action === 'destinations') {
+    // Every account each service can post to, so you can pick exactly where a post goes.
+    if (!destCache || Date.now() - destCache.at > 3 * 60e3) {
+      const [h, p] = await Promise.all([
+        hoot.connected().then((c) => (c ? hoot.profiles() : [])).catch((e) => ({ error: e.message })),
+        sp.connected().then((c) => (c ? sp.accounts() : [])).catch((e) => ({ error: e.message })),
+      ]);
+      destCache = { at: Date.now(), v: {
+        hootsuite: Array.isArray(h) ? h.filter((x) => !x.reauth).map((x) => ({ id: x.id, service: x.service, name: x.name })) : [], hootsuiteError: h.error || null,
+        socialpilot: Array.isArray(p) ? p.map((x) => ({ id: String(x.loginId), service: x.service, name: x.name, handle: x.handle })) : [], socialpilotError: p.error || null,
+      } };
+    }
+    return json(200, destCache.v), true;
   }
   if (action === 'schedule' && req.method === 'POST') {
     let b; try { b = JSON.parse(await body(req, 64 * 1024)); } catch { return json(400, { error: 'bad JSON' }), true; }
@@ -270,7 +288,7 @@ async function adminApi(req, res, url, { json, html, state }) {
     res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store', 'X-Accel-Buffering': 'no' });
     const log = (s) => res.write(s + '\n');
     try {
-      await publishBox(box, { dry: url.searchParams.get('dry') === '1', force: url.searchParams.get('force') === '1', all: url.searchParams.get('all') === '1', when: url.searchParams.get('when') || undefined, log });
+      await publishBox(box, { dry: url.searchParams.get('dry') === '1', force: url.searchParams.get('force') === '1', all: url.searchParams.get('all') === '1', routes: (() => { try { return url.searchParams.get('routes') ? JSON.parse(url.searchParams.get('routes')) : null; } catch { return null; } })(), when: url.searchParams.get('when') || undefined, log });
     } catch (e) { log('✗ ' + e.message); }
     return res.end(), true;
   }

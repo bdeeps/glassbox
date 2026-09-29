@@ -13,7 +13,7 @@ import { channels, buildPosts, createPost, checkLive, mediaUrl, niceName } from 
 
 // `channel`: 'split' (default) sends videos through Hootsuite and everything else through
 // SocialPilot; 'hootsuite' sends everything through Hootsuite.
-const DEFAULTS = { auto: false, when: 'auto', baseline: [], since: null, buffer: false, channel: 'split' };
+const DEFAULTS = { auto: false, when: 'auto', baseline: [], since: null, buffer: false, channel: 'split', routes: {} };
 export const settings = async () => { const s = { ...DEFAULTS, ...((await store.get('settings')) || {}) }; if (s.channel === 'socialpilot') s.channel = 'split'; return s; };
 
 export async function saveSettings(next, apps) {
@@ -28,6 +28,10 @@ export async function saveSettings(next, apps) {
   }
   if (['auto', 'queue', 'now'].includes(next.when)) s.when = next.when;
   if (typeof next.buffer === 'boolean') s.buffer = next.buffer;
+  // Where each kind of post goes: { 'instagram:carousel': { via: 'socialpilot', account: '2663796' }, … }
+  if (next.routes && typeof next.routes === 'object') {
+    s.routes = Object.fromEntries(Object.entries(next.routes).filter(([k, v]) => /^[a-z]+:[a-z-]+$/.test(k) && ['hootsuite', 'socialpilot', 'skip'].includes(v?.via)).map(([k, v]) => [k, { via: v.via, account: v.account ? String(v.account).slice(0, 40) : null }]));
+  }
   if (['split', 'hootsuite'].includes(next.channel) && next.channel !== cur.channel) { s.channel = next.channel; await store.log(next.channel === 'split' ? 'videos through Hootsuite, the rest through SocialPilot' : 'everything through Hootsuite'); }
   await store.set('settings', s);
   return s;
@@ -79,8 +83,16 @@ function targetsOf(plan, when, dir, at) {
   return out;
 }
 
+// The posts a box makes (target, network, whether it's a video), for the publish dialog.
+export function boxTargets(box) {
+  const r = readiness(box);
+  if (!r.ready) return [];
+  return targetsOf({ ...r.plan, slug: box.slug }, 'now', box.dir).filter((p) => p.media?.length)
+    .map((p) => ({ target: p.target, service: p.service, kind: p.kind, video: p.media.some((u) => /\.mp4(\?|$)/i.test(u)) }));
+}
+
 // Publishes one box. Streams progress through log(). Returns the stored record.
-export async function publishBox(box, { dry = false, force = false, all: everything = false, when, at = null, drafts = false, log = () => {}, by = 'you' } = {}) {
+export async function publishBox(box, { dry = false, force = false, all: everything = false, when, at = null, drafts = false, routes = null, log = () => {}, by = 'you' } = {}) {
   const s = await settings();
   when ||= s.when;
   const r = readiness(box);
@@ -111,12 +123,16 @@ export async function publishBox(box, { dry = false, force = false, all: everyth
       return rec;
     };
     if (s.channel === 'split') {
+      // Each post goes where you chose (routes from the publish dialog, else the saved ones);
+      // anything not chosen follows the default: videos to Hootsuite, the rest to SocialPilot.
+      const R = routes || s.routes || {};
       const isVideo = (p) => (p.media || []).some((u) => /\.mp4(\?|$)/i.test(u));
-      const vids = all.filter((p) => p.media && isVideo(p)), rest = all.filter((p) => p.media && !isVideo(p));
-      log(`${box.slug}: ${vids.length} video(s) through Hootsuite, ${rest.length} other post(s) through SocialPilot${drafts ? ' · as drafts' : ''}`);
-      const media = [...new Set(all.flatMap((p) => p.media || []))];
+      const posts = all.filter((p) => p.media).map((p) => ({ ...p, via: R[p.target]?.via || (isVideo(p) ? 'hootsuite' : 'socialpilot'), accountId: R[p.target]?.account || null, chosen: !!R[p.target] }));
+      const results = posts.filter((p) => p.via === 'skip').map((p) => ({ provider: 'none', target: p.target, skipped: 'you chose not to post this' }));
+      const vids = posts.filter((p) => p.via === 'hootsuite'), rest = posts.filter((p) => p.via === 'socialpilot');
+      log(`${box.slug}: ${vids.length} through Hootsuite, ${rest.length} through SocialPilot${results.length ? `, ${results.length} not posted` : ''}${drafts ? ' · as drafts' : ''}`);
+      const media = [...new Set(posts.filter((p) => p.via !== 'skip').flatMap((p) => p.media || []))];
       if (media.length) await checkLive(media, log);
-      const results = [];
       if (vids.length) {
         if (!(await hoot.connected().catch(() => false))) vids.forEach((p) => results.push({ provider: 'hootsuite', target: p.target, skipped: 'Hootsuite is not connected' }));
         else {
@@ -124,13 +140,13 @@ export async function publishBox(box, { dry = false, force = false, all: everyth
           catch (e) { log(`✗ Hootsuite: ${e.message}`); vids.forEach((p) => results.push({ provider: 'hootsuite', target: p.target, error: e.message })); }
         }
       }
-      // A video Hootsuite has no account for can still go to SocialPilot as a link to the box.
+      // A default-routed video Hootsuite has no account for can still go to SocialPilot as a link.
       const noHoot = new Set(results.filter((x) => x.skipped && /no \w+ profile in Hootsuite|Hootsuite is not connected/.test(x.skipped)).map((x) => x.target));
-      const handOff = vids.filter((p) => noHoot.has(p.target));
-      for (let i = results.length - 1; i >= 0; i--) if (noHoot.has(results[i].target)) results.splice(i, 1);
+      const handOff = vids.filter((p) => !p.chosen && noHoot.has(p.target));
+      for (let i = results.length - 1; i >= 0; i--) if (handOff.some((p) => p.target === results[i].target)) results.splice(i, 1);
       const toSP = [...rest, ...handOff];
       if (toSP.length) results.push(...(await sp.publish(toSP, { dry, drafts, log })).map((x) => ({ provider: 'socialpilot', ...x })));
-      all.filter((p) => !p.media).forEach((p) => results.push({ provider: 'socialpilot', target: p.target, skipped: 'nothing to post' }));
+      all.filter((p) => !p.media).forEach((p) => results.push({ provider: 'none', target: p.target, skipped: 'nothing to post' }));
       return finish(results);
     }
     const useHoot = await hoot.connected().catch(() => false);

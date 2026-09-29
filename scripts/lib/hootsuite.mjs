@@ -215,7 +215,7 @@ async function perchDraft(p, when, log) {
   const w = await perchWorkspace();
   const out = await perch('get_social_profiles', { workspaceScope: w.scope });
   const arr = Array.isArray(out) ? out : out.socialProfiles || out.profiles || Object.values(out).find(Array.isArray) || [];
-  const profs = arr.filter((x) => NET[p.service].test(x.networkType || x.type || ''));
+  const profs = arr.filter((x) => (p.accountId ? String(x.socialProfileId ?? x.id) === String(p.accountId) : NET[p.service].test(x.networkType || x.type || '')));
   if (!profs.length) return { target: p.target, skipped: `no ${p.service} profile in Hootsuite` };
   const fs = await import('node:fs');
   const media = [];
@@ -242,7 +242,7 @@ export async function publish(posts, { dry = false, drafts = false, log = consol
   const uploaded = new Map();
   const results = [];
   for (const p of posts) {
-    const targets = profs.filter((x) => x.service === p.service);
+    const targets = p.accountId ? profs.filter((x) => x.id === String(p.accountId)) : profs.filter((x) => x.service === p.service);
     if (!targets.length) { results.push({ target: p.target, skipped: `no ${p.service} profile in Hootsuite` }); continue; }
     if (p.service === 'youtube' || drafts) {   // YouTube only takes drafts; a scheduled-drafts run makes drafts everywhere
       const when = new Date(Math.max(p.at ? Date.parse(p.at) : 0, Date.now() + 20 * 60e3)).toISOString();

@@ -141,13 +141,15 @@ export async function accounts() {
   return (out.accounts || []).filter((a) => !a.isReconnect).map((a) => ({ loginId: a.loginId, platform: a.platform, name: a.accountUsername, handle: (a.accountUrl || '').match(/(?:instagram|x|twitter)\.com\/([\w.]+)/i)?.[1]?.toLowerCase() || null, service: Object.keys(PLATFORM).find((k) => PLATFORM[k].test(a.platform)) || null }));
 }
 
-// Only ever post to Glassbox's own handles (glassbox.config.json "handles"). The handle is read
-// from the account's real profile link, not its display name, which can be renamed in SocialPilot.
+// Unless you picked an account in the admin, only post to Glassbox's own handles
+// (glassbox.config.json "handles"), matched on the username or the profile link.
 const HANDLE_OF = { instagram: 'instagram', twitter: 'x' };
 function ours(service, list) {
   const want = (config.handles?.[HANDLE_OF[service]] || '').replace(/^@/, '').toLowerCase();
   if (!want) return { ids: list.map((a) => a.loginId) };
-  const hit = list.filter((a) => a.handle === want);
+  // SocialPilot keeps the first profile link after an account is reconnected or renamed, so
+  // the current username counts too.
+  const hit = list.filter((a) => a.handle === want || (a.name || '').replace(/^@/, '').toLowerCase() === want);
   if (hit.length) return { ids: hit.map((a) => a.loginId) };
   return { ids: [], why: `SocialPilot's ${service} account is @${list.map((a) => a.handle || a.name).join(', @')}, not @${want}: connect @${want} in SocialPilot` };
 }
@@ -160,9 +162,10 @@ export async function publish(posts, { dry = false, drafts = false, log = consol
   const accs = await accounts();
   const results = [];
   for (const p of posts) {
-    const mine = accs.filter((a) => a.service === p.service);
-    if (!mine.length) { results.push({ target: p.target, skipped: `no ${p.service} account in SocialPilot` }); continue; }
-    const { ids, why } = ours(p.service, mine);
+    // An account you picked in the admin is used as is; otherwise only Glassbox's own handles.
+    const mine = p.accountId ? accs.filter((a) => String(a.loginId) === String(p.accountId)) : accs.filter((a) => a.service === p.service);
+    if (!mine.length) { results.push({ target: p.target, skipped: p.accountId ? 'the chosen SocialPilot account is no longer connected' : `no ${p.service} account in SocialPilot` }); continue; }
+    const { ids, why } = p.accountId ? { ids: mine.map((a) => a.loginId) } : ours(p.service, mine);
     if (!ids.length) { results.push({ target: p.target, skipped: why }); continue; }
     const imgs = (p.media || []).filter(isImage);
     const link = (p.text || '').match(/https:\/\/glassbox\.how\/[^\s)]*/)?.[0];

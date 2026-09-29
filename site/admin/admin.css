@@ -125,3 +125,16 @@ body.planning .adm-main { padding-bottom: 170px; }
 @media (max-width: 560px) { .plan-list li { grid-template-columns: 1fr; } }
 body.planning .list-a .acts { visibility: hidden; }
 .prov-btns { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+
+/* Publish dialog: where each post goes */
+#confirm { max-width: 560px; }
+.routes { margin: 0 0 12px; }
+.rt { width: 100%; border-collapse: collapse; font-size: 14px; }
+.rt th { text-align: left; font-weight: 500; padding: 7px 10px 7px 0; vertical-align: middle; white-space: nowrap; }
+.rt th small { display: block; font: 400 11px var(--mono); color: var(--muted); }
+.rt td { padding: 5px 0; width: 100%; }
+.rt select { width: 100%; height: 34px; padding: 0 8px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, .15); background: #0d0f16; color: var(--text); font: 400 13.5px var(--sans); }
+.rt tr + tr th, .rt tr + tr td { border-top: 1px solid rgba(255, 255, 255, .06); }
+.remember { display: flex; gap: 8px; align-items: center; margin-bottom: 14px; font-size: 13.5px; color: var(--muted); }
+.sub.bad { color: #ff9a9a; }
+@media (max-width: 520px) { .rt th { white-space: normal; } }
