@@ -155,7 +155,20 @@ async function rest(pathname, opts = {}) {
 const NET = { instagram: /INSTAGRAM/i, facebook: /FACEBOOK/i, linkedin: /LINKEDIN/i, twitter: /TWITTER/i, tiktok: /TIKTOK/i, youtube: /YOUTUBE/i, threads: /THREADS/i, pinterest: /PINTEREST/i };
 
 export async function profiles() {
-  const list = await rest('/socialProfiles');
+  // REST /socialProfiles sometimes fails on Hootsuite's side (500 "Unknown error occurred")
+  // while the token is fine. Retry briefly, then ask the MCP endpoint for the same list.
+  let list, restErr;
+  for (let i = 0; i < 3 && !list; i++) {
+    try { list = await rest('/socialProfiles'); } catch (e) { restErr = e; if (!/Hootsuite 5\d\d/.test(e.message)) throw e; await new Promise((ok) => setTimeout(ok, 1500 * (i + 1))); }
+  }
+  if (!list) {
+    try {
+      const w = await perchWorkspace();
+      const out = await perch('get_social_profiles', { workspaceScope: w.scope });
+      list = (Array.isArray(out) ? out : out.socialProfiles || out.profiles || Object.values(out).find(Array.isArray) || [])
+        .map((x) => ({ id: x.id ?? x.socialProfileId, type: x.type || x.networkType || '', socialNetworkUsername: x.socialNetworkUsername || x.username || x.name, isReauthRequired: x.isReauthRequired }));
+    } catch (e) { throw new Error(`${restErr.message} (fallback also failed: ${e.message})`); }
+  }
   return list.map((p) => ({ id: String(p.id), type: p.type, name: p.socialNetworkUsername || p.type.replace(/CHANNEL|BUSINESS|PAGE|COMPANY/, '').toLowerCase(), service: Object.keys(NET).find((k) => NET[k].test(p.type)) || null, reauth: !!p.isReauthRequired }));
 }
 
