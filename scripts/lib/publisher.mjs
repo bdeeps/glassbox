@@ -124,7 +124,12 @@ export async function publishBox(box, { dry = false, force = false, all: everyth
           catch (e) { log(`✗ Hootsuite: ${e.message}`); vids.forEach((p) => results.push({ provider: 'hootsuite', target: p.target, error: e.message })); }
         }
       }
-      if (rest.length) results.push(...(await sp.publish(rest, { dry, drafts, log })).map((x) => ({ provider: 'socialpilot', ...x })));
+      // A video Hootsuite has no account for can still go to SocialPilot as a link to the box.
+      const noHoot = new Set(results.filter((x) => x.skipped && /no \w+ profile in Hootsuite|Hootsuite is not connected/.test(x.skipped)).map((x) => x.target));
+      const handOff = vids.filter((p) => noHoot.has(p.target));
+      for (let i = results.length - 1; i >= 0; i--) if (noHoot.has(results[i].target)) results.splice(i, 1);
+      const toSP = [...rest, ...handOff];
+      if (toSP.length) results.push(...(await sp.publish(toSP, { dry, drafts, log })).map((x) => ({ provider: 'socialpilot', ...x })));
       all.filter((p) => !p.media).forEach((p) => results.push({ provider: 'socialpilot', target: p.target, skipped: 'nothing to post' }));
       return finish(results);
     }
