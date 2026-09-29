@@ -288,6 +288,14 @@ const server = http.createServer(async (req, res) => {
     const url = new URL(req.url, 'http://x');
     let p;
     try { p = decodeURIComponent(url.pathname); } catch { return send(req, res, 400, 'bad request', TYPES['.txt']); }
+    // Old links on the Railway address move to the real domain for good. Health checks and
+    // the admin's own callbacks stay where they are.
+    const host = (req.headers.host || '').toLowerCase();
+    if (host && host === process.env.RAILWAY_PUBLIC_DOMAIN && new URL(SITE).host !== host
+      && (req.method === 'GET' || req.method === 'HEAD') && !/^\/(healthz|__)/.test(p)) {
+      res.writeHead(301, { Location: SITE + req.url, 'Cache-Control': 'public, max-age=86400', ...SECURITY });
+      return res.end();
+    }
     if (await adminRoutes(req, res, url, { send, TYPES, state, SECURITY })) return;
     if (req.method !== 'GET' && req.method !== 'HEAD') {
       if (p === '/__sync' && req.method === 'POST' && process.env.SYNC_TOKEN && req.headers.authorization === `Bearer ${process.env.SYNC_TOKEN}`) {
