@@ -29,6 +29,7 @@ const ICON = {
   play: '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M8 5v14l11-7z"/></svg>',
   read: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H12v17H6.5A2.5 2.5 0 0 0 4 22.5zM20 5.5A2.5 2.5 0 0 0 17.5 3H12v17h5.5a2.5 2.5 0 0 1 2.5 2.5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>',
   clock: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 7.5V12l3 2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+  wa: '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2Zm0 18.2a8.2 8.2 0 0 1-4.2-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2Zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8s-.4-.1-.6.1-.7.8-.8 1-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.2-.4.2-.4.7-1.3a.5.5 0 0 0 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5a1 1 0 0 0-.7.3 3 3 0 0 0-.9 2.2 5.2 5.2 0 0 0 1.1 2.8 11.9 11.9 0 0 0 4.6 4c1.7.7 2.3.8 3.2.7a2.7 2.7 0 0 0 1.8-1.3 2.2 2.2 0 0 0 .2-1.3c-.1-.1-.2-.2-.5-.3Z"/></svg>',
   arrow: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
 };
 
@@ -102,9 +103,30 @@ export function nav() {
     <a href="/#calendar" class="wide">Calendar</a>
     <button class="search-btn" data-open-search aria-label="Search boxes and concepts">${ICON.search}<span>Search</span><kbd>/</kbd></button>
     <a class="icon" href="https://github.com/${esc(config.org)}" rel="noopener" target="_blank" aria-label="Glassbox on GitHub">${ICON.gh}</a>
+    <a class="wa-btn" href="${esc(waHref(siteShareText()))}" rel="noopener" target="_blank" aria-label="Share ${esc(config.brand)} on WhatsApp">${ICON.wa}<span>Share</span></a>
   </nav>
 </header>`;
 }
+
+
+// WhatsApp sharing: a plain wa.me link (no script, no tracking), with words that invite
+// people in and ask them to pass it on to kids and curious friends.
+export const waHref = (text) => `https://wa.me/?text=${encodeURIComponent(text)}`;
+export const siteShareText = () => `🔍 Ever wondered what's really going on inside things?
+
+${config.brand} opens a new "glass box" every day: a free 3D model you can play with to see how something works. Spin a car engine, watch a heart pump, tune an old radio, step 11,000 volts down through a transformer, even peek inside the AI behind chatbots.
+
+✨ Free. No sign-up, no ads. Just curiosity.
+👧🧒 Brilliant for kids, students and anyone who keeps asking "but how does it work?"
+
+Open one box today, then pass it on to a curious mind 👇
+${SITE}/`;
+export const boxShareText = (a) => `🔍 ${a.question}
+
+${a.hook ? a.hook + '\n\n' : ''}Don't just read about it: play with it. This free 3D explainer from ${config.brand} lets you take it apart and watch it work. No sign-up, no ads.
+
+👧🧒 Share it with a kid, a student or a curious friend who'd love this 👇
+${SITE}${a.pageUrl || '/e/' + a.slug + '/'}`;
 
 export function footer() {
   return `<footer class="foot">
@@ -115,7 +137,7 @@ export function footer() {
       <p class="promise-line">No accounts. No ads. Nothing sold. <a href="/privacy/">Exactly what we measure, and why.</a></p>
     </div>
     <div><h4>Explore</h4><a href="/#today">Today's box</a><a href="/#shelf">The shelf</a><a href="/concepts/">Concepts A–Z</a><a href="/history/">Every history</a><a href="/#calendar">Calendar</a></div>
-    <div><h4>Follow</h4>${H.youtube ? `<a href="https://youtube.com/${esc(H.youtube)}" rel="noopener" target="_blank">YouTube</a>` : ''}${H.instagram ? `<a href="https://instagram.com/${esc(H.instagram)}" rel="noopener" target="_blank">Instagram</a>` : ''}<a href="/feed.xml">RSS feed</a><a href="https://github.com/${esc(config.org)}" rel="noopener" target="_blank">GitHub</a></div>
+    <div><h4>Follow</h4>${H.youtube ? `<a href="https://youtube.com/${esc(H.youtube)}" rel="noopener" target="_blank">YouTube</a>` : ''}${H.instagram ? `<a href="https://instagram.com/${esc(H.instagram)}" rel="noopener" target="_blank">Instagram</a>` : ''}<a href="${esc(waHref(siteShareText()))}" rel="noopener" target="_blank">Share on WhatsApp</a><a href="/feed.xml">RSS feed</a><a href="https://github.com/${esc(config.org)}" rel="noopener" target="_blank">GitHub</a></div>
     <div><h4>The small print</h4><a href="/privacy/">Privacy</a>${active().ga4 ? '<a href="/privacy/#choices" data-privacy-choices>Privacy choices</a>' : ''}<a href="/terms/">Terms</a><a href="/terms/#licences">Licences</a><a href="${SUGGEST}" rel="noopener" target="_blank">Suggest a box</a></div>
   </div>
   <p class="colophon">Code under ${esc(config.licenses.code)}. Words, images and videos under ${esc(config.licenses.content)}. Static files on GitHub Pages; fonts self-hosted; visits measured with Google Analytics through Google Tag Manager, bots detected with ClickTrust. © ${new Date(config.policyDate).getUTCFullYear()} ${esc(config.owner)}.</p>
@@ -451,6 +473,7 @@ ${nav()}
     <div class="ctas">
       <a class="btn primary big" href="${a.appUrl}">${ICON.play} Open the box</a>
       <a class="btn big" href="${esc(a.repo)}" rel="noopener" target="_blank">Read the source</a>
+      <a class="btn big wa" href="${esc(waHref(boxShareText(a)))}" rel="noopener" target="_blank">${ICON.wa} WhatsApp</a>
       <button class="btn big" data-share data-title="${esc(a.question)}" data-url="${SITE}${url}">Share</button>
     </div>
     <p class="facts"><span>${esc(a.title)}</span><span>Opened ${fmtDate(a.date)}</span>${a.minutes ? `<span>${a.minutes} min to play</span>` : ''}<span>Free · no sign-up</span></p>
