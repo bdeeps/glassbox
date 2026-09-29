@@ -4,6 +4,7 @@
 // store), you sign in once, and the refresh token is kept in the admin store.
 import crypto from 'node:crypto';
 import * as store from './store.mjs';
+import { config } from './apps.mjs';
 
 const MCP = 'https://mcp.socialpilot.co/mcp';
 const META = 'https://mcp.socialpilot.co/.well-known/oauth-authorization-server';
@@ -137,7 +138,18 @@ const isImage = (u) => /\.(jpe?g|png|webp|gif)(\?|$)/i.test(u);
 
 export async function accounts() {
   const out = await call('AccountList', { limit: 200 });
-  return (out.accounts || []).filter((a) => !a.isReconnect).map((a) => ({ loginId: a.loginId, platform: a.platform, service: Object.keys(PLATFORM).find((k) => PLATFORM[k].test(a.platform)) || null }));
+  return (out.accounts || []).filter((a) => !a.isReconnect).map((a) => ({ loginId: a.loginId, platform: a.platform, name: a.accountUsername, handle: (a.accountUrl || '').match(/(?:instagram|x|twitter)\.com\/([\w.]+)/i)?.[1]?.toLowerCase() || null, service: Object.keys(PLATFORM).find((k) => PLATFORM[k].test(a.platform)) || null }));
+}
+
+// Only ever post to Glassbox's own handles (glassbox.config.json "handles"). The handle is read
+// from the account's real profile link, not its display name, which can be renamed in SocialPilot.
+const HANDLE_OF = { instagram: 'instagram', twitter: 'x' };
+function ours(service, list) {
+  const want = (config.handles?.[HANDLE_OF[service]] || '').replace(/^@/, '').toLowerCase();
+  if (!want) return { ids: list.map((a) => a.loginId) };
+  const hit = list.filter((a) => a.handle === want);
+  if (hit.length) return { ids: hit.map((a) => a.loginId) };
+  return { ids: [], why: `SocialPilot's ${service} account is @${list.map((a) => a.handle || a.name).join(', @')}, not @${want}: connect @${want} in SocialPilot` };
 }
 
 // "YYYY-MM-DD HH:mm" in India time, which is how the SocialPilot account schedules.
@@ -148,8 +160,10 @@ export async function publish(posts, { dry = false, drafts = false, log = consol
   const accs = await accounts();
   const results = [];
   for (const p of posts) {
-    const ids = accs.filter((a) => a.service === p.service).map((a) => a.loginId);
-    if (!ids.length) { results.push({ target: p.target, skipped: `no ${p.service} account in SocialPilot` }); continue; }
+    const mine = accs.filter((a) => a.service === p.service);
+    if (!mine.length) { results.push({ target: p.target, skipped: `no ${p.service} account in SocialPilot` }); continue; }
+    const { ids, why } = ours(p.service, mine);
+    if (!ids.length) { results.push({ target: p.target, skipped: why }); continue; }
     const imgs = (p.media || []).filter(isImage);
     const link = (p.text || '').match(/https:\/\/glassbox\.how\/[^\s)]*/)?.[0];
     let body;
