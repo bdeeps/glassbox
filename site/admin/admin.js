@@ -3,6 +3,10 @@ const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const when = (iso) => new Date(iso).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 let data = null, busy = false;
+const plan = { on: false, sel: new Set() };
+const day = (iso) => new Date(iso).toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+const pad = (n) => String(n).padStart(2, '0');
+const ymd = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const live = {};   // slug → { text, done, bad } for a publish run in this tab
 const ago = (iso) => {
   const m = Math.round((Date.now() - new Date(iso)) / 60e3);
@@ -65,8 +69,11 @@ function renderList() {
     const act = L
       ? `<details class="act live${L.done ? '' : ' run'}${L.bad ? ' bad' : ''}"${L.open || opened.has(x.slug) ? ' open' : ''}><summary>${esc(L.last || 'Starting…')}</summary><pre>${esc(L.text)}</pre></details>`
       : mine.length ? `<details class="act${mine[0].ok === false ? ' bad' : ''}"${opened.has(x.slug) ? ' open' : ''}><summary>${mine.length > 1 ? `<span class="more">+${mine.length - 1}</span> ` : ''}${ago(mine[0].at)} · ${esc(mine[0].message)}</summary>${mine.length > 1 ? `<ul>${mine.slice(1, 8).map(entry).join('')}</ul>` : ''}</details>` : '';
-    return `<li style="--c:${esc(x.color)}" class="${L && !L.done ? 'busy' : ''}" data-box="${esc(x.slug)}"><span class="no">${x.kind === 'principle' ? '' : 'No. '}${esc(x.no)}</span>
-      <span class="t"><b>${esc(x.question)}</b>${state}${act}</span>
+    const S = x.scheduled, pickable = plan.on && x.ready && !x.posted && (!S || S.state === 'error');
+    const sched = S ? `<span class="sch ${esc(S.state)}">${S.state === 'queued' ? `Draft queued for ${esc(day(S.at))}` : S.state === 'running' ? `Making the draft for ${esc(day(S.at))}…` : S.state === 'done' ? `Draft ready for ${esc(day(S.at))}` : `Draft failed: ${esc(S.error || 'unknown error')}`}${S.state === 'queued' || S.state === 'error' ? ` <button type="button" class="unq" data-unqueue="${esc(x.slug)}" aria-label="Remove from the schedule">×</button>` : ''}</span>`
+      : x.posted?.draftFor ? `<span class="sch done">Draft for ${esc(day(x.posted.draftFor))}</span>` : '';
+    return `<li style="--c:${esc(x.color)}" class="${L && !L.done ? 'busy' : ''}${plan.sel.has(x.slug) ? ' sel' : ''}${pickable ? ' pickable' : ''}" data-box="${esc(x.slug)}">${pickable ? `<label class="pick"><input type="checkbox" data-pick-box="${esc(x.slug)}"${plan.sel.has(x.slug) ? ' checked' : ''} aria-label="Choose ${esc(x.question)}"></label>` : ''}<span class="no">${x.kind === 'principle' ? '' : 'No. '}${esc(x.no)}</span>
+      <span class="t"><b>${esc(x.question)}</b>${state}${sched}${act}</span>
       <span class="acts">${!x.posted
         ? `<button class="btn small primary" data-slug="${esc(x.slug)}" data-mode="new" ${x.ready ? '' : 'disabled'}>Publish</button>`
         : `${x.posted.ok < x.posted.total ? `<button class="btn small primary" data-slug="${esc(x.slug)}" data-mode="retry" ${x.ready ? '' : 'disabled'}>Retry the rest</button>` : ''}<button class="btn small ghost" data-slug="${esc(x.slug)}" data-mode="again" ${x.ready ? '' : 'disabled'}>Publish again</button>`}</span></li>`;
@@ -165,3 +172,63 @@ document.addEventListener('click', async (e) => {
   try { await navigator.clipboard.writeText($('#' + b.dataset.copy).textContent); b.textContent = 'Copied'; } catch { b.textContent = 'Select and copy'; }
   setTimeout(() => { b.textContent = 'Copy'; }, 1600);
 });
+
+// ---- Schedule drafts: pick boxes, choose dates, and the server makes Hootsuite drafts for them.
+const pickableBoxes = () => [...data.boxes].reverse().filter((x) => x.ready && !x.posted && (!x.scheduled || x.scheduled.state === 'error'));
+function paintPlan() {
+  $('#planBar').hidden = !plan.on;
+  $('#planBtn').setAttribute('aria-pressed', String(plan.on));
+  $('#planBtn').textContent = plan.on ? 'Choosing boxes…' : 'Schedule drafts…';
+  $('#pbCount').textContent = `${plan.sel.size} selected`;
+  $('#pbReview').disabled = !plan.sel.size;
+  document.body.classList.toggle('planning', plan.on);
+  renderList();
+}
+$('#planBtn').addEventListener('click', () => {
+  plan.on = !plan.on;
+  if (plan.on && !$('#pbStart').value) { const t = new Date(); t.setDate(t.getDate() + 1); $('#pbStart').value = ymd(t); }
+  paintPlan();
+});
+$('#pbClose').addEventListener('click', () => { plan.on = false; plan.sel.clear(); paintPlan(); });
+$('#planBar').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-pick]'); if (!b) return;
+  const all = pickableBoxes().map((x) => x.slug);
+  if (b.dataset.pick === 'none') plan.sel.clear();
+  else if (b.dataset.pick === 'all') all.forEach((s) => plan.sel.add(s));
+  else all.filter((s) => !plan.sel.has(s)).slice(0, +b.dataset.pick).forEach((s) => plan.sel.add(s));
+  paintPlan();
+});
+$('#list').addEventListener('change', (e) => {
+  const c = e.target.closest('[data-pick-box]'); if (!c) return;
+  c.checked ? plan.sel.add(c.dataset.pickBox) : plan.sel.delete(c.dataset.pickBox);
+  paintPlan();
+});
+$('#list').addEventListener('click', async (e) => {
+  const u = e.target.closest('[data-unqueue]'); if (!u) return;
+  await api('schedule/' + encodeURIComponent(u.dataset.unqueue), { method: 'DELETE' });
+  load();
+});
+$('#pbReview').addEventListener('click', () => {
+  const [y, m, d] = $('#pbStart').value.split('-').map(Number);
+  const [hh, mm] = ($('#pbTime').value || '18:30').split(':').map(Number);
+  const every = +$('#pbEvery').value;
+  const order = pickableBoxes().filter((x) => plan.sel.has(x.slug));   // oldest box first
+  $('#planList').innerHTML = order.map((x, i) => {
+    const t = new Date(y, m - 1, d + i * every, hh, mm);
+    return `<li style="--c:${esc(x.color)}"><span class="no">${x.kind === 'principle' ? '' : 'No. '}${esc(x.no)}</span><span class="q">${esc(x.question)}</span><input type="datetime-local" data-at="${esc(x.slug)}" value="${ymd(t)}T${pad(t.getHours())}:${pad(t.getMinutes())}"></li>`;
+  }).join('');
+  $('#planGo').textContent = `Make ${order.length} draft${order.length > 1 ? 's' : ''}`;
+  const dlg = $('#planDlg');
+  dlg.onclose = async () => {
+    if (dlg.returnValue !== 'go') return;
+    const items = [...document.querySelectorAll('#planList [data-at]')].map((i) => ({ slug: i.dataset.at, at: new Date(i.value).toISOString() }));
+    const r = await api('schedule', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ items }) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) return flash(j.error || 'Could not schedule those.', true);
+    flash(`${items.length} draft${items.length > 1 ? 's are' : ' is'} queued. They're made one by one; each card shows its progress.`);
+    plan.on = false; plan.sel.clear(); paintPlan(); load();
+  };
+  dlg.showModal();
+});
+// Check more often while drafts are being made.
+setInterval(() => { if (!busy && document.visibilityState === 'visible' && data?.boxes.some((x) => x.scheduled && (x.scheduled.state === 'queued' || x.scheduled.state === 'running'))) load().catch(() => {}); }, 10e3);

@@ -237,16 +237,16 @@ async function perchDraft(p, when, log) {
 }
 
 // posts: [{ target, service, text, title?, files: [local paths], at }]
-export async function publish(posts, { dry = false, log = console.log } = {}) {
+export async function publish(posts, { dry = false, drafts = false, log = console.log } = {}) {
   const profs = (await profiles()).filter((p) => !p.reauth);
   const uploaded = new Map();
   const results = [];
   for (const p of posts) {
     const targets = profs.filter((x) => x.service === p.service);
     if (!targets.length) { results.push({ target: p.target, skipped: `no ${p.service} profile in Hootsuite` }); continue; }
-    if (p.service === 'youtube') {
+    if (p.service === 'youtube' || drafts) {   // YouTube only takes drafts; a scheduled-drafts run makes drafts everywhere
       const when = new Date(Math.max(p.at ? Date.parse(p.at) : 0, Date.now() + 20 * 60e3)).toISOString();
-      if (dry) { log(`  • ${p.target.padEnd(20)} → Hootsuite draft (YouTube) for ${when}: ${p.files.map((f) => f.name).join(', ')}`); results.push({ target: p.target, dry: true }); continue; }
+      if (dry) { log(`  • ${p.target.padEnd(20)} → Hootsuite draft for ${when}: ${p.files.map((f) => f.name).join(', ')}`); results.push({ target: p.target, dry: true }); continue; }
       try {
         const r = await perchDraft(p, when, log);
         results.push(r);

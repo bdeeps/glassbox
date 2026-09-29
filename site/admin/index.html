@@ -72,7 +72,10 @@
   <section class="boxes-a">
     <div class="head-a">
       <h2>Publish a box</h2>
-      <label class="search-a"><input id="q" type="search" placeholder="Find a box" aria-label="Find a box"></label>
+      <div class="head-tools">
+        <button class="btn small" id="planBtn" type="button" aria-pressed="false">Schedule drafts…</button>
+        <label class="search-a"><input id="q" type="search" placeholder="Find a box" aria-label="Find a box"></label>
+      </div>
     </div>
     <ol class="list-a" id="list"><li class="empty-a">Loading…</li></ol>
   </section>
@@ -82,6 +85,34 @@
     <ul id="activity"></ul>
   </section>
 </main>
+
+<div class="plan-bar" id="planBar" hidden>
+  <div class="pb-row">
+    <b id="pbCount">0 selected</b>
+    <button class="btn small ghost" type="button" data-pick="10">Pick next 10</button>
+    <button class="btn small ghost" type="button" data-pick="all">Pick all unpublished</button>
+    <button class="btn small ghost" type="button" data-pick="none">Clear</button>
+  </div>
+  <div class="pb-row">
+    <label>From <input type="date" id="pbStart"></label>
+    <label>at <input type="time" id="pbTime" value="18:30"></label>
+    <label>one every <select id="pbEvery"><option value="1">day</option><option value="2">2 days</option><option value="3">3 days</option><option value="7">week</option></select></label>
+    <button class="btn small primary" type="button" id="pbReview">Review dates</button>
+    <button class="btn small ghost" type="button" id="pbClose">Done</button>
+  </div>
+</div>
+
+<dialog id="planDlg" class="dlg wide">
+  <form method="dialog">
+    <h3>Make these drafts in Hootsuite</h3>
+    <p>Each box becomes a draft in your Hootsuite Planner on its date, ready for you to check and press Schedule. Change any date below. They're made one by one in the background, so you can close this page.</p>
+    <ol class="plan-list" id="planList"></ol>
+    <div class="dlg-actions">
+      <button class="btn ghost" value="cancel">Back</button>
+      <button class="btn primary" value="go" id="planGo">Make drafts</button>
+    </div>
+  </form>
+</dialog>
 
 <dialog id="confirm" class="dlg">
   <form method="dialog">

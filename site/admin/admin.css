@@ -96,3 +96,31 @@
 @media (max-width: 700px) { .cards { grid-template-columns: minmax(0, 1fr); } }
 .card-a select { max-width: 100%; min-width: 0; }
 .card-a .row.small { flex-wrap: wrap; }
+
+/* Schedule drafts */
+.head-tools { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+#planBtn[aria-pressed="true"] { border-color: var(--glow, #8ef0ff); color: var(--glow, #8ef0ff); }
+.list-a > li { position: relative; }
+.list-a > li.pickable { cursor: pointer; }
+.list-a > li.sel { border-color: var(--glow, #8ef0ff); background: rgba(142, 240, 255, .06); }
+body.planning .list-a > li:not(.pickable) { opacity: .45; }
+.pick { position: absolute; inset: 0; border-radius: 16px; cursor: pointer; z-index: 1; }
+.pick input { position: absolute; top: 12px; right: 12px; width: 18px; height: 18px; accent-color: #8ef0ff; cursor: pointer; }
+.sch { font-size: 12.5px; color: var(--glow, #8ef0ff); display: inline-flex; align-items: center; gap: 6px; }
+.sch.running::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; animation: act-pulse 1s ease-in-out infinite; }
+.sch.done { color: #5ce1a9; }
+.sch.error { color: #ff9a9a; }
+.sch .unq { all: unset; cursor: pointer; position: relative; z-index: 2; padding: 0 6px; border-radius: 999px; color: var(--muted); }
+.sch .unq:hover { color: var(--text); background: rgba(255, 255, 255, .1); }
+.plan-bar { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 50; width: min(960px, calc(100% - 24px)); display: grid; gap: 10px; padding: 14px 16px; border-radius: 18px; background: rgba(12, 14, 20, .94); border: 1px solid rgba(142, 240, 255, .35); box-shadow: 0 20px 60px rgba(0, 0, 0, .55); backdrop-filter: blur(10px); }
+.pb-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; font-size: 14px; color: var(--muted); }
+.pb-row b { color: var(--text); margin-right: 6px; }
+.pb-row input, .pb-row select, .plan-list input { height: 34px; padding: 0 10px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, .15); background: #0d0f16; color: var(--text); font: 400 14px var(--sans); color-scheme: dark; }
+body.planning .adm-main { padding-bottom: 170px; }
+.dlg.wide { max-width: 640px; }
+.plan-list { list-style: none; margin: 0 0 16px; padding: 0; max-height: 50vh; overflow: auto; display: grid; gap: 6px; }
+.plan-list li { display: grid; grid-template-columns: 56px minmax(0, 1fr) auto; gap: 10px; align-items: center; font-size: 14px; }
+.plan-list .no { font: 500 12px var(--mono); color: var(--c); }
+.plan-list .q { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 560px) { .plan-list li { grid-template-columns: 1fr; } }
+body.planning .list-a .acts { visibility: hidden; }

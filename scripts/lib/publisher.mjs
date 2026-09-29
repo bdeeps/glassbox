@@ -41,14 +41,14 @@ export function readiness(box) {
 }
 
 // Provider-neutral posts: one per enabled target, with its words, media and time.
-function targetsOf(plan, when, dir) {
+function targetsOf(plan, when, dir, at) {
   const A = plan.assets || {}, c = plan.captions || {};
-  const start = plan.schedule?.at ? Date.parse(plan.schedule.at) : NaN;
+  const start = at ? Date.parse(at) : plan.schedule?.at ? Date.parse(plan.schedule.at) : NaN;
   const out = [];
   for (const t of plan.targets || config.post.targets) {
     if (t.enabled === false) continue;
     const off = start + (t.offsetHours || 0) * 3600e3;
-    const at = when === 'auto' && off > Date.now() + 10 * 60e3 ? new Date(off).toISOString() : null;
+    const at = (when === 'auto' || when === 'at') && off > Date.now() + 10 * 60e3 ? new Date(off).toISOString() : null;
     const reel = A.reel && [A.reel], video = A.video && [A.video], hist = A.historyReel && [A.historyReel];
     const yt = (cap, files) => cap && files && { title: (cap.title || '').slice(0, 100), text: cap.description, files };
     const map = {
@@ -76,7 +76,7 @@ function targetsOf(plan, when, dir) {
 }
 
 // Publishes one box. Streams progress through log(). Returns the stored record.
-export async function publishBox(box, { dry = false, force = false, all = false, when, log = () => {}, by = 'you' } = {}) {
+export async function publishBox(box, { dry = false, force = false, all: everything = false, when, at = null, drafts = false, log = () => {}, by = 'you' } = {}) {
   const s = await settings();
   when ||= s.when;
   const r = readiness(box);
@@ -86,24 +86,25 @@ export async function publishBox(box, { dry = false, force = false, all = false,
   if (!dry && !(await store.claim('publishing:' + box.slug, { by }))) throw new Error(`${box.slug} is being published right now.`);
   try {
     const plan = { ...r.plan, slug: box.slug };
-    let all = targetsOf(plan, when, box.dir);
+    if (at) when = 'at';
+    let all = targetsOf(plan, when, box.dir, at);
     // "Publish again" retries only what didn't go out last time, so nothing is posted twice.
     // "Publish again" with all=true sends everything once more, on purpose.
-    const doneBefore = new Set(all ? [] : (prev?.results || []).filter((x) => !x.error && !x.skipped && !x.dry).map((x) => x.target));
+    const doneBefore = new Set(everything ? [] : (prev?.results || []).filter((x) => !x.error && !x.skipped && !x.dry).map((x) => x.target));
     if (prev && force && doneBefore.size) { all = all.filter((p) => !doneBefore.has(p.target)); log(`already out: ${[...doneBefore].join(', ')} (not posted again)`); }
     const useHoot = await hoot.connected().catch(() => false);
     let hootProfiles = [];
     if (useHoot) { try { hootProfiles = await hoot.profiles(); } catch (e) { log(`⚠ Hootsuite: ${e.message} (using Buffer instead)`); } }
     const viaHoot = all.filter((p) => p.media && hoot.SERVICES.includes(p.service) && hootProfiles.some((x) => x.service === p.service));
     const viaBuffer = all.filter((p) => !viaHoot.includes(p));
-    log(`${box.slug}: ${all.length} target(s) · ${when === 'now' ? 'posting now' : when === 'queue' ? 'next free slot' : 'at its scheduled time'}`);
+    log(`${box.slug}: ${all.length} target(s) · ${when === 'now' ? 'posting now' : when === 'queue' ? 'next free slot' : when === 'at' ? 'for ' + new Date(at).toUTCString() : 'at its scheduled time'}${drafts ? ' · as drafts' : ''}`);
     log(`Hootsuite: ${viaHoot.length ? viaHoot.map((p) => p.target).join(', ') : useHoot ? 'none (no matching profiles)' : 'not connected'}`);
 
     const media = [...new Set(all.flatMap((p) => p.media || []))];
     if (media.length) await checkLive(media, log);
 
     const results = [];
-    if (viaHoot.length) results.push(...(await hoot.publish(viaHoot, { dry, log })).map((x) => ({ provider: 'hootsuite', ...x })));
+    if (viaHoot.length) results.push(...(await hoot.publish(viaHoot, { dry, drafts, log })).map((x) => ({ provider: 'hootsuite', ...x })));
 
     if (viaBuffer.length && !s.buffer) viaBuffer.forEach((p) => results.push({ provider: 'hootsuite', target: p.target, skipped: `no ${p.service} profile in Hootsuite` }));
     else if (viaBuffer.length) {
@@ -134,7 +135,7 @@ export async function publishBox(box, { dry = false, force = false, all = false,
     if (dry) { log('dry run: nothing was sent'); return { dry: true, results }; }
     if (!posted.length) throw new Error(doneBefore.size ? 'nothing new was published' : 'nothing was published: add these networks to your Hootsuite account');
     const kept = (prev?.results || []).filter((x) => doneBefore.has(x.target));
-    const rec = { at: new Date().toISOString(), when, by, results: [...kept, ...results] };
+    const rec = { at: new Date().toISOString(), when, by, ...(drafts && at ? { draftFor: at } : {}), results: [...kept, ...results] };
     await store.set('posted:' + box.slug, rec);
     await store.log(`published ${posted.length} of ${results.length} target(s)`, { slug: box.slug, provider: [...new Set(posted.map((x) => x.provider))].join('+'), ok: posted.length === results.length });
     log(`done: ${posted.length} of ${results.length} target(s) published`);
@@ -166,4 +167,63 @@ export async function autoPublish(apps, logFn = console.log) {
   } catch (e) {
     logFn('auto-publish: ' + e.message);
   } finally { running = false; }
+}
+
+// ---- Scheduled drafts
+// A list of { slug, at } that becomes Hootsuite drafts dated `at`, worked through in the
+// background one box at a time. It lives in the shared store, so progress survives page
+// reloads and restarts, and only one replica works on it at once.
+const QUEUE = 'schedule:items';
+export const scheduleItems = async () => (await store.get(QUEUE)) || [];
+
+export async function addToSchedule(items) {
+  const cur = await scheduleItems();
+  const slugs = new Set(items.map((x) => x.slug));
+  const next = [...cur.filter((x) => !slugs.has(x.slug) || x.state === 'running'),
+    ...items.filter((x) => !cur.some((y) => y.slug === x.slug && y.state === 'running'))
+      .map((x) => ({ slug: x.slug, at: new Date(x.at).toISOString(), state: 'queued', added: new Date().toISOString() }))];
+  next.sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
+  await store.set(QUEUE, next);
+  await store.log(`${items.length} box(es) scheduled as drafts`, { provider: 'hootsuite' });
+  return next;
+}
+
+export async function removeFromSchedule(slug) {
+  const cur = await scheduleItems();
+  const next = cur.filter((x) => (slug ? !(x.slug === slug && x.state !== 'running') : x.state === 'running' || x.state === 'done'));
+  await store.set(QUEUE, next);
+  return next;
+}
+
+let scheduling = false;
+export async function runSchedule(getApps, logFn = console.log) {
+  if (scheduling) return;
+  scheduling = true;
+  try {
+    for (;;) {
+      let items = await scheduleItems();
+      // A box left "running" for 30 minutes belonged to a replica that stopped: try it again.
+      items = items.map((x) => (x.state === 'running' && Date.now() - Date.parse(x.startedAt || 0) > 30 * 60e3 ? { ...x, state: 'queued' } : x));
+      const item = items.find((x) => x.state === 'queued');
+      if (!item) break;
+      if (!(await store.claim('schedule:runner', {}, 30 * 60e3))) break;   // another replica is on it
+      const box = getApps().find((a) => a.slug === item.slug);
+      const mark = async (patch) => {
+        const now = await scheduleItems();
+        await store.set(QUEUE, now.map((x) => (x.slug === item.slug ? { ...x, ...patch } : x)));
+      };
+      await mark({ state: 'running', startedAt: new Date().toISOString(), error: null });
+      const lines = [];
+      try {
+        if (!box) throw new Error('box not found on this server');
+        await publishBox(box, { at: item.at, drafts: true, force: true, by: 'schedule', log: (m) => { lines.push(m); logFn(`[schedule ${item.slug}] ${m}`); } });
+        await mark({ state: 'done', doneAt: new Date().toISOString() });
+      } catch (e) {
+        await mark({ state: 'error', error: e.message.slice(0, 300) });
+      }
+      await store.del('schedule:runner').catch(() => {});
+    }
+  } catch (e) {
+    logFn('schedule: ' + e.message);
+  } finally { scheduling = false; }
 }

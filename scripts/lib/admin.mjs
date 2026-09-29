@@ -9,7 +9,7 @@ import { ROOT, config } from './apps.mjs';
 import { channels, ship, alreadyPosted } from './buffer.mjs';
 import * as store from './store.mjs';
 import * as hoot from './hootsuite.mjs';
-import { settings, saveSettings, readiness, publishBox } from './publisher.mjs';
+import { settings, saveSettings, readiness, publishBox, scheduleItems, addToSchedule, removeFromSchedule, runSchedule } from './publisher.mjs';
 import { active as analyticsActive, gtmSnippets } from './analytics.mjs';
 
 const COOKIE = 'glassbox_admin';
@@ -228,11 +228,12 @@ async function adminApi(req, res, url, { json, html, state }) {
   const apps = state.apps;
 
   if (action === 'status') {
-    const [s, posted, hs, buf, log, kind] = await Promise.all([settings(), store.list('posted:'), hootStatus(), settings().then((x) => (x.buffer ? bufferChannels() : { ok: true, off: true, list: [] })), store.recent(200), store.storeKind()]);
+    const [s, posted, hs, buf, log, kind, sched] = await Promise.all([settings(), store.list('posted:'), hootStatus(), settings().then((x) => (x.buffer ? bufferChannels() : { ok: true, off: true, list: [] })), store.recent(200), store.storeKind(), scheduleItems()]);
     const boxes = apps.map((a) => {
       const r = readiness(a), rec = posted['posted:' + a.slug];
       return { slug: a.slug, no: a.no, title: a.title, question: a.question, kind: a.kind, date: a.date, color: a.color, ready: r.ready, why: r.why || null,
-        posted: rec ? { at: rec.at, by: rec.by, ok: rec.results.filter((x) => !x.error && !x.skipped).length, total: rec.results.length } : null,
+        posted: rec ? { at: rec.at, by: rec.by, draftFor: rec.draftFor || null, ok: rec.results.filter((x) => !x.error && !x.skipped).length, total: rec.results.length } : null,
+        scheduled: sched.find((x) => x.slug === a.slug) || null,
         auto: s.auto && !s.baseline.includes(a.slug) };
     });
     const an = analyticsActive();
@@ -241,6 +242,19 @@ async function adminApi(req, res, url, { json, html, state }) {
   if (action === 'settings' && req.method === 'POST') {
     let b; try { b = JSON.parse(await body(req, 4096)); } catch { return json(400, { error: 'bad JSON' }), true; }
     return json(200, await saveSettings(b, apps)), true;
+  }
+  if (action === 'schedule' && req.method === 'POST') {
+    let b; try { b = JSON.parse(await body(req, 64 * 1024)); } catch { return json(400, { error: 'bad JSON' }), true; }
+    const items = (Array.isArray(b.items) ? b.items : []).slice(0, 400);
+    const bad = items.filter((x) => { const box = apps.find((a) => a.slug === x.slug); return !box || !readiness(box).ready || !(Date.parse(x.at) > Date.now() + 20 * 60e3); });
+    if (!items.length) return json(400, { error: 'Choose at least one box.' }), true;
+    if (bad.length) return json(400, { error: `These can't be scheduled (not ready, or the time is less than 20 minutes away): ${bad.map((x) => x.slug).join(', ')}` }), true;
+    const list = await addToSchedule(items);
+    runSchedule(() => state.apps).catch(() => {});
+    return json(200, { ok: true, items: list }), true;
+  }
+  if (action === 'schedule' && req.method === 'DELETE') {
+    return json(200, { ok: true, items: await removeFromSchedule(arg ? decodeURIComponent(arg) : null) }), true;
   }
   if (action === 'publish' && req.method === 'POST') {
     const box = apps.find((a) => a.slug === arg);

@@ -15,7 +15,7 @@ import { ROOT, SITE, config, appsFromDirs } from './lib/apps.mjs';
 import { pages } from './build.mjs';
 import { csp } from './lib/analytics.mjs';
 import { adminRoutes } from './lib/admin.mjs';
-import { autoPublish } from './lib/publisher.mjs';
+import { autoPublish, runSchedule } from './lib/publisher.mjs';
 import { niceName } from './lib/buffer.mjs';
 import { injectBoxSeo } from './lib/seo.mjs';
 
@@ -137,6 +137,8 @@ async function sync(reason) {
     if (!state.apps.length || state.error) { retryIn = Math.min(retryIn * 2, 300e3); setTimeout(() => sync('retry'), retryIn).unref(); } else retryIn = 10e3;
     // New boxes go out on their own when auto-publish is on (one replica wins each box).
     autoPublish(state.apps, (m) => log(m)).catch((e) => log('auto-publish:', e.message));
+    // Scheduled drafts carry on after a restart (one replica at a time).
+    runSchedule(() => state.apps, (m) => log(m)).catch((e) => log('schedule:', e.message));
   })().finally(() => { syncing = null; });
   return syncing;
 }
