@@ -127,12 +127,47 @@ export async function call(name, args) {
   try { return JSON.parse(text); } catch { return { text }; }
 }
 
-// Publishing. Filled in once the connected account's tools are known; until then every post is
-// reported as skipped with the reason, so nothing is recorded as sent.
-export async function publish(posts, { log = console.log } = {}) {
-  const why = (await connected().catch(() => false))
-    ? 'SocialPilot is connected; posting through it is being set up'
-    : 'SocialPilot is not connected: click Connect SocialPilot in the admin';
-  log(`SocialPilot: ${why}`);
-  return posts.map((p) => ({ target: p.target, skipped: why }));
+// Publishing. SocialPilot's connector posts text, images, links and PDFs only: no video, and
+// no YouTube. So image carousels go out as image posts, video targets on networks that take
+// links go out as a link to the box, and everything else (YouTube, reels) is reported as
+// skipped with the reason, never recorded as sent.
+const PLATFORM = { facebook: /facebook/i, instagram: /instagram/i, linkedin: /linkedin/i, twitter: /^(x|twitter)/i, threads: /threads/i, pinterest: /pinterest/i, bluesky: /bluesky/i, youtube: /youtube/i, tiktok: /tiktok/i };
+const LINKS_OK = new Set(['facebook', 'linkedin', 'twitter', 'threads']);
+const isImage = (u) => /\.(jpe?g|png|webp|gif)(\?|$)/i.test(u);
+
+export async function accounts() {
+  const out = await call('AccountList', { limit: 200 });
+  return (out.accounts || []).filter((a) => !a.isReconnect).map((a) => ({ loginId: a.loginId, platform: a.platform, service: Object.keys(PLATFORM).find((k) => PLATFORM[k].test(a.platform)) || null }));
+}
+
+// "YYYY-MM-DD HH:mm" in India time, which is how the SocialPilot account schedules.
+const istStamp = (iso) => new Date(Date.parse(iso) + 330 * 60e3).toISOString().slice(0, 16).replace('T', ' ');
+
+export async function publish(posts, { dry = false, drafts = false, log = console.log } = {}) {
+  if (!(await connected().catch(() => false))) return posts.map((p) => ({ target: p.target, skipped: 'SocialPilot is not connected: click Connect SocialPilot in the admin' }));
+  const accs = await accounts();
+  const results = [];
+  for (const p of posts) {
+    const ids = accs.filter((a) => a.service === p.service).map((a) => a.loginId);
+    if (!ids.length) { results.push({ target: p.target, skipped: `no ${p.service} account in SocialPilot` }); continue; }
+    const imgs = (p.media || []).filter(isImage);
+    const link = (p.text || '').match(/https:\/\/glassbox\.how\/[^\s)]*/)?.[0];
+    let body;
+    if (imgs.length && imgs.length === (p.media || []).length) body = { type: 'image', image: { images: imgs.slice(0, 10), postDescription: p.text || '' } };
+    else if (LINKS_OK.has(p.service) && link) body = { type: 'article', article: { postUrl: link, postDescription: p.text || '' } };
+    else { results.push({ target: p.target, skipped: `SocialPilot can't post video to ${p.service} from Glassbox (its connection takes images and links only)` }); continue; }
+    const when = p.at && Date.parse(p.at) > Date.now() + 10 * 60e3 ? istStamp(p.at) : null;
+    const args = { ...body, loginIds: ids, ...(drafts ? {} : when ? { shareType: 3, scheduleDateTime: [when] } : { shareType: 0 }) };
+    if (dry) { log(`  • ${p.target.padEnd(20)} → SocialPilot ${drafts ? 'draft' : when ? 'at ' + when + ' IST' : 'queue'} (${body.type})`); results.push({ target: p.target, dry: true }); continue; }
+    try {
+      const r = await call(drafts ? 'CreateDraft' : 'CreatePost', args);
+      if (r?.success === false) throw new Error(r.message || 'refused');
+      results.push({ target: p.target, id: r?.postId || r?.draftId || r?.data?.id || null, dueAt: p.at || null, draft: drafts || undefined });
+      log(`  ✓ ${p.target} → SocialPilot ${drafts ? 'draft' : when ? 'scheduled ' + when + ' IST' : 'queued'} (${body.type})`);
+    } catch (e) {
+      results.push({ target: p.target, error: e.message });
+      log(`  ✗ ${p.target} (SocialPilot): ${e.message}`);
+    }
+  }
+  return results;
 }
