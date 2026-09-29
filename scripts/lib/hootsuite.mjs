@@ -154,12 +154,17 @@ async function rest(pathname, opts = {}) {
 
 const NET = { instagram: /INSTAGRAM/i, facebook: /FACEBOOK/i, linkedin: /LINKEDIN/i, twitter: /TWITTER/i, tiktok: /TIKTOK/i, youtube: /YOUTUBE/i, threads: /THREADS/i, pinterest: /PINTEREST/i };
 
+let restDown = { until: 0, err: null };
 export async function profiles() {
   // REST /socialProfiles sometimes fails on Hootsuite's side (500 "Unknown error occurred")
   // while the token is fine. Retry briefly, then ask the MCP endpoint for the same list.
-  let list, restErr;
-  for (let i = 0; i < 3 && !list; i++) {
-    try { list = await rest('/socialProfiles'); } catch (e) { restErr = e; if (!/Hootsuite 5\d\d/.test(e.message)) throw e; await new Promise((ok) => setTimeout(ok, 1500 * (i + 1))); }
+  // Once it has failed, skip it for 30 minutes rather than paying for retries every time.
+  let list, restErr = restDown.err;
+  if (Date.now() > restDown.until) {
+    for (let i = 0; i < 2 && !list; i++) {
+      try { list = await rest('/socialProfiles'); } catch (e) { restErr = e; if (!/Hootsuite 5\d\d/.test(e.message)) throw e; if (!i) await new Promise((ok) => setTimeout(ok, 1000)); }
+    }
+    if (!list) restDown = { until: Date.now() + 30 * 60e3, err: restErr };
   }
   if (!list) {
     try {

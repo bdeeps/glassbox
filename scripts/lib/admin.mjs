@@ -188,15 +188,27 @@ async function bufferChannels() {
   chanCache = { at: Date.now(), v };
   return v;
 }
-let profCache = null;
+// Hootsuite can take seconds to list profiles. The admin never waits for it: it answers with
+// the last known status (kept in the shared store, so every replica has it) and refreshes in
+// the background when that is more than 5 minutes old.
+let profCache = null, profRefresh = null;
+function refreshHoot() {
+  return (profRefresh ||= (async () => {
+    let v;
+    try { v = { connected: true, profiles: (await hoot.profiles()).map((x) => ({ service: x.service, name: x.name, type: x.type, reauth: x.reauth })) }; } catch (e) { v = { connected: true, error: e.message, profiles: [] }; }
+    profCache = { at: Date.now(), v };
+    await store.set('hootsuite:status', profCache).catch(() => {});
+    return v;
+  })().finally(() => { profRefresh = null; }));
+}
 async function hootStatus() {
   if (!(await hoot.connected().catch(() => false))) return { connected: false };
-  if (profCache && Date.now() - profCache.at < 5 * 60e3) return profCache.v;
-  let v;
-  try { v = { connected: true, profiles: (await hoot.profiles()).map((x) => ({ service: x.service, name: x.name, type: x.type, reauth: x.reauth })) }; } catch (e) { v = { connected: true, error: e.message, profiles: [] }; }
-  profCache = { at: Date.now(), v };
-  return v;
+  profCache ||= await store.get('hootsuite:status').catch(() => null);
+  if (!profCache) return refreshHoot();                         // first time ever: wait once
+  if (Date.now() - profCache.at > 5 * 60e3) refreshHoot().catch(() => {});   // stale: refresh behind
+  return profCache.v;
 }
+const forgetHoot = () => { profCache = null; return store.del('hootsuite:status').catch(() => {}); };
 
 async function adminApi(req, res, url, { json, html, state }) {
   const p = url.pathname;
@@ -205,7 +217,7 @@ async function adminApi(req, res, url, { json, html, state }) {
   if (p === '/__admin/hootsuite/callback') {
     const back = (q) => { res.writeHead(303, { Location: '/admin/?' + q, 'Cache-Control': 'no-store' }); res.end(); };
     if (url.searchParams.get('error')) return back('hootsuite=' + encodeURIComponent(url.searchParams.get('error_description') || url.searchParams.get('error'))), true;
-    try { await hoot.finishConnect(url.searchParams.get('code') || '', url.searchParams.get('state') || ''); profCache = null; await store.log('Hootsuite connected', { provider: 'hootsuite' }); back('hootsuite=connected'); }
+    try { await hoot.finishConnect(url.searchParams.get('code') || '', url.searchParams.get('state') || ''); await forgetHoot(); await store.log('Hootsuite connected', { provider: 'hootsuite' }); back('hootsuite=connected'); }
     catch (e) { back('hootsuite=' + encodeURIComponent(e.message)); }
     return true;
   }
@@ -216,7 +228,7 @@ async function adminApi(req, res, url, { json, html, state }) {
   const apps = state.apps;
 
   if (action === 'status') {
-    const [s, posted, hs, buf, log, kind] = await Promise.all([settings(), store.list('posted:'), hootStatus(), bufferChannels(), store.recent(200), store.storeKind()]);
+    const [s, posted, hs, buf, log, kind] = await Promise.all([settings(), store.list('posted:'), hootStatus(), settings().then((x) => (x.buffer ? bufferChannels() : { ok: true, off: true, list: [] })), store.recent(200), store.storeKind()]);
     const boxes = apps.map((a) => {
       const r = readiness(a), rec = posted['posted:' + a.slug];
       return { slug: a.slug, no: a.no, title: a.title, question: a.question, kind: a.kind, date: a.date, color: a.color, ready: r.ready, why: r.why || null,
@@ -245,7 +257,7 @@ async function adminApi(req, res, url, { json, html, state }) {
     catch (e) { return json(502, { error: e.message }), true; }
   }
   if (action === 'hootsuite' && arg === 'disconnect' && req.method === 'POST') {
-    await hoot.disconnect(); profCache = null; await store.log('Hootsuite disconnected', { provider: 'hootsuite' });
+    await hoot.disconnect(); await forgetHoot(); await store.log('Hootsuite disconnected', { provider: 'hootsuite' });
     return json(200, { ok: true }), true;
   }
   if (action === 'hootsuite' && arg === 'rest-check') {
