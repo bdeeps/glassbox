@@ -291,7 +291,7 @@ const server = http.createServer(async (req, res) => {
     // Old links on the Railway address move to the real domain for good. Health checks and
     // the admin's own callbacks stay where they are.
     const host = (req.headers.host || '').toLowerCase();
-    if (host && host === process.env.RAILWAY_PUBLIC_DOMAIN && new URL(SITE).host !== host
+    if (host.endsWith('.up.railway.app') && new URL(SITE).host !== host
       && (req.method === 'GET' || req.method === 'HEAD') && !/^\/(healthz|__)/.test(p)) {
       res.writeHead(301, { Location: SITE + req.url, 'Cache-Control': 'public, max-age=86400', ...SECURITY });
       return res.end();
