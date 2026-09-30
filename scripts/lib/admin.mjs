@@ -211,6 +211,15 @@ async function hootStatus() {
 }
 const forgetHoot = () => { profCache = null; return store.del('hootsuite:status').catch(() => {}); };
 
+// What a publish record means for the card: what went out and where, what really failed, and
+// what was skipped on purpose ("Don't post") or for lack of an account.
+const NETS = { youtube: 'YouTube', instagram: 'Instagram', linkedin: 'LinkedIn', twitter: 'X', facebook: 'Facebook', tiktok: 'TikTok', threads: 'Threads' };
+function postedSummary(rec) {
+  const r = rec.results || [], ok = r.filter((x) => !x.error && !x.skipped && !x.dry);
+  const where = [...new Set(ok.map((x) => (NETS[x.target.split(':')[0]] || x.target.split(':')[0]) + (x.draft ? ' draft' : '')))];
+  return { at: rec.at, by: rec.by, draftFor: rec.draftFor || null, ok: ok.length, total: r.length, failed: r.filter((x) => x.error).length, skipped: r.filter((x) => x.skipped).length, where };
+}
+
 async function adminApi(req, res, url, { json, html, state }) {
   const p = url.pathname;
   // Hootsuite sends the browser back here. The admin cookie is SameSite=Strict, so it isn't
@@ -240,7 +249,7 @@ async function adminApi(req, res, url, { json, html, state }) {
     const boxes = apps.map((a) => {
       const r = readiness(a), rec = posted['posted:' + a.slug];
       return { slug: a.slug, no: a.no, title: a.title, question: a.question, kind: a.kind, date: a.date, color: a.color, ready: r.ready, why: r.why || null,
-        posted: rec ? { at: rec.at, by: rec.by, draftFor: rec.draftFor || null, ok: rec.results.filter((x) => !x.error && !x.skipped).length, total: rec.results.length } : null,
+        posted: rec ? postedSummary(rec) : null,
         scheduled: sched.find((x) => x.slug === a.slug) || null,
         auto: s.auto && !s.baseline.includes(a.slug) };
     });

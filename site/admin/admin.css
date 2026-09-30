@@ -144,3 +144,12 @@ body.planning .list-a .acts { visibility: hidden; }
 .pb-row .grow { flex: 1; }
 .sch { display: flex; flex-wrap: wrap; min-width: 0; max-width: 100%; }
 .sch small { flex-basis: 100%; min-width: 0; margin-top: 2px; }
+
+/* Published */
+.pub { display: inline-flex; justify-self: start; align-self: flex-start; align-items: center; gap: 4px; padding: 2px 9px; border-radius: 999px; background: rgba(92, 225, 169, .14); color: #5ce1a9; font: 600 12px var(--sans); letter-spacing: .01em; }
+.list-a > li.is-pub { border-top-color: #5ce1a9; }
+.list-a > li.is-pub::after { content: '✓'; position: absolute; top: 12px; right: 14px; width: 22px; height: 22px; display: grid; place-items: center; border-radius: 50%; background: #5ce1a9; color: #07080c; font: 700 12px var(--sans); }
+body.planning .list-a > li.is-pub::after { display: none; }
+.st .n-fail { color: #ff9a9a; font-weight: 500; }
+.st .n-skip { color: var(--dim, #7c8296); }
+.st .n-fail { display: inline; }

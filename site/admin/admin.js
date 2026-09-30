@@ -113,7 +113,8 @@ function renderList() {
   const q = $('#q').value.trim().toLowerCase();
   const rows = data.boxes.filter((x) => !q || `${x.no} ${x.title} ${x.question} ${x.slug}`.toLowerCase().includes(q));
   $('#list').innerHTML = rows.map((x) => {
-    const state = x.posted ? `<span class="st ok">Published ${when(x.posted.at)}${x.posted.by === 'auto' ? ' (auto)' : ''} · ${x.posted.ok}/${x.posted.total}</span>`
+    const P = x.posted, done = P && P.ok > 0;
+    const state = P ? `${done ? `<span class="pub">✓ Published</span>` : '<span class="st no">Nothing went out yet</span>'}<span class="st ok">${done ? esc(P.where.join(', ')) + ' · ' : ''}${when(P.at)}${P.by === 'auto' ? ' (auto)' : P.by === 'queue' ? ' (queue)' : ''}${P.failed ? ` · <span class="n-fail">${P.failed} failed</span>` : ''}${P.skipped ? ` · <span class="n-skip">${P.skipped} skipped</span>` : ''}</span>`
       : x.ready ? '<span class="st ready">Ready</span>' : `<span class="st no">${esc(x.why)}</span>`;
     const L = live[x.slug], mine = data.log.filter((l) => l.slug === x.slug);
     const act = L
@@ -121,16 +122,16 @@ function renderList() {
       : mine.length ? `<details class="act${mine[0].ok === false ? ' bad' : ''}"${opened.has(x.slug) ? ' open' : ''}><summary>${mine.length > 1 ? `<span class="more">+${mine.length - 1}</span> ` : ''}${ago(mine[0].at)} · ${esc(mine[0].message)}</summary>${mine.length > 1 ? `<ul>${mine.slice(1, 8).map(entry).join('')}</ul>` : ''}</details>` : '';
     const S = x.scheduled, pickable = plan.on && x.ready && (!S || S.state === 'error' || S.state === 'done');
     const what = S && (S.drafts ? `the draft for ${day(S.at)}` : S.at ? `for ${day(S.at)}` : '');
-    const sched = S ? `<span class="sch ${esc(S.state)}">${S.state === 'queued' ? (S.drafts ? `Draft queued for ${esc(day(S.at))}` : `In the publish queue${S.at ? ' ' + esc(what) : ''}`)
+    const sched = S && !(S.state === 'done' && done) ? `<span class="sch ${esc(S.state)}">${S.state === 'queued' ? (S.drafts ? `Draft queued for ${esc(day(S.at))}` : `In the publish queue${S.at ? ' ' + esc(what) : ''}`)
       : S.state === 'running' ? `${S.drafts ? 'Making ' + esc(what) : 'Publishing'}…${S.last ? ` <small>${esc(S.last)}</small>` : ''}`
       : S.state === 'done' ? (S.drafts ? `Draft ready for ${esc(day(S.at))}` : 'Published from the queue')
       : `${S.drafts ? 'Draft' : 'Publishing'} failed: ${esc(S.error || 'unknown error')}`}${S.state === 'queued' || S.state === 'error' ? ` <button type="button" class="unq" data-unqueue="${esc(x.slug)}" aria-label="Remove from the schedule">×</button>` : ''}</span>`
       : x.posted?.draftFor ? `<span class="sch done">Draft for ${esc(day(x.posted.draftFor))}</span>` : '';
-    return `<li style="--c:${esc(x.color)}" class="${L && !L.done ? 'busy' : ''}${plan.sel.has(x.slug) ? ' sel' : ''}${pickable ? ' pickable' : ''}" data-box="${esc(x.slug)}">${pickable ? `<label class="pick"><input type="checkbox" data-pick-box="${esc(x.slug)}"${plan.sel.has(x.slug) ? ' checked' : ''} aria-label="Choose ${esc(x.question)}"></label>` : ''}<span class="no">${x.kind === 'principle' ? '' : 'No. '}${esc(x.no)}</span>
+    return `<li style="--c:${esc(x.color)}" class="${done ? 'is-pub ' : ''}${L && !L.done ? 'busy' : ''}${plan.sel.has(x.slug) ? ' sel' : ''}${pickable ? ' pickable' : ''}" data-box="${esc(x.slug)}">${pickable ? `<label class="pick"><input type="checkbox" data-pick-box="${esc(x.slug)}"${plan.sel.has(x.slug) ? ' checked' : ''} aria-label="Choose ${esc(x.question)}"></label>` : ''}<span class="no">${x.kind === 'principle' ? '' : 'No. '}${esc(x.no)}</span>
       <span class="t"><b>${esc(x.question)}</b>${state}${sched}${act}</span>
       <span class="acts">${!x.posted
         ? `<button class="btn small primary" data-slug="${esc(x.slug)}" data-mode="new" ${x.ready ? '' : 'disabled'}>Publish</button>`
-        : `${x.posted.ok < x.posted.total ? `<button class="btn small primary" data-slug="${esc(x.slug)}" data-mode="retry" ${x.ready ? '' : 'disabled'}>Retry the rest</button>` : ''}<button class="btn small ghost" data-slug="${esc(x.slug)}" data-mode="again" ${x.ready ? '' : 'disabled'}>Publish again</button>`}</span></li>`;
+        : `${P.failed || !done ? `<button class="btn small primary" data-slug="${esc(x.slug)}" data-mode="retry" ${x.ready ? '' : 'disabled'}>Retry${P.failed ? ' failed' : ''}</button>` : P.skipped ? `<button class="btn small ghost" data-slug="${esc(x.slug)}" data-mode="retry" ${x.ready ? '' : 'disabled'} title="Send the posts that were skipped">Send skipped</button>` : ''}<button class="btn small ghost" data-slug="${esc(x.slug)}" data-mode="again" ${x.ready ? '' : 'disabled'}>Publish again</button>`}</span></li>`;
   }).join('') || '<li class="empty-a">No box matches.</li>';
 }
 
@@ -179,7 +180,7 @@ $('#list').addEventListener('click', (e) => {
   const timing = ({ auto: 'at its planned time', queue: 'in the next free slot', now: 'right away' })[$('#when').value];
   $('#cTitle').textContent = `${({ new: 'Publish', retry: 'Retry', again: 'Publish again' })[mode]}: ${box.question}`;
   $('#cText').textContent = mode === 'retry'
-    ? `${box.posted.ok} of ${box.posted.total} parts went out last time. This sends only the rest to ${targets}, ${timing}. Nothing is posted twice.`
+    ? `${box.posted.ok} part${box.posted.ok === 1 ? '' : 's'} already went out (${box.posted.where.join(', ') || 'none'}). This sends only the rest to ${targets}, ${timing}. Nothing is posted twice.`
     : mode === 'again'
       ? `This sends the video, reel and carousel to ${targets} once more, ${timing}, including the parts that are already out, so they will appear twice.`
       : `This posts the video, reel and carousel to ${targets}, ${timing}.`;
