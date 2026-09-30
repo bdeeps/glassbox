@@ -163,8 +163,11 @@ export async function publish(posts, { dry = false, drafts = false, log = consol
   const results = [];
   for (const p of posts) {
     // An account you picked in the admin is used as is; otherwise only Glassbox's own handles.
-    const mine = p.accountId ? accs.filter((a) => String(a.loginId) === String(p.accountId)) : accs.filter((a) => a.service === p.service);
-    if (!mine.length) { results.push({ target: p.target, skipped: p.accountId ? 'the chosen SocialPilot account is no longer connected' : `no ${p.service} account in SocialPilot` }); continue; }
+    // A remembered account that was since removed or reconnected falls back to the network's
+    // current accounts (still only Glassbox's own handles).
+    const picked = p.accountId ? accs.filter((a) => String(a.loginId) === String(p.accountId)) : [];
+    const mine = picked.length ? picked : accs.filter((a) => a.service === p.service);
+    if (!mine.length) { results.push({ target: p.target, skipped: `no ${p.service} account in SocialPilot` }); continue; }
     const { ids, why } = ours(p.service, mine);
     if (!ids.length) { results.push({ target: p.target, skipped: why }); continue; }
     const imgs = (p.media || []).filter(isImage);
