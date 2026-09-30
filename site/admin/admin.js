@@ -96,10 +96,11 @@ async function load() {
   if (!s.buffer) $('#bufSub').textContent = 'Switched off: nothing is sent to Buffer.'; else $('#bufSub').textContent = !b.ok ? `Buffer: ${b.error}` : b.list.length ? `Connected: ${b.list.map((c) => `${c.name} (${c.service})`).join(', ')}` : 'No channels connected in Buffer yet (connect YouTube at buffer.com).';
 
   const tr = data.tracking || {};
-  $('#tagCard').hidden = !tr.gtm;
-  if (tr.gtm) {
-    $('#tagSub').innerHTML = `Container <code>${esc(tr.gtm)}</code> is on every page of the site and every box. It loads with the same consent rules as Google Analytics (after “Allow” in the EU/UK, never with a privacy signal) and never on localhost or while recording.`;
-    $('#tagHead').textContent = tr.snippets.head; $('#tagBody').textContent = tr.snippets.body;
+  $('#tagCard').hidden = !tr.gtm && !tr.ga4;
+  if (tr.gtm || tr.ga4) {
+    $('#tagSub').innerHTML = `${tr.gtm ? `Tag Manager <code>${esc(tr.gtm)}</code>` : ''}${tr.gtm && tr.ga4 ? ' and ' : ''}${tr.ga4 ? `Google Analytics <code>${esc(tr.ga4)}</code>` : ''} are on every page of the site and every box. They load with the same consent rules (after “Allow” in the EU/UK, never with a privacy signal) and never on localhost or while recording.`;
+    $('#tagHead').textContent = tr.snippets?.head || ''; $('#tagBody').textContent = tr.snippets?.body || '';
+    $('#gaBlock').hidden = !tr.snippets?.ga4; $('#tagGa').textContent = tr.snippets?.ga4 || '';
   }
   renderList();
   const general = data.log.filter((l) => !l.slug).slice(0, 8);

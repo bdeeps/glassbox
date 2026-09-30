@@ -11,7 +11,7 @@ import * as store from './store.mjs';
 import * as hoot from './hootsuite.mjs';
 import * as sp from './socialpilot.mjs';
 import { settings, saveSettings, readiness, publishBox, boxTargets, scheduleItems, addToSchedule, removeFromSchedule, runSchedule } from './publisher.mjs';
-import { active as analyticsActive, gtmSnippets } from './analytics.mjs';
+import { active as analyticsActive, gtmSnippets, ga4Snippet } from './analytics.mjs';
 
 const COOKIE = 'glassbox_admin';
 const TTL = 12 * 3600;
@@ -245,7 +245,7 @@ async function adminApi(req, res, url, { json, html, state }) {
         auto: s.auto && !s.baseline.includes(a.slug) };
     });
     const an = analyticsActive();
-    return json(200, { settings: { auto: s.auto, when: s.when, since: s.since, buffer: s.buffer, channel: s.channel, routes: s.routes || {} }, hootsuite: hs, socialpilot: { connected: await sp.connected().catch(() => false) }, buffer: buf, boxes, log, store: kind, tracking: { gtm: an.gtm, ga4: an.ga4, clicktrust: an.clicktrust, snippets: gtmSnippets(an.gtm) } }), true;
+    return json(200, { settings: { auto: s.auto, when: s.when, since: s.since, buffer: s.buffer, channel: s.channel, routes: s.routes || {} }, hootsuite: hs, socialpilot: { connected: await sp.connected().catch(() => false) }, buffer: buf, boxes, log, store: kind, tracking: { gtm: an.gtm, ga4: an.ga4, clicktrust: an.clicktrust, snippets: { ...(gtmSnippets(an.gtm) || {}), ga4: ga4Snippet(an.ga4) } } }), true;
   }
   if (action === 'settings' && req.method === 'POST') {
     let b; try { b = JSON.parse(await body(req, 4096)); } catch { return json(400, { error: 'bad JSON' }), true; }

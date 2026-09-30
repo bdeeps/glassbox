@@ -37,6 +37,11 @@ export function gtmSnippets(id = active().gtm) {
     body: `<!-- Google Tag Manager (noscript) -->\n<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=${id}"\nheight="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>\n<!-- End Google Tag Manager (noscript) -->`,
   };
 }
+// Google's own gtag.js snippet for the GA4 property, shown in the admin as Google gives it.
+export function ga4Snippet(id = active().ga4) {
+  if (!id) return '';
+  return `<!-- Google tag (gtag.js) -->\n<script async src="https://www.googletagmanager.com/gtag/js?id=${id}"></script>\n<script>\n  window.dataLayer = window.dataLayer || [];\n  function gtag(){dataLayer.push(arguments);}\n  gtag('js', new Date());\n\n  gtag('config', '${id}');\n</script>`;
+}
 export const gtmNoscript = () => { const id = active().gtm; return id ? `<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=${id}" height="0" width="0" style="display:none;visibility:hidden" title="Google Tag Manager"></iframe></noscript>` : ''; };
 
 export function csp({ scriptHashes = [], frames: framesIn = [] } = {}) {
