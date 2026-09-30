@@ -223,15 +223,21 @@ export async function autoPublish(apps, logFn = console.log) {
 const QUEUE = 'schedule:items';
 export const scheduleItems = async () => (await store.get(QUEUE)) || [];
 
+// Items: { slug, at?, drafts?, mode?: 'new'|'retry'|'again', when?, routes? }. Without `at` a box
+// publishes as soon as its turn comes (at its planned time if `when` is 'auto').
 export async function addToSchedule(items) {
   const cur = await scheduleItems();
   const slugs = new Set(items.map((x) => x.slug));
   const next = [...cur.filter((x) => !slugs.has(x.slug) || x.state === 'running'),
     ...items.filter((x) => !cur.some((y) => y.slug === x.slug && y.state === 'running'))
-      .map((x) => ({ slug: x.slug, at: new Date(x.at).toISOString(), state: 'queued', added: new Date().toISOString() }))];
-  next.sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
+      .map((x) => ({ slug: x.slug, at: x.at ? new Date(x.at).toISOString() : null, drafts: !!x.drafts, mode: ['new', 'retry', 'again'].includes(x.mode) ? x.mode : 'retry',
+        when: ['auto', 'queue', 'now'].includes(x.when) ? x.when : null, routes: x.routes && typeof x.routes === 'object' ? x.routes : null,
+        state: 'queued', added: new Date().toISOString() }))];
+  // Publish-now items first in the order you queued them, then dated drafts by date.
+  next.sort((a, b) => (a.at ? Date.parse(a.at) : 0) - (b.at ? Date.parse(b.at) : 0) || Date.parse(a.added) - Date.parse(b.added));
   await store.set(QUEUE, next);
-  await store.log(`${items.length} box(es) scheduled as drafts`, { provider: 'hootsuite' });
+  const nd = items.filter((x) => x.drafts).length;
+  await store.log(nd ? `${nd} box(es) scheduled as drafts` : `${items.length} box(es) queued to publish`);
   return next;
 }
 
@@ -260,10 +266,12 @@ export async function runSchedule(getApps, logFn = console.log) {
         await store.set(QUEUE, now.map((x) => (x.slug === item.slug ? { ...x, ...patch } : x)));
       };
       await mark({ state: 'running', startedAt: new Date().toISOString(), error: null });
-      const lines = [];
+      // The latest progress line is shown on the box's card (written at most every 2 s).
+      let lastWrite = 0;
+      const progress = (m) => { logFn(`[queue ${item.slug}] ${m}`); if (Date.now() - lastWrite > 2000 && m.trim()) { lastWrite = Date.now(); mark({ last: m.trim().replace(/^[•✓–]\s*/, '').slice(0, 160) }).catch(() => {}); } };
       try {
         if (!box) throw new Error('box not found on this server');
-        await publishBox(box, { at: item.at, drafts: true, force: true, by: 'schedule', log: (m) => { lines.push(m); logFn(`[schedule ${item.slug}] ${m}`); } });
+        await publishBox(box, { at: item.at || null, drafts: !!item.drafts, force: item.mode !== 'new', all: item.mode === 'again', when: item.when || undefined, routes: item.routes || null, by: item.drafts ? 'schedule' : 'queue', log: progress });
         await mark({ state: 'done', doneAt: new Date().toISOString() });
       } catch (e) {
         await mark({ state: 'error', error: e.message.slice(0, 300) });

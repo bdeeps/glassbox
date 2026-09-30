@@ -272,9 +272,9 @@ async function adminApi(req, res, url, { json, html, state }) {
   if (action === 'schedule' && req.method === 'POST') {
     let b; try { b = JSON.parse(await body(req, 64 * 1024)); } catch { return json(400, { error: 'bad JSON' }), true; }
     const items = (Array.isArray(b.items) ? b.items : []).slice(0, 400);
-    const bad = items.filter((x) => { const box = apps.find((a) => a.slug === x.slug); return !box || !readiness(box).ready || !(Date.parse(x.at) > Date.now() + 20 * 60e3); });
+    const bad = items.filter((x) => { const box = apps.find((a) => a.slug === x.slug); return !box || !readiness(box).ready || (x.at && !(Date.parse(x.at) > Date.now() + 20 * 60e3)); });
     if (!items.length) return json(400, { error: 'Choose at least one box.' }), true;
-    if (bad.length) return json(400, { error: `These can't be scheduled (not ready, or the time is less than 20 minutes away): ${bad.map((x) => x.slug).join(', ')}` }), true;
+    if (bad.length) return json(400, { error: `These can't be queued (not ready, or the time is less than 20 minutes away): ${bad.map((x) => x.slug).join(', ')}` }), true;
     const list = await addToSchedule(items);
     runSchedule(() => state.apps).catch(() => {});
     return json(200, { ok: true, items: list }), true;

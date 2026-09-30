@@ -138,3 +138,9 @@ body.planning .list-a .acts { visibility: hidden; }
 .remember { display: flex; gap: 8px; align-items: center; margin-bottom: 14px; font-size: 13.5px; color: var(--muted); }
 .sub.bad { color: #ff9a9a; }
 @media (max-width: 520px) { .rt th { white-space: normal; } }
+.pb-row .or { font-size: 13px; }
+.sch small { display: block; color: var(--muted); font-size: 11.5px; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.sch.queued::before { content: ''; width: 6px; height: 6px; border-radius: 50%; border: 1px solid currentColor; }
+.pb-row .grow { flex: 1; }
+.sch { display: flex; flex-wrap: wrap; min-width: 0; max-width: 100%; }
+.sch small { flex-basis: 100%; min-width: 0; margin-top: 2px; }

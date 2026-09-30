@@ -119,8 +119,12 @@ function renderList() {
     const act = L
       ? `<details class="act live${L.done ? '' : ' run'}${L.bad ? ' bad' : ''}"${L.open || opened.has(x.slug) ? ' open' : ''}><summary>${esc(L.last || 'Starting…')}</summary><pre>${esc(L.text)}</pre></details>`
       : mine.length ? `<details class="act${mine[0].ok === false ? ' bad' : ''}"${opened.has(x.slug) ? ' open' : ''}><summary>${mine.length > 1 ? `<span class="more">+${mine.length - 1}</span> ` : ''}${ago(mine[0].at)} · ${esc(mine[0].message)}</summary>${mine.length > 1 ? `<ul>${mine.slice(1, 8).map(entry).join('')}</ul>` : ''}</details>` : '';
-    const S = x.scheduled, pickable = plan.on && x.ready && !x.posted && (!S || S.state === 'error');
-    const sched = S ? `<span class="sch ${esc(S.state)}">${S.state === 'queued' ? `Draft queued for ${esc(day(S.at))}` : S.state === 'running' ? `Making the draft for ${esc(day(S.at))}…` : S.state === 'done' ? `Draft ready for ${esc(day(S.at))}` : `Draft failed: ${esc(S.error || 'unknown error')}`}${S.state === 'queued' || S.state === 'error' ? ` <button type="button" class="unq" data-unqueue="${esc(x.slug)}" aria-label="Remove from the schedule">×</button>` : ''}</span>`
+    const S = x.scheduled, pickable = plan.on && x.ready && (!S || S.state === 'error' || S.state === 'done');
+    const what = S && (S.drafts ? `the draft for ${day(S.at)}` : S.at ? `for ${day(S.at)}` : '');
+    const sched = S ? `<span class="sch ${esc(S.state)}">${S.state === 'queued' ? (S.drafts ? `Draft queued for ${esc(day(S.at))}` : `In the publish queue${S.at ? ' ' + esc(what) : ''}`)
+      : S.state === 'running' ? `${S.drafts ? 'Making ' + esc(what) : 'Publishing'}…${S.last ? ` <small>${esc(S.last)}</small>` : ''}`
+      : S.state === 'done' ? (S.drafts ? `Draft ready for ${esc(day(S.at))}` : 'Published from the queue')
+      : `${S.drafts ? 'Draft' : 'Publishing'} failed: ${esc(S.error || 'unknown error')}`}${S.state === 'queued' || S.state === 'error' ? ` <button type="button" class="unq" data-unqueue="${esc(x.slug)}" aria-label="Remove from the schedule">×</button>` : ''}</span>`
       : x.posted?.draftFor ? `<span class="sch done">Draft for ${esc(day(x.posted.draftFor))}</span>` : '';
     return `<li style="--c:${esc(x.color)}" class="${L && !L.done ? 'busy' : ''}${plan.sel.has(x.slug) ? ' sel' : ''}${pickable ? ' pickable' : ''}" data-box="${esc(x.slug)}">${pickable ? `<label class="pick"><input type="checkbox" data-pick-box="${esc(x.slug)}"${plan.sel.has(x.slug) ? ' checked' : ''} aria-label="Choose ${esc(x.question)}"></label>` : ''}<span class="no">${x.kind === 'principle' ? '' : 'No. '}${esc(x.no)}</span>
       <span class="t"><b>${esc(x.question)}</b>${state}${sched}${act}</span>
@@ -130,6 +134,12 @@ function renderList() {
   }).join('') || '<li class="empty-a">No box matches.</li>';
 }
 
+async function enqueue(items) {
+  const r = await api('schedule', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ items }) });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) { flash(j.error || 'Could not queue that.', true); return false; }
+  return true;
+}
 async function publish(slug, { dry, force, all, routes }) {
   if (busy) return;
   busy = true;
@@ -185,7 +195,10 @@ $('#list').addEventListener('click', (e) => {
     if (routes && $('#remember').checked && dlg.returnValue === 'go') {
       await api('settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ routes: { ...(data.settings.routes || {}), ...routes } }) }).catch(() => {});
     }
-    if (dlg.returnValue === 'go') publish(box.slug, { dry: false, force: mode !== 'new', all: mode === 'again', routes });
+    if (dlg.returnValue === 'go') {
+      // Real publishing runs on the server, one box at a time, so you can queue more meanwhile.
+      if (await enqueue([{ slug: box.slug, mode, when: $('#when').value, routes }])) { flash('Queued. It publishes in the background; the card shows progress.'); load(); }
+    }
     if (dlg.returnValue === 'dry') publish(box.slug, { dry: true, force: true, all: mode === 'again', routes });
   };
   dlg.showModal();
@@ -250,13 +263,14 @@ document.addEventListener('click', async (e) => {
 });
 
 // ---- Schedule drafts: pick boxes, choose dates, and the server makes Hootsuite drafts for them.
-const pickableBoxes = () => [...data.boxes].reverse().filter((x) => x.ready && !x.posted && (!x.scheduled || x.scheduled.state === 'error'));
+const pickableBoxes = () => [...data.boxes].reverse().filter((x) => x.ready && (!x.scheduled || ['error', 'done'].includes(x.scheduled.state)));
+const unpublished = () => pickableBoxes().filter((x) => !x.posted);
 function paintPlan() {
   $('#planBar').hidden = !plan.on;
   $('#planBtn').setAttribute('aria-pressed', String(plan.on));
-  $('#planBtn').textContent = plan.on ? 'Choosing boxes…' : 'Schedule drafts…';
+  $('#planBtn').textContent = plan.on ? 'Choosing boxes…' : 'Select boxes…';
   $('#pbCount').textContent = `${plan.sel.size} selected`;
-  $('#pbReview').disabled = !plan.sel.size;
+  $('#pbReview').disabled = !plan.sel.size; $('#pbPublish').disabled = !plan.sel.size;
   document.body.classList.toggle('planning', plan.on);
   renderList();
 }
@@ -266,12 +280,20 @@ $('#planBtn').addEventListener('click', () => {
   paintPlan();
 });
 $('#pbClose').addEventListener('click', () => { plan.on = false; plan.sel.clear(); paintPlan(); });
+$('#pbPublish').addEventListener('click', async () => {
+  const order = pickableBoxes().filter((x) => plan.sel.has(x.slug));   // oldest box first
+  if (!order.length) return;
+  if (!confirm(`Publish ${order.length} box${order.length > 1 ? 'es' : ''} using your saved choices of where each post goes? They go out one by one in the background.`)) return;
+  if (await enqueue(order.map((x) => ({ slug: x.slug, mode: x.posted ? 'retry' : 'new', when: $('#when').value })))) {
+    flash(`${order.length} queued to publish. Each card shows its progress.`);
+    plan.on = false; plan.sel.clear(); paintPlan(); load();
+  }
+});
 $('#planBar').addEventListener('click', (e) => {
   const b = e.target.closest('[data-pick]'); if (!b) return;
-  const all = pickableBoxes().map((x) => x.slug);
-  if (b.dataset.pick === 'none') plan.sel.clear();
-  else if (b.dataset.pick === 'all') all.forEach((s) => plan.sel.add(s));
-  else all.filter((s) => !plan.sel.has(s)).slice(0, +b.dataset.pick).forEach((s) => plan.sel.add(s));
+    if (b.dataset.pick === 'none') plan.sel.clear();
+  else if (b.dataset.pick === 'all') unpublished().forEach((x) => plan.sel.add(x.slug));
+  else unpublished().map((x) => x.slug).filter((s) => !plan.sel.has(s)).slice(0, +b.dataset.pick).forEach((s) => plan.sel.add(s));
   paintPlan();
 });
 $('#list').addEventListener('change', (e) => {

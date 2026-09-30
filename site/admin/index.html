@@ -79,7 +79,7 @@
     <div class="head-a">
       <h2>Publish a box</h2>
       <div class="head-tools">
-        <button class="btn small" id="planBtn" type="button" aria-pressed="false">Schedule drafts…</button>
+        <button class="btn small" id="planBtn" type="button" aria-pressed="false">Select boxes…</button>
         <label class="search-a"><input id="q" type="search" placeholder="Find a box" aria-label="Find a box"></label>
       </div>
     </div>
@@ -98,13 +98,16 @@
     <button class="btn small ghost" type="button" data-pick="10">Pick next 10</button>
     <button class="btn small ghost" type="button" data-pick="all">Pick all unpublished</button>
     <button class="btn small ghost" type="button" data-pick="none">Clear</button>
+    <span class="grow"></span>
+    <button class="btn small primary" type="button" id="pbPublish">Publish now</button>
+    <button class="btn small ghost" type="button" id="pbClose">Done</button>
   </div>
   <div class="pb-row">
-    <label>From <input type="date" id="pbStart"></label>
+    <span class="or">Or make drafts on dates:</span>
+    <label>from <input type="date" id="pbStart"></label>
     <label>at <input type="time" id="pbTime" value="18:30"></label>
     <label>one every <select id="pbEvery"><option value="1">day</option><option value="2">2 days</option><option value="3">3 days</option><option value="7">week</option></select></label>
-    <button class="btn small primary" type="button" id="pbReview">Review dates</button>
-    <button class="btn small ghost" type="button" id="pbClose">Done</button>
+    <button class="btn small" type="button" id="pbReview">Review dates</button>
   </div>
 </div>
 
