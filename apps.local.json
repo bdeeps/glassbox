@@ -127,6 +127,8 @@
     "../cycloneclear",
     "../tornadoclear",
     "../tsunamiclear",
-    "../stormclear"
+    "../stormclear",
+    "../earthquakeclear",
+    "../landslideclear"
   ]
 }
