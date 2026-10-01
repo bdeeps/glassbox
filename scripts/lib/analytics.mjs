@@ -130,7 +130,14 @@ ${ctCode ? `  // ClickTrust: bot and invalid-traffic detection.\n  (() => {\n${c
     el.querySelector('button').focus({ preventScroll: true });
   }
   const ready = (fn) => (document.body ? fn() : document.addEventListener('DOMContentLoaded', fn));
-  if (consentRegion && !choice && !signal) ready(() => banner(false));
+  // The first-visit welcome asks the cookie question itself, so the banner stays out of its way.
+  const welcomeAsks = !!document.querySelector('script[src*="/assets/welcome.js"]') && !(() => { try { return localStorage.getItem('glassbox.welcome'); } catch { return 1; } })();
+  if (consentRegion && !choice && !signal && !welcomeAsks) ready(() => banner(false));
+  window.glassboxConsent = (v) => {
+    put(v); document.getElementById('gb-consent')?.remove();
+    if (v === 'granted' && !signal) startGA();
+    if (v === 'denied' && started) { clearGA(); location.reload(); }
+  };
   document.addEventListener('click', (e) => { if (e.target.closest('[data-privacy-choices]')) { e.preventDefault(); banner(true); } });
   window.glassboxPrivacyChoices = () => banner(true);
 ` : '  // Google Analytics / Tag Manager: not configured, so no consent banner is needed.\n'}})();

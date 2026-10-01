@@ -85,6 +85,7 @@ ${H.x ? `<meta name="twitter:site" content="@${esc(H.x)}">\n` : ''}<meta name="t
 <link rel="stylesheet" href="${asset('/assets/fonts/fonts.css')}">
 <link rel="stylesheet" href="${asset('/assets/site.css')}">
 <script src="${asset('/assets/analytics.js')}" defer></script>
+<script src="${asset('/assets/welcome.js')}" defer></script>
 ${lds}
 ${extra}
 </head>
@@ -137,7 +138,7 @@ export function footer() {
       <p class="promise-line">No accounts. No ads. Nothing sold. <a href="/privacy/">Exactly what we measure, and why.</a></p>
     </div>
     <div><h4>Explore</h4><a href="/#today">Today's box</a><a href="/#shelf">The shelf</a><a href="/concepts/">Concepts A–Z</a><a href="/history/">Every history</a><a href="/#calendar">Calendar</a></div>
-    <div><h4>Follow</h4>${H.youtube ? `<a href="https://youtube.com/${esc(H.youtube)}" rel="noopener" target="_blank">YouTube</a>` : ''}${H.instagram ? `<a href="https://instagram.com/${esc(H.instagram)}" rel="noopener" target="_blank">Instagram</a>` : ''}<a href="${esc(waHref(siteShareText()))}" rel="noopener" target="_blank">Share on WhatsApp</a><a href="/feed.xml">RSS feed</a><a href="https://github.com/${esc(config.org)}" rel="noopener" target="_blank">GitHub</a></div>
+    <div><h4>Follow</h4>${H.youtube ? `<a href="https://youtube.com/${esc(H.youtube)}" rel="noopener" target="_blank">YouTube</a>` : ''}${H.instagram ? `<a href="https://instagram.com/${esc(H.instagram)}" rel="noopener" target="_blank">Instagram</a>` : ''}<a href="/" data-welcome>Get new explainers by email</a><a href="${esc(waHref(siteShareText()))}" rel="noopener" target="_blank">Share on WhatsApp</a><a href="/feed.xml">RSS feed</a><a href="https://github.com/${esc(config.org)}" rel="noopener" target="_blank">GitHub</a></div>
     <div><h4>The small print</h4><a href="/privacy/">Privacy</a>${active().ga4 ? '<a href="/privacy/#choices" data-privacy-choices>Privacy choices</a>' : ''}<a href="/terms/">Terms</a><a href="/terms/#licences">Licences</a><a href="${SUGGEST}" rel="noopener" target="_blank">Suggest a box</a></div>
   </div>
   <p class="colophon">Code under ${esc(config.licenses.code)}. Words, images and videos under ${esc(config.licenses.content)}. Static files on GitHub Pages; fonts self-hosted; visits measured with Google Analytics through Google Tag Manager, bots detected with ClickTrust. © ${new Date(config.policyDate).getUTCFullYear()} ${esc(config.owner)}.</p>

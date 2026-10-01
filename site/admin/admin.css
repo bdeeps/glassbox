@@ -153,3 +153,10 @@ body.planning .list-a > li.is-pub::after { display: none; }
 .st .n-fail { color: #ff9a9a; font-weight: 500; }
 .st .n-skip { color: var(--dim, #7c8296); }
 .st .n-fail { display: inline; }
+
+/* Subscribers */
+#subCard { grid-column: 1 / -1; }
+.stats-a { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin-top: 14px; }
+.stats-a > div { padding: 12px 14px; border-radius: 14px; background: rgba(255, 255, 255, .04); border: 1px solid rgba(255, 255, 255, .07); }
+.stats-a b { display: block; font: 500 24px/1.1 var(--mono); color: var(--glow, #8ef0ff); }
+.stats-a span { font-size: 12.5px; color: var(--muted); }

@@ -95,6 +95,16 @@ async function load() {
   $('#buf .pill').textContent = s.buffer ? 'on' : 'off';
   if (!s.buffer) $('#bufSub').textContent = 'Switched off: nothing is sent to Buffer.'; else $('#bufSub').textContent = !b.ok ? `Buffer: ${b.error}` : b.list.length ? `Connected: ${b.list.map((c) => `${c.name} (${c.service})`).join(', ')}` : 'No channels connected in Buffer yet (connect YouTube at buffer.com).';
 
+  const sb = data.subscribers;
+  $('#subCard').hidden = !sb;
+  if (sb) {
+    $('#subSub').textContent = sb.mail ? `Emails go out through Plinth as ${sb.from}: a note when new explainers are added, a digest on Sundays, and a count of the day's sign-ups to the team at 11:30 pm.`
+      : 'Sign-ups are being recorded, but no emails can go out yet: set PLINTH_API_KEY and PLINTH_FROM_EMAIL on Railway.';
+    $('#subSub').classList.toggle('bad', !sb.mail);
+    $('#subReport').disabled = !sb.mail;
+    $('#subStats').innerHTML = [['Signed up today', sb.today.signups], ['Confirmed', sb.total], ['Waiting to confirm', sb.pending], ['Browser notifications', sb.push], ['Unsubscribed', sb.unsubscribed]]
+      .map(([k, v]) => `<div><b>${esc(v)}</b><span>${esc(k)}</span></div>`).join('');
+  }
   const tr = data.tracking || {};
   $('#tagCard').hidden = !tr.gtm && !tr.ga4;
   if (tr.gtm || tr.ga4) {
@@ -238,6 +248,12 @@ $('#hootUse').addEventListener('click', async () => {
   if (!confirm(to === 'hootsuite' ? 'Send everything through Hootsuite (SocialPilot off)?' : 'Videos through Hootsuite and the rest through SocialPilot?')) return;
   await api('settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ channel: to }) });
   flash(to === 'hootsuite' ? 'Everything goes through Hootsuite.' : 'Videos through Hootsuite, the rest through SocialPilot.'); load();
+});
+$('#subReport').addEventListener('click', async (e) => {
+  e.target.disabled = true;
+  const r = await api('subscribers/report', { method: 'POST' }); const j = await r.json().catch(() => ({}));
+  flash(r.ok ? `Report sent to ${j.to}.` : (j.error || 'Could not send the report.'), !r.ok);
+  e.target.disabled = false;
 });
 $('#q').addEventListener('input', renderList);
 $('#bufOn').addEventListener('change', async (e) => {

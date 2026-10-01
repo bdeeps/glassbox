@@ -15,6 +15,7 @@ import { ROOT, SITE, config, appsFromDirs } from './lib/apps.mjs';
 import { pages } from './build.mjs';
 import { csp } from './lib/analytics.mjs';
 import { adminRoutes } from './lib/admin.mjs';
+import { publicApi, runJobs } from './lib/subscribers.mjs';
 import { autoPublish, runSchedule } from './lib/publisher.mjs';
 import { niceName } from './lib/buffer.mjs';
 import { injectBoxSeo } from './lib/seo.mjs';
@@ -139,6 +140,8 @@ async function sync(reason) {
     autoPublish(state.apps, (m) => log(m)).catch((e) => log('auto-publish:', e.message));
     // Scheduled drafts carry on after a restart (one replica at a time).
     runSchedule(() => state.apps, (m) => log(m)).catch((e) => log('schedule:', e.message));
+    // Subscriber emails and notifications: new explainers, the weekly digest, the daily count.
+    runJobs(() => state.apps, (m) => log(m)).catch((e) => log('subscribers:', e.message));
   })().finally(() => { syncing = null; });
   return syncing;
 }
@@ -296,6 +299,7 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(301, { Location: SITE + req.url, 'Cache-Control': 'public, max-age=86400', ...SECURITY });
       return res.end();
     }
+    if (await publicApi(req, res, url)) return;
     if (await adminRoutes(req, res, url, { send, TYPES, state, SECURITY })) return;
     if (req.method !== 'GET' && req.method !== 'HEAD') {
       if (p === '/__sync' && req.method === 'POST' && process.env.SYNC_TOKEN && req.headers.authorization === `Bearer ${process.env.SYNC_TOKEN}`) {
@@ -361,3 +365,4 @@ rebuild();
 server.listen(PORT, '0.0.0.0', () => log(`${config.brand} on :${PORT} as ${SITE}`));
 sync('start');
 setInterval(() => sync('timer'), EVERY).unref();
+setInterval(() => runJobs(() => state.apps, (m) => log(m)).catch(() => {}), 5 * 60e3).unref();

@@ -10,6 +10,7 @@ import { ROOT, config, localApps } from './lib/apps.mjs';
 import { pages } from './build.mjs';
 import { ship, loadEnv, checkLive, assetBase, channels } from './lib/buffer.mjs';
 import { adminRoutes } from './lib/admin.mjs';
+import { publicApi, runJobs } from './lib/subscribers.mjs';
 import { active } from './lib/analytics.mjs';
 import { injectBoxSeo } from './lib/seo.mjs';
 
@@ -212,6 +213,7 @@ const server = http.createServer(async (req, res) => {
     const url = new URL(req.url, `http://${req.headers.host}`);
     const p = decodeURIComponent(url.pathname);
     if (p.startsWith('/__studio/')) return await studioApi(req, res, url);
+    if (await publicApi(req, res, url)) return;   // email sign-up and push, same as production
     // The publish admin works locally too (same sign-in, state in .data/admin.json unless DATABASE_URL is set).
     if (p === '/admin' || p.startsWith('/admin/index') || p === '/admin/' || p.startsWith('/__admin/')) {
       const adapter = (rq, rs, code, body, type) => send(rs, code, body, type);
