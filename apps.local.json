@@ -129,6 +129,15 @@
     "../tsunamiclear",
     "../stormclear",
     "../earthquakeclear",
-    "../landslideclear"
+    "../landslideclear",
+    "../volcanoclear",
+    "../floodclear",
+    "../droughtclear",
+    "../avalancheclear",
+    "../heatwaveclear",
+    "../wildfireclear",
+    "../hailclear",
+    "../cloudburstclear",
+    "../fogclear"
   ]
 }
