@@ -120,6 +120,13 @@
     "../roomheaterclear",
     "../radioclear",
     "../fmclear",
-    "../tvstationclear"
+    "../tvstationclear",
+    "../boilclear",
+    "../meltclear",
+    "../freezeclear",
+    "../cycloneclear",
+    "../tornadoclear",
+    "../tsunamiclear",
+    "../stormclear"
   ]
 }
