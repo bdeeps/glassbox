@@ -138,6 +138,21 @@
     "../wildfireclear",
     "../hailclear",
     "../cloudburstclear",
-    "../fogclear"
+    "../fogclear",
+    "../curdclear",
+    "../butterclear",
+    "../gheeclear",
+    "../paneerclear",
+    "../cheeseclear",
+    "../icecreamclear",
+    "../chocolateclear",
+    "../breadclear",
+    "../biscuitclear",
+    "../cakeclear",
+    "../pizzaclear",
+    "../noodleclear",
+    "../samosaclear",
+    "../idliclear",
+    "../dosaclear"
   ]
 }
