@@ -37,7 +37,7 @@ async function loadRoutes(slug) {
     box.innerHTML = `<table class="rt"><tbody>${(t.targets || []).map((x) => {
       const opts = routeOptions(x), def = defaultRoute(x, opts);
       return `<tr><th scope="row">${esc(LABEL[x.target] || x.target)}<small>${x.video ? 'video' : 'images'}</small></th><td><select data-route="${esc(x.target)}" aria-label="Where to post the ${esc(LABEL[x.target] || x.target)}">${opts.map((o) => `<option value="${esc(o.v)}"${o.off ? ' disabled' : ''}${o.v === def ? ' selected' : ''}>${esc(o.l)}</option>`).join('')}</select></td></tr>`;
-    }).join('')}</tbody></table>${note ? `<p class="sub bad">${esc(note)}</p>` : ''}`;
+    }).join('')}${data.box?.ok ? `<tr><th scope="row">Box<small>all videos, by date</small></th><td><select data-route="box:videos" aria-label="Save the videos to Box">${(() => { const sv = data.settings.routes?.['box:videos'], on = sv ? sv.via === 'box' : data.settings.box; return `<option value="box:glassbox"${on ? ' selected' : ''}>Box · ${esc(data.box.name || 'Glassbox')} folder</option><option value="skip"${on ? '' : ' selected'}>Don't save</option>`; })()}</select></td></tr>` : ''}</tbody></table>${note ? `<p class="sub bad">${esc(note)}</p>` : ''}`;
   } catch (e) { box.innerHTML = `<p class="sub bad">Couldn't load the accounts: ${esc(e.message)}</p>`; }
 }
 const chosenRoutes = () => Object.fromEntries([...document.querySelectorAll('#routes [data-route]')].map((sel) => {
@@ -145,7 +145,7 @@ function renderList() {
     const what = S && (S.drafts ? `the draft for ${day(S.at)}` : S.at ? `for ${day(S.at)}` : '');
     const sched = S && !(S.state === 'done' && done) ? `<span class="sch ${esc(S.state)}">${S.state === 'queued' ? (S.drafts ? `Draft queued for ${esc(day(S.at))}` : `In the publish queue${S.at ? ' ' + esc(what) : ''}`)
       : S.state === 'running' ? `${S.drafts ? 'Making ' + esc(what) : 'Publishing'}…${S.last ? ` <small>${esc(S.last)}</small>` : ''}`
-      : S.state === 'done' ? (S.drafts ? `Draft ready for ${esc(day(S.at))}` : 'Published from the queue')
+      : S.state === 'done' ? S.boxOnly ? 'Videos sent to Box' : (S.drafts ? `Draft ready for ${esc(day(S.at))}` : 'Published from the queue')
       : `${S.drafts ? 'Draft' : 'Publishing'} failed: ${esc(S.error || 'unknown error')}`}${S.state === 'queued' || S.state === 'error' ? ` <button type="button" class="unq" data-unqueue="${esc(x.slug)}" aria-label="Remove from the schedule">×</button>` : ''}</span>`
       : x.posted?.draftFor ? `<span class="sch done">Draft for ${esc(day(x.posted.draftFor))}</span>` : '';
     return `<li style="--c:${esc(x.color)}" class="${done ? 'is-pub ' : ''}${L && !L.done ? 'busy' : ''}${plan.sel.has(x.slug) ? ' sel' : ''}${pickable ? ' pickable' : ''}" data-box="${esc(x.slug)}">${pickable ? `<label class="pick"><input type="checkbox" data-pick-box="${esc(x.slug)}"${plan.sel.has(x.slug) ? ' checked' : ''} aria-label="Choose ${esc(x.question)}"></label>` : ''}<span class="no">${x.kind === 'principle' ? '' : 'No. '}${esc(x.no)}</span>

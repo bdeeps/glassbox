@@ -32,7 +32,7 @@ export async function saveSettings(next, apps) {
   if (typeof next.box === 'boolean') s.box = next.box;
   // Where each kind of post goes: { 'instagram:carousel': { via: 'socialpilot', account: '2663796' }, … }
   if (next.routes && typeof next.routes === 'object') {
-    s.routes = Object.fromEntries(Object.entries(next.routes).filter(([k, v]) => /^[a-z]+:[a-z-]+$/.test(k) && ['hootsuite', 'socialpilot', 'skip'].includes(v?.via)).map(([k, v]) => [k, { via: v.via, account: v.account ? String(v.account).slice(0, 40) : null }]));
+    s.routes = Object.fromEntries(Object.entries(next.routes).filter(([k, v]) => /^[a-z]+:[a-z-]+$/.test(k) && ['hootsuite', 'socialpilot', 'box', 'skip'].includes(v?.via)).map(([k, v]) => [k, { via: v.via, account: v.account ? String(v.account).slice(0, 40) : null }]));
   }
   if (['split', 'hootsuite'].includes(next.channel) && next.channel !== cur.channel) { s.channel = next.channel; await store.log(next.channel === 'split' ? 'videos through Hootsuite, the rest through SocialPilot' : 'everything through Hootsuite'); }
   await store.set('settings', s);
@@ -111,19 +111,24 @@ export async function publishBox(box, { dry = false, force = false, all: everyth
     const doneBefore = new Set(everything ? [] : (prev?.results || []).filter((x) => !x.error && !x.skipped && !x.dry).map((x) => x.target));
     if (prev && force && doneBefore.size) { all = all.filter((p) => !doneBefore.has(p.target)); log(`already out: ${[...doneBefore].join(', ')} (not posted again)`); }
     // Records what went out (whichever service sent it) and reports.
+    // Box: chosen in the publish dialog ('box:videos'), else the switch in the admin.
+    const boxChoice = (routes || s.routes || {})['box:videos'];
+    const wantBox = boxcom.configured() && (boxChoice ? boxChoice.via === 'box' : s.box !== false);
     const finish = async (results) => {
       results.filter((x) => x.skipped).forEach((x) => log(`  – ${x.target}: ${x.skipped}`));
+      if (wantBox && dry) log('  • videos would be saved to Box, in a folder for the box\'s date');
+      if (wantBox && !dry && (boxChoice || !(await store.get('boxcom:' + box.slug)))) { await boxcom.enqueue([box.slug]).catch(() => {}); log('videos queued for Box'); }
 
       const posted = results.filter((x) => !x.error && !x.skipped && !x.dry);
       if (dry) { log('dry run: nothing was sent'); return { dry: true, results }; }
+      // Only Box was chosen: nothing to post, and that is fine.
+      if (!posted.length && wantBox && boxChoice && results.every((x) => x.skipped)) { log('done: nothing posted, videos go to Box'); return { boxOnly: true, results }; }
       if (!posted.length) { const why = results.find((x) => x.error || x.skipped); throw new Error(doneBefore.size ? 'nothing new was published' : `nothing was published${why ? ': ' + (why.error || why.skipped) : ''}`); }
       const kept = (prev?.results || []).filter((x) => doneBefore.has(x.target));
       const rec = { at: new Date().toISOString(), when, by, ...(drafts && at ? { draftFor: at } : {}), results: [...kept, ...results] };
       await store.set('posted:' + box.slug, rec);
       await store.log(`published ${posted.length} of ${results.length} target(s)`, { slug: box.slug, provider: [...new Set(posted.map((x) => x.provider))].join('+'), ok: posted.length === results.length });
       log(`done: ${posted.length} of ${results.length} target(s) published`);
-      // A published box's videos are also filed in Box (in the background), unless switched off.
-      if (s.box !== false && boxcom.configured() && !(await store.get('boxcom:' + box.slug))) { await boxcom.enqueue([box.slug]).catch(() => {}); log('videos queued for Box'); }
       return rec;
     };
     if (s.channel === 'split') {
@@ -275,8 +280,9 @@ export async function runSchedule(getApps, logFn = console.log) {
       const progress = (m) => { logFn(`[queue ${item.slug}] ${m}`); if (Date.now() - lastWrite > 2000 && m.trim()) { lastWrite = Date.now(); mark({ last: m.trim().replace(/^[•✓–]\s*/, '').slice(0, 160) }).catch(() => {}); } };
       try {
         if (!box) throw new Error('box not found on this server');
-        await publishBox(box, { at: item.at || null, drafts: !!item.drafts, force: item.mode !== 'new', all: item.mode === 'again', when: item.when || undefined, routes: item.routes || null, by: item.drafts ? 'schedule' : 'queue', log: progress });
-        await mark({ state: 'done', doneAt: new Date().toISOString() });
+        const out = await publishBox(box, { at: item.at || null, drafts: !!item.drafts, force: item.mode !== 'new', all: item.mode === 'again', when: item.when || undefined, routes: item.routes || null, by: item.drafts ? 'schedule' : 'queue', log: progress });
+        await mark({ state: 'done', doneAt: new Date().toISOString(), boxOnly: !!out?.boxOnly });
+        if (out?.boxOnly) boxcom.runQueue(getApps, logFn).catch(() => {});
       } catch (e) {
         await mark({ state: 'error', error: e.message.slice(0, 300) });
       }
