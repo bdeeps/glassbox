@@ -167,7 +167,11 @@ export async function status() {
     const id = await rootFolder();
     const f = await call(`${API}/folders/${id}?fields=name,permissions,item_collection`);
     const me = await call(`${API}/users/me?fields=space_used,space_amount`);
-    v = { configured: true, ok: f.permissions?.can_upload !== false, folderId: id, name: f.name, url: folderUrl(id), days: f.item_collection?.total_count ?? 0, used: me.space_used, space: me.space_amount,
+    // Who can see the folder in their own Box. The app's service account owns it, so until it
+    // is shared with someone, its link opens for nobody.
+    const co = await call(`${API}/folders/${id}/collaborations?fields=accessible_by,status`).catch(() => ({ entries: [] }));
+    const shared = (co.entries || []).map((c) => c.accessible_by?.login || c.accessible_by?.name).filter(Boolean);
+    v = { configured: true, shared, ok: f.permissions?.can_upload !== false, folderId: id, name: f.name, url: folderUrl(id), days: f.item_collection?.total_count ?? 0, used: me.space_used, space: me.space_amount,
       ...(f.permissions?.can_upload === false ? { error: `the app cannot upload to "${f.name}": invite its service account as Editor` } : {}) };
   } catch (e) { v = { configured: true, ok: false, error: e.message }; }
   statusCache = { at: Date.now(), v };
@@ -179,6 +183,7 @@ export async function shareWith(email) {
   const id = await rootFolder();
   try { await post(`${API}/collaborations`, { item: { type: 'folder', id }, accessible_by: { type: 'user', login: email }, role: 'editor' }); }
   catch (e) { if (e.status !== 409) throw e; }
+  statusCache = null;
   await store.log(`Box folder shared with ${email}`, { provider: 'box' });
   return { ok: true, url: folderUrl(id) };
 }

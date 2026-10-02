@@ -102,7 +102,8 @@ async function load() {
     $('#boxPill').textContent = !bx.ok ? 'problem' : s.box ? 'videos' : 'by hand'; $('#boxPill').classList.toggle('primary', !!bx.ok && !!s.box);
     const gb = (n) => (n / 1073741824).toFixed(1);
     $('#boxSub').innerHTML = !bx.ok ? `<span class="bad">${esc(bx.error || 'Not reachable.')}</span>`
-      : `${s.box ? 'When a box is published, its videos are also filed' : 'Videos are filed only when you choose'} in <a href="${esc(bx.url)}" target="_blank" rel="noopener">${esc(bx.name)}</a>, one folder per date. ${bx.saved} box${bx.saved === 1 ? '' : 'es'} saved${bx.waiting ? `, ${bx.waiting} waiting` : ''}${bx.space ? ` · ${gb(bx.used)} of ${gb(bx.space)} GB used` : ''}.`;
+      : `${s.box ? 'When a box is published, its videos are also filed' : 'Videos are filed only when you choose'} in <a href="${esc(bx.url)}" target="_blank" rel="noopener">${esc(bx.name)}</a>, one folder per date. ${bx.saved} box${bx.saved === 1 ? '' : 'es'} saved${bx.waiting ? `, ${bx.waiting} waiting` : ''}${bx.space ? ` · ${gb(bx.used)} of ${gb(bx.space)} GB used` : ''}. ${bx.shared?.length ? `Shared with ${esc(bx.shared.join(', '))}.` : '<span class="bad">Nobody can open this folder yet: click “Share folder…” and type your Box login email.</span>'}`;
+    $('#boxShare').classList.toggle('primary', bx.ok && !bx.shared?.length); $('#boxShare').classList.toggle('ghost', !bx.ok || !!bx.shared?.length);
     $('#boxShare').hidden = !bx.ok;
   }
   $('#pbBox').hidden = $('#pbNoBox').hidden = !bx.ok;
@@ -290,7 +291,8 @@ $('#boxShare').addEventListener('click', async () => {
   if (!email) return;
   const r = await api('box/share', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: email.trim() }) });
   const j = await r.json().catch(() => ({}));
-  flash(r.ok ? `Shared with ${email.trim()}.` : (j.error || 'Could not share the folder.'), !r.ok);
+  flash(r.ok ? `Shared with ${email.trim()}. The Glassbox folder now shows in that account's Box under All Files.` : (j.error || 'Could not share the folder.'), !r.ok);
+  if (r.ok) load();
 });
 $('#bufOn').addEventListener('change', async (e) => {
   await api('settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ buffer: e.target.checked }) });
