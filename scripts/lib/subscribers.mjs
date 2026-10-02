@@ -214,6 +214,25 @@ export async function publicApi(req, res, url) {
   return json(res, 404, { error: 'not found' }), true;
 }
 
+// Sends the confirmation link again: to one address, or to everyone still waiting.
+// Returns what the mail service said for each, so a failure is visible in the admin.
+export async function resendConfirm(email = null) {
+  const want = email ? email.trim().toLowerCase() : null;
+  const todo = Object.entries(await store.list('sub:')).filter(([, s]) => s.status === 'pending' && (!want || s.email.toLowerCase() === want));
+  if (!todo.length) throw new Error(want ? 'Nobody with that address is waiting to confirm.' : 'Nobody is waiting to confirm.');
+  const out = [];
+  for (const [key, s] of todo.slice(0, 200)) {
+    try {
+      const r = await mailer.send({ to: s.email, ...confirmMail(s) });
+      await store.set(key, { ...s, confirmSentAt: new Date().toISOString(), confirmSends: (s.confirmSends || 1) + 1 });
+      out.push({ email: s.email, ok: true, id: r.id, status: r.status, reply: r.reply });
+    } catch (e) { out.push({ email: s.email, ok: false, error: e.message }); }
+    await wait(400);
+  }
+  await store.log(`confirmation link sent again to ${out.filter((x) => x.ok).length} of ${out.length}`, { ok: out.every((x) => x.ok) });
+  return out;
+}
+
 // The daily report, on demand (the admin's "Email me today's report" button).
 export async function sendReportNow() {
   const day = istDay(), st = await stats();

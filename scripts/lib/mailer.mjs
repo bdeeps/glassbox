@@ -21,6 +21,14 @@ export async function send({ to, subject, html, text }) {
     body: JSON.stringify({ name: 'emails.send', arguments: { to, from: FROM(), subject, text, ...(html ? { html } : {}) } }),
     signal: AbortSignal.timeout(20000),
   });
-  if (!res.ok) throw Object.assign(new Error(`Plinth emails.send ${res.status}: ${(await res.text().catch(() => '')).slice(0, 300)}`), { status: res.status });
-  return { ok: true };
+  const raw = await res.text().catch(() => '');
+  if (!res.ok) throw Object.assign(new Error(`Plinth emails.send ${res.status}: ${raw.slice(0, 300)}`), { status: res.status });
+  // A tool call can answer 200 and still carry a failure in its body: read it, don't assume.
+  let b = null; try { b = JSON.parse(raw); } catch { /* not JSON */ }
+  const inner = b?.result ?? b?.data ?? b;
+  const failed = b?.isError || b?.error || b?.ok === false || b?.success === false || inner?.isError || inner?.error || inner?.ok === false || inner?.success === false
+    || /^(failed|error|rejected|blocked|suppressed)$/i.test(String(inner?.status || ''));
+  const say = (v) => (typeof v === 'string' ? v : JSON.stringify(v ?? '')).slice(0, 300);
+  if (failed) throw Object.assign(new Error(`Plinth did not send it: ${say(b?.error || inner?.error || inner?.message || b?.message || inner)}`), { status: 422 });
+  return { ok: true, id: inner?.id || inner?.messageId || inner?.message_id || null, status: inner?.status || null, reply: raw.slice(0, 400) };
 }

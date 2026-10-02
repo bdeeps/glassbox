@@ -180,3 +180,7 @@ body.planning .list-a > li.is-pub::after { display: none; }
 .subs td:last-child { white-space: normal; color: var(--muted); }
 .subs tr.active td:nth-child(2) { color: #5ce1a9; }
 .subs tr.unsub td { color: var(--muted); }
+
+.sub-reply { margin: 8px 0 0; padding: 10px 12px; border-radius: 10px; background: rgba(255, 255, 255, .05); color: #c9cedb; font: 12px/1.5 ui-monospace, Menlo, monospace; white-space: pre-wrap; word-break: break-word; max-height: 180px; overflow: auto; }
+.subs td:last-child { white-space: nowrap; }
+.subs td:nth-child(4) { white-space: normal; color: var(--muted); }

@@ -288,9 +288,24 @@ async function loadSubs() {
   const r = await api('subscribers'); const j = await r.json().catch(() => ({}));
   subs = j.list || [];
   $('#subCount').textContent = `${subs.length} sign-up${subs.length === 1 ? '' : 's'}, newest first`;
-  $('#subRows').innerHTML = subs.map((s) => `<tr class="${esc(s.status)}"><td>${esc(s.email)}</td><td>${esc(SUB_STATUS[s.status] || s.status)}</td><td>${s.at ? esc(when(s.at)) : ''}</td><td>${esc([s.push && 'browser notifications', s.status === 'pending' && (s.confirmSentAt ? 'confirm link sent ' + ago(s.confirmSentAt) : 'confirm link not sent yet'), s.unsubAt && 'left ' + when(s.unsubAt)].filter(Boolean).join(' · '))}</td></tr>`).join('') || '<tr><td colspan="4">Nobody has signed up yet.</td></tr>';
+  $('#subRows').innerHTML = subs.map((s) => `<tr class="${esc(s.status)}"><td>${esc(s.email)}</td><td>${esc(SUB_STATUS[s.status] || s.status)}</td><td>${s.at ? esc(when(s.at)) : ''}</td><td>${esc([s.push && 'browser notifications', s.status === 'pending' && (s.confirmSentAt ? 'confirm link sent ' + ago(s.confirmSentAt) : 'confirm link not sent yet'), s.unsubAt && 'left ' + when(s.unsubAt)].filter(Boolean).join(' · '))}</td><td>${s.status === 'pending' ? `<button class="btn small ghost" type="button" data-resend="${esc(s.email)}">Resend</button>` : ''}</td></tr>`).join('') || '<tr><td colspan="5">Nobody has signed up yet.</td></tr>';
+  $('#subResendAll').hidden = !subs.some((s) => s.status === 'pending');
 }
 $('#subList').addEventListener('toggle', (e) => { if (e.target.open) loadSubs().catch((x) => flash(x.message, true)); });
+// Send the confirmation link again, and show exactly what the mail service answered.
+async function resend(email, btn) {
+  btn.disabled = true; const label = btn.textContent; btn.textContent = 'Sending…';
+  const r = await api('subscribers/resend', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(email ? { email } : {}) });
+  const j = await r.json().catch(() => ({}));
+  const res = j.results || [], good = res.filter((x) => x.ok).length;
+  flash(!r.ok ? (j.error || 'Could not resend.') : good === res.length ? `Confirmation link sent again to ${good} address${good === 1 ? '' : 'es'}. If it does not arrive, check spam, then the reply shown below the buttons.` : `${good} of ${res.length} sent. See the reply below the buttons.`, !r.ok || good !== res.length);
+  $('#subReply').hidden = !res.length;
+  $('#subReply').textContent = res.map((x) => `${x.email}: ${x.ok ? 'accepted by Plinth' + (x.status ? ' (' + x.status + ')' : '') + (x.id ? ' id ' + x.id : '') + (x.reply ? '\n  ' + x.reply : '') : 'FAILED: ' + x.error}`).join('\n');
+  btn.disabled = false; btn.textContent = label;
+  if (r.ok) loadSubs().catch(() => {});
+}
+$('#subRows').addEventListener('click', (e) => { const b = e.target.closest('[data-resend]'); if (b) resend(b.dataset.resend, b); });
+$('#subResendAll').addEventListener('click', (e) => { if (confirm('Send the confirmation link again to everyone still waiting to confirm?')) resend(null, e.target); });
 $('#subCsv').addEventListener('click', () => {
   const q = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
   const csv = ['email,status,signed_up,confirmed,unsubscribed,browser_notifications,source', ...subs.map((s) => [s.email, s.status, s.at, s.confirmedAt, s.unsubAt, s.push ? 'yes' : 'no', s.source].map(q).join(','))].join('\n');

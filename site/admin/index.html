@@ -70,8 +70,9 @@
       <div class="stats-a" id="subStats"></div>
       <details class="code-a" id="subList">
         <summary>Show all sign-ups</summary>
-        <div class="row small"><span class="sub" id="subCount"></span><button class="btn small ghost" id="subCsv" type="button">Download CSV</button></div>
-        <div class="subs-wrap"><table class="subs"><thead><tr><th>Email</th><th>Status</th><th>Signed up</th><th>Notes</th></tr></thead><tbody id="subRows"><tr><td colspan="4">Loading…</td></tr></tbody></table></div>
+        <div class="row small"><span class="sub" id="subCount"></span><span class="prov-btns"><button class="btn small" id="subResendAll" type="button">Resend to everyone waiting</button><button class="btn small ghost" id="subCsv" type="button">Download CSV</button></span></div>
+        <pre class="sub-reply" id="subReply" hidden></pre>
+        <div class="subs-wrap"><table class="subs"><thead><tr><th>Email</th><th>Status</th><th>Signed up</th><th>Notes</th><th></th></tr></thead><tbody id="subRows"><tr><td colspan="5">Loading…</td></tr></tbody></table></div>
       </details>
     </article>
     <article class="card-a" id="tagCard" hidden>
