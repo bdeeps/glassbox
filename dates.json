@@ -127,6 +127,16 @@
     "noodleclear": "2026-09-29",
     "samosaclear": "2026-09-30",
     "idliclear": "2026-10-01",
-    "dosaclear": "2026-10-02"
+    "dosaclear": "2026-10-02",
+    "remoteclear": "2026-10-03",
+    "consoleclear": "2026-10-04",
+    "micclear": "2026-10-05",
+    "speakerclear": "2026-10-06",
+    "bluetoothclear": "2026-10-07",
+    "lockclear": "2026-10-08",
+    "knobclear": "2026-10-09",
+    "clockclear": "2026-10-10",
+    "quartzclear": "2026-10-11",
+    "digitalwatchclear": "2026-10-12"
   }
 }

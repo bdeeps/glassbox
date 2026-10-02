@@ -153,6 +153,16 @@
     "../noodleclear",
     "../samosaclear",
     "../idliclear",
-    "../dosaclear"
+    "../dosaclear",
+    "../consoleclear",
+    "../remoteclear",
+    "../micclear",
+    "../speakerclear",
+    "../bluetoothclear",
+    "../lockclear",
+    "../knobclear",
+    "../clockclear",
+    "../quartzclear",
+    "../digitalwatchclear"
   ]
 }
