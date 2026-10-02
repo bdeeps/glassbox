@@ -1,5 +1,5 @@
-// Box (box.com) as a home for every box's videos: a "Glassbox" folder with one folder per
-// date, holding that day's Short, long video and history Short. It uses the same Box Platform
+// Box (box.com) as a home for every box's videos: one "Glassbox" folder holding each box's
+// Short, long video and history Short, named by box number so they sort in order. It uses the same Box Platform
 // app as ClearTrust's Folio and Data Room (Client Credentials Grant, acting as the app's own
 // service account). Nothing is sent until these are set:
 //   BOX_CLIENT_ID, BOX_CLIENT_SECRET, BOX_ENTERPRISE_ID   the Box app
@@ -91,7 +91,8 @@ async function upload(folderId, name, file) {
 
 const today = () => new Date(Date.now() + 5.5 * 3600e3).toISOString().slice(0, 10);   // the date in India
 
-// Copies a box's videos into Glassbox/<date>/. `date` is the box's date on the site.
+// Copies a box's videos into the Glassbox folder. `date` (the box's date on the site) is kept
+// on the record for the admin.
 export async function pushBox(box, { log = () => {}, by = 'you' } = {}) {
   let plan;
   try { plan = JSON.parse(fs.readFileSync(path.join(box.dir, 'glassbox', 'post.json'), 'utf8')); } catch { throw new Error(`${box.slug} is not recorded yet`); }
@@ -99,8 +100,8 @@ export async function pushBox(box, { log = () => {}, by = 'you' } = {}) {
   if (!todo.length) throw new Error(`${box.slug} has no videos on this server`);
   const prev = await store.get('boxcom:' + box.slug);
   const date = prev?.date || (/^\d{4}-\d{2}-\d{2}$/.test(box.date || '') ? box.date : today());
-  const dir = await folder(await rootFolder(), date);
-  log(`${box.slug}: ${todo.length} video(s) to Box, folder ${date}`);
+  const dir = await rootFolder();
+  log(`${box.slug}: ${todo.length} video(s) to Box`);
   const files = [];
   for (const v of todo) {
     const name = `${String(box.no ?? '').padStart(3, '0')}-${niceName({ ...plan, slug: box.slug }, v.f)}`.replace(/^-/, '');
@@ -110,7 +111,7 @@ export async function pushBox(box, { log = () => {}, by = 'you' } = {}) {
   }
   const rec = { at: new Date().toISOString(), by, date, folderId: dir, files };
   await store.set('boxcom:' + box.slug, rec);
-  await store.log(`${files.length} video(s) saved to Box, folder ${date}`, { slug: box.slug, provider: 'box' });
+  await store.log(`${files.length} video(s) saved to Box`, { slug: box.slug, provider: 'box' });
   return rec;
 }
 
@@ -130,11 +131,31 @@ export async function dequeue(slug) {
   return next;
 }
 
+// Videos filed earlier in per-date folders move up into the Glassbox folder itself, and the
+// emptied date folders go. Runs once per record; a folder with anything else in it is left.
+async function flatten(logFn) {
+  const root = await rootFolder(), recs = await store.list('boxcom:');
+  const old = Object.entries(recs).filter(([k, r]) => r?.files && r.folderId && r.folderId !== root);
+  if (!old.length || !(await store.claim('boxcom:flatten', {}, 10 * 60e3))) return;
+  try {
+    for (const [k, r] of old) {
+      for (const f of r.files) {
+        await call(`${API}/files/${f.id}?fields=id`, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ parent: { id: root } }) })
+          .catch((e) => { if (e.status !== 404 && e.status !== 409) throw e; });
+      }
+      await store.set(k, { ...r, folderId: root });
+    }
+    for (const id of new Set(old.map(([, r]) => r.folderId))) await call(`${API}/folders/${id}`, { method: 'DELETE' }).catch(() => {});   // only goes if empty
+    logFn(`box: moved ${old.length} box(es) out of date folders`);
+  } finally { await store.del('boxcom:flatten').catch(() => {}); }
+}
+
 let running = false;
 export async function runQueue(getApps, logFn = console.log) {
   if (running || !configured()) return;
   running = true;
   try {
+    await flatten(logFn).catch((e) => logFn('box tidy: ' + e.message));
     for (;;) {
       let items = await queue();
       items = items.map((x) => (x.state === 'running' && Date.now() - Date.parse(x.startedAt || 0) > 20 * 60e3 ? { ...x, state: 'queued' } : x));

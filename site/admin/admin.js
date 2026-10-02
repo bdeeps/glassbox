@@ -37,7 +37,7 @@ async function loadRoutes(slug) {
     box.innerHTML = `<table class="rt"><tbody>${(t.targets || []).map((x) => {
       const opts = routeOptions(x), def = defaultRoute(x, opts);
       return `<tr><th scope="row">${esc(LABEL[x.target] || x.target)}<small>${x.video ? 'video' : 'images'}</small></th><td><select data-route="${esc(x.target)}" aria-label="Where to post the ${esc(LABEL[x.target] || x.target)}">${opts.map((o) => `<option value="${esc(o.v)}"${o.off ? ' disabled' : ''}${o.v === def ? ' selected' : ''}>${esc(o.l)}</option>`).join('')}</select></td></tr>`;
-    }).join('')}${data.box?.ok ? `<tr><th scope="row">Box<small>all videos, by date</small></th><td><select data-route="box:videos" aria-label="Save the videos to Box">${(() => { const sv = data.settings.routes?.['box:videos'], on = sv ? sv.via === 'box' : data.settings.box; return `<option value="box:glassbox"${on ? ' selected' : ''}>Box · ${esc(data.box.name || 'Glassbox')} folder</option><option value="skip"${on ? '' : ' selected'}>Don't save</option>`; })()}</select></td></tr>` : ''}</tbody></table>${note ? `<p class="sub bad">${esc(note)}</p>` : ''}`;
+    }).join('')}${data.box?.ok ? `<tr><th scope="row">Box<small>all videos</small></th><td><select data-route="box:videos" aria-label="Save the videos to Box">${(() => { const sv = data.settings.routes?.['box:videos'], on = sv ? sv.via === 'box' : data.settings.box; return `<option value="box:glassbox"${on ? ' selected' : ''}>Box · ${esc(data.box.name || 'Glassbox')} folder</option><option value="skip"${on ? '' : ' selected'}>Don't save</option>`; })()}</select></td></tr>` : ''}</tbody></table>${note ? `<p class="sub bad">${esc(note)}</p>` : ''}`;
   } catch (e) { box.innerHTML = `<p class="sub bad">Couldn't load the accounts: ${esc(e.message)}</p>`; }
 }
 const chosenRoutes = () => Object.fromEntries([...document.querySelectorAll('#routes [data-route]')].map((sel) => {
@@ -102,7 +102,7 @@ async function load() {
     $('#boxPill').textContent = !bx.ok ? 'problem' : s.box ? 'videos' : 'by hand'; $('#boxPill').classList.toggle('primary', !!bx.ok && !!s.box);
     const gb = (n) => (n / 1073741824).toFixed(1);
     $('#boxSub').innerHTML = !bx.ok ? `<span class="bad">${esc(bx.error || 'Not reachable.')}</span>`
-      : `${s.box ? 'When a box is published, its videos are also filed' : 'Videos are filed only when you choose'} in <a href="${esc(bx.url)}" target="_blank" rel="noopener">${esc(bx.name)}</a>, one folder per date. ${bx.saved} box${bx.saved === 1 ? '' : 'es'} saved${bx.waiting ? `, ${bx.waiting} waiting` : ''}${bx.space ? ` · ${gb(bx.used)} of ${gb(bx.space)} GB used` : ''}. ${bx.shared?.length ? `Shared with ${esc(bx.shared.join(', '))}.` : '<span class="bad">Nobody can open this folder yet: click “Share folder…” and type your Box login email.</span>'}`;
+      : `${s.box ? 'When a box is published, its videos are also filed' : 'Videos are filed only when you choose'} in <a href="${esc(bx.url)}" target="_blank" rel="noopener">${esc(bx.name)}</a>. ${bx.saved} box${bx.saved === 1 ? '' : 'es'} saved${bx.waiting ? `, ${bx.waiting} waiting` : ''}${bx.space ? ` · ${gb(bx.used)} of ${gb(bx.space)} GB used` : ''}. ${bx.shared?.length ? `Shared with ${esc(bx.shared.join(', '))}.` : '<span class="bad">Nobody can open this folder yet: click “Share folder…” and type your Box login email.</span>'}`;
     $('#boxShare').classList.toggle('primary', bx.ok && !bx.shared?.length); $('#boxShare').classList.toggle('ghost', !bx.ok || !!bx.shared?.length);
     $('#boxShare').hidden = !bx.ok;
   }
@@ -163,7 +163,7 @@ function boxChip(x) {
   if (B.state === 'running') return '<span class="bx run">Saving videos to Box…</span>';
   if (B.state === 'queued') return `<span class="bx">Waiting to save to Box <button type="button" class="unq" data-unbox="${esc(x.slug)}" aria-label="Don't save to Box">×</button></span>`;
   if (B.state === 'error') return `<span class="bx bad">Box: ${esc(B.error || 'failed')} <button type="button" class="unq" data-unbox="${esc(x.slug)}" aria-label="Dismiss">×</button></span>`;
-  return `<span class="bx ok">In Box · <a href="${esc(B.url)}" target="_blank" rel="noopener">${esc(B.date)}</a> · ${B.files} video${B.files === 1 ? '' : 's'}</span>`;
+  return `<span class="bx ok">In Box · <a href="${esc(B.url)}" target="_blank" rel="noopener">${B.files} video${B.files === 1 ? '' : 's'}</a></span>`;
 }
 async function toBox(slugs) {
   const r = await api('box', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ slugs }) });

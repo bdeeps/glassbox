@@ -116,7 +116,7 @@ export async function publishBox(box, { dry = false, force = false, all: everyth
     const wantBox = boxcom.configured() && (boxChoice ? boxChoice.via === 'box' : s.box !== false);
     const finish = async (results) => {
       results.filter((x) => x.skipped).forEach((x) => log(`  – ${x.target}: ${x.skipped}`));
-      if (wantBox && dry) log('  • videos would be saved to Box, in a folder for the box\'s date');
+      if (wantBox && dry) log('  • videos would be saved to the Glassbox folder in Box');
       if (wantBox && !dry && (boxChoice || !(await store.get('boxcom:' + box.slug)))) { await boxcom.enqueue([box.slug]).catch(() => {}); log('videos queued for Box'); }
 
       const posted = results.filter((x) => !x.error && !x.skipped && !x.dry);
