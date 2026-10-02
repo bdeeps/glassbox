@@ -17,6 +17,7 @@ import { csp } from './lib/analytics.mjs';
 import { adminRoutes } from './lib/admin.mjs';
 import { publicApi, runJobs } from './lib/subscribers.mjs';
 import { autoPublish, runSchedule } from './lib/publisher.mjs';
+import { runQueue as runBoxQueue } from './lib/boxcom.mjs';
 import { niceName } from './lib/buffer.mjs';
 import { injectBoxSeo } from './lib/seo.mjs';
 
@@ -140,6 +141,7 @@ async function sync(reason) {
     autoPublish(state.apps, (m) => log(m)).catch((e) => log('auto-publish:', e.message));
     // Scheduled drafts carry on after a restart (one replica at a time).
     runSchedule(() => state.apps, (m) => log(m)).catch((e) => log('schedule:', e.message));
+    runBoxQueue(() => state.apps, (m) => log(m)).catch((e) => log('box:', e.message));
     // Subscriber emails and notifications: new explainers, the weekly digest, the daily count.
     runJobs(() => state.apps, (m) => log(m)).catch((e) => log('subscribers:', e.message));
   })().finally(() => { syncing = null; });
@@ -366,3 +368,5 @@ server.listen(PORT, '0.0.0.0', () => log(`${config.brand} on :${PORT} as ${SITE}
 sync('start');
 setInterval(() => sync('timer'), EVERY).unref();
 setInterval(() => runJobs(() => state.apps, (m) => log(m)).catch(() => {}), 5 * 60e3).unref();
+// Videos waiting to be filed in Box (queued by a publish, or from the admin).
+setInterval(() => runBoxQueue(() => state.apps, (m) => log(m)).catch(() => {}), 60e3).unref();

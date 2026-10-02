@@ -50,6 +50,10 @@
         <div><b>SocialPilot</b> <span class="pill primary" id="spPill">default</span><p class="sub" id="spSub">Connect to publish through SocialPilot.</p></div>
         <button class="btn small" id="spBtn" type="button">Connect SocialPilot</button>
       </div>
+      <div class="prov" id="boxRow">
+        <div><b>Box</b> <span class="pill" id="boxPill">off</span><p class="sub" id="boxSub">A copy of every video, filed by date.</p></div>
+        <div class="prov-btns"><button class="btn small ghost" id="boxShare" type="button" hidden>Share folder…</button><label class="switch"><input type="checkbox" id="boxOn" role="switch" aria-label="Save videos to Box when a box is published"><span></span></label></div>
+      </div>
       <div class="prov" id="buf">
         <div><b>Buffer</b> <span class="pill">off</span><p class="sub" id="bufSub">Only used if you switch it on.</p></div>
         <label class="switch"><input type="checkbox" id="bufOn" role="switch" aria-label="Use Buffer too"><span></span></label>
@@ -107,8 +111,10 @@
     <b id="pbCount">0 selected</b>
     <button class="btn small ghost" type="button" data-pick="10">Pick next 10</button>
     <button class="btn small ghost" type="button" data-pick="all">Pick all unpublished</button>
+    <button class="btn small ghost" type="button" data-pick="nobox" id="pbNoBox" hidden>Pick all not in Box</button>
     <button class="btn small ghost" type="button" data-pick="none">Clear</button>
     <span class="grow"></span>
+    <button class="btn small" type="button" id="pbBox" hidden>Save videos to Box</button>
     <button class="btn small primary" type="button" id="pbPublish">Publish now</button>
     <button class="btn small ghost" type="button" id="pbClose">Done</button>
   </div>

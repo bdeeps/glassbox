@@ -95,6 +95,17 @@ async function load() {
   $('#buf .pill').textContent = s.buffer ? 'on' : 'off';
   if (!s.buffer) $('#bufSub').textContent = 'Switched off: nothing is sent to Buffer.'; else $('#bufSub').textContent = !b.ok ? `Buffer: ${b.error}` : b.list.length ? `Connected: ${b.list.map((c) => `${c.name} (${c.service})`).join(', ')}` : 'No channels connected in Buffer yet (connect YouTube at buffer.com).';
 
+  const bx = data.box || {};
+  $('#boxRow').hidden = !bx.configured;
+  if (bx.configured) {
+    $('#boxOn').checked = !!s.box;
+    $('#boxPill').textContent = !bx.ok ? 'problem' : s.box ? 'videos' : 'by hand'; $('#boxPill').classList.toggle('primary', !!bx.ok && !!s.box);
+    const gb = (n) => (n / 1073741824).toFixed(1);
+    $('#boxSub').innerHTML = !bx.ok ? `<span class="bad">${esc(bx.error || 'Not reachable.')}</span>`
+      : `${s.box ? 'When a box is published, its videos are also filed' : 'Videos are filed only when you choose'} in <a href="${esc(bx.url)}" target="_blank" rel="noopener">${esc(bx.name)}</a>, one folder per date. ${bx.saved} box${bx.saved === 1 ? '' : 'es'} saved${bx.waiting ? `, ${bx.waiting} waiting` : ''}${bx.space ? ` · ${gb(bx.used)} of ${gb(bx.space)} GB used` : ''}.`;
+    $('#boxShare').hidden = !bx.ok;
+  }
+  $('#pbBox').hidden = $('#pbNoBox').hidden = !bx.ok;
   const sb = data.subscribers;
   $('#subCard').hidden = !sb;
   if (sb) {
@@ -138,13 +149,27 @@ function renderList() {
       : `${S.drafts ? 'Draft' : 'Publishing'} failed: ${esc(S.error || 'unknown error')}`}${S.state === 'queued' || S.state === 'error' ? ` <button type="button" class="unq" data-unqueue="${esc(x.slug)}" aria-label="Remove from the schedule">×</button>` : ''}</span>`
       : x.posted?.draftFor ? `<span class="sch done">Draft for ${esc(day(x.posted.draftFor))}</span>` : '';
     return `<li style="--c:${esc(x.color)}" class="${done ? 'is-pub ' : ''}${L && !L.done ? 'busy' : ''}${plan.sel.has(x.slug) ? ' sel' : ''}${pickable ? ' pickable' : ''}" data-box="${esc(x.slug)}">${pickable ? `<label class="pick"><input type="checkbox" data-pick-box="${esc(x.slug)}"${plan.sel.has(x.slug) ? ' checked' : ''} aria-label="Choose ${esc(x.question)}"></label>` : ''}<span class="no">${x.kind === 'principle' ? '' : 'No. '}${esc(x.no)}</span>
-      <span class="t"><b>${esc(x.question)}</b>${state}${sched}${act}</span>
+      <span class="t"><b>${esc(x.question)}</b>${state}${sched}${boxChip(x)}${act}</span>
       <span class="acts">${!x.posted
         ? `<button class="btn small primary" data-slug="${esc(x.slug)}" data-mode="new" ${x.ready ? '' : 'disabled'}>Publish</button>`
         : `${P.failed || !done ? `<button class="btn small primary" data-slug="${esc(x.slug)}" data-mode="retry" ${x.ready ? '' : 'disabled'}>Retry${P.failed ? ' failed' : ''}</button>` : P.skipped ? `<button class="btn small ghost" data-slug="${esc(x.slug)}" data-mode="retry" ${x.ready ? '' : 'disabled'} title="Send the posts that were skipped">Send skipped</button>` : ''}<button class="btn small ghost" data-slug="${esc(x.slug)}" data-mode="again" ${x.ready ? '' : 'disabled'}>Publish again</button>`}</span></li>`;
   }).join('') || '<li class="empty-a">No box matches.</li>';
 }
 
+// A quiet line on the card: where the box's videos are in Box, or how the copy is going.
+function boxChip(x) {
+  const B = x.box; if (!B) return '';
+  if (B.state === 'running') return '<span class="bx run">Saving videos to Box…</span>';
+  if (B.state === 'queued') return `<span class="bx">Waiting to save to Box <button type="button" class="unq" data-unbox="${esc(x.slug)}" aria-label="Don't save to Box">×</button></span>`;
+  if (B.state === 'error') return `<span class="bx bad">Box: ${esc(B.error || 'failed')} <button type="button" class="unq" data-unbox="${esc(x.slug)}" aria-label="Dismiss">×</button></span>`;
+  return `<span class="bx ok">In Box · <a href="${esc(B.url)}" target="_blank" rel="noopener">${esc(B.date)}</a> · ${B.files} video${B.files === 1 ? '' : 's'}</span>`;
+}
+async function toBox(slugs) {
+  const r = await api('box', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ slugs }) });
+  const j = await r.json().catch(() => ({}));
+  flash(r.ok ? `${j.queued} box${j.queued === 1 ? '' : 'es'} queued for Box. Videos are copied one box at a time; each card shows when it is done.` : (j.error || 'Could not queue that.'), !r.ok);
+  return r.ok;
+}
 async function enqueue(items) {
   const r = await api('schedule', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ items }) });
   const j = await r.json().catch(() => ({}));
@@ -256,6 +281,17 @@ $('#subReport').addEventListener('click', async (e) => {
   e.target.disabled = false;
 });
 $('#q').addEventListener('input', renderList);
+$('#boxOn').addEventListener('change', async (e) => {
+  await api('settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ box: e.target.checked }) });
+  flash(e.target.checked ? 'Videos are saved to Box whenever a box is published.' : 'Videos go to Box only when you choose.'); load();
+});
+$('#boxShare').addEventListener('click', async () => {
+  const email = prompt('Share the Glassbox folder with which Box account? Type its email address. It appears in that person\'s Box as an editor.');
+  if (!email) return;
+  const r = await api('box/share', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: email.trim() }) });
+  const j = await r.json().catch(() => ({}));
+  flash(r.ok ? `Shared with ${email.trim()}.` : (j.error || 'Could not share the folder.'), !r.ok);
+});
 $('#bufOn').addEventListener('change', async (e) => {
   await api('settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ buffer: e.target.checked }) });
   flash(e.target.checked ? 'Buffer is on for networks Hootsuite lacks.' : 'Hootsuite only.'); load();
@@ -281,13 +317,14 @@ document.addEventListener('click', async (e) => {
 
 // ---- Schedule drafts: pick boxes, choose dates, and the server makes Hootsuite drafts for them.
 const pickableBoxes = () => [...data.boxes].reverse().filter((x) => x.ready && (!x.scheduled || ['error', 'done'].includes(x.scheduled.state)));
+const notInBox = () => pickableBoxes().filter((x) => !x.box || x.box.state === 'error');
 const unpublished = () => pickableBoxes().filter((x) => !x.posted);
 function paintPlan() {
   $('#planBar').hidden = !plan.on;
   $('#planBtn').setAttribute('aria-pressed', String(plan.on));
   $('#planBtn').textContent = plan.on ? 'Choosing boxes…' : 'Select boxes…';
   $('#pbCount').textContent = `${plan.sel.size} selected`;
-  $('#pbReview').disabled = !plan.sel.size; $('#pbPublish').disabled = !plan.sel.size;
+  $('#pbReview').disabled = !plan.sel.size; $('#pbPublish').disabled = !plan.sel.size; $('#pbBox').disabled = !plan.sel.size;
   document.body.classList.toggle('planning', plan.on);
   renderList();
 }
@@ -306,10 +343,20 @@ $('#pbPublish').addEventListener('click', async () => {
     plan.on = false; plan.sel.clear(); paintPlan(); load();
   }
 });
+$('#pbBox').addEventListener('click', async () => {
+  const slugs = pickableBoxes().filter((x) => plan.sel.has(x.slug)).map((x) => x.slug);
+  if (slugs.length && await toBox(slugs)) { plan.on = false; plan.sel.clear(); paintPlan(); load(); }
+});
+$('#list').addEventListener('click', async (e) => {
+  const u = e.target.closest('[data-unbox]'); if (!u) return;
+  await api('box/' + encodeURIComponent(u.dataset.unbox), { method: 'DELETE' });
+  load();
+});
 $('#planBar').addEventListener('click', (e) => {
   const b = e.target.closest('[data-pick]'); if (!b) return;
     if (b.dataset.pick === 'none') plan.sel.clear();
   else if (b.dataset.pick === 'all') unpublished().forEach((x) => plan.sel.add(x.slug));
+  else if (b.dataset.pick === 'nobox') notInBox().forEach((x) => plan.sel.add(x.slug));
   else unpublished().map((x) => x.slug).filter((s) => !plan.sel.has(s)).slice(0, +b.dataset.pick).forEach((s) => plan.sel.add(s));
   paintPlan();
 });
@@ -346,4 +393,4 @@ $('#pbReview').addEventListener('click', () => {
   dlg.showModal();
 });
 // Check more often while drafts are being made.
-setInterval(() => { if (!busy && document.visibilityState === 'visible' && data?.boxes.some((x) => x.scheduled && (x.scheduled.state === 'queued' || x.scheduled.state === 'running'))) load().catch(() => {}); }, 10e3);
+setInterval(() => { if (!busy && document.visibilityState === 'visible' && data?.boxes.some((x) => (x.scheduled && (x.scheduled.state === 'queued' || x.scheduled.state === 'running')) || (x.box && (x.box.state === 'queued' || x.box.state === 'running')))) load().catch(() => {}); }, 10e3);

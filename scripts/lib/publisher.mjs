@@ -9,11 +9,12 @@ import { config } from './apps.mjs';
 import * as store from './store.mjs';
 import * as hoot from './hootsuite.mjs';
 import * as sp from './socialpilot.mjs';
+import * as boxcom from './boxcom.mjs';
 import { channels, buildPosts, createPost, checkLive, mediaUrl, niceName } from './buffer.mjs';
 
 // `channel`: 'split' (default) sends videos through Hootsuite and everything else through
 // SocialPilot; 'hootsuite' sends everything through Hootsuite.
-const DEFAULTS = { auto: false, when: 'auto', baseline: [], since: null, buffer: false, channel: 'split', routes: {} };
+const DEFAULTS = { auto: false, when: 'auto', baseline: [], since: null, buffer: false, channel: 'split', routes: {}, box: true };
 export const settings = async () => { const s = { ...DEFAULTS, ...((await store.get('settings')) || {}) }; if (s.channel === 'socialpilot') s.channel = 'split'; return s; };
 
 export async function saveSettings(next, apps) {
@@ -28,6 +29,7 @@ export async function saveSettings(next, apps) {
   }
   if (['auto', 'queue', 'now'].includes(next.when)) s.when = next.when;
   if (typeof next.buffer === 'boolean') s.buffer = next.buffer;
+  if (typeof next.box === 'boolean') s.box = next.box;
   // Where each kind of post goes: { 'instagram:carousel': { via: 'socialpilot', account: '2663796' }, … }
   if (next.routes && typeof next.routes === 'object') {
     s.routes = Object.fromEntries(Object.entries(next.routes).filter(([k, v]) => /^[a-z]+:[a-z-]+$/.test(k) && ['hootsuite', 'socialpilot', 'skip'].includes(v?.via)).map(([k, v]) => [k, { via: v.via, account: v.account ? String(v.account).slice(0, 40) : null }]));
@@ -120,6 +122,8 @@ export async function publishBox(box, { dry = false, force = false, all: everyth
       await store.set('posted:' + box.slug, rec);
       await store.log(`published ${posted.length} of ${results.length} target(s)`, { slug: box.slug, provider: [...new Set(posted.map((x) => x.provider))].join('+'), ok: posted.length === results.length });
       log(`done: ${posted.length} of ${results.length} target(s) published`);
+      // A published box's videos are also filed in Box (in the background), unless switched off.
+      if (s.box !== false && boxcom.configured() && !(await store.get('boxcom:' + box.slug))) { await boxcom.enqueue([box.slug]).catch(() => {}); log('videos queued for Box'); }
       return rec;
     };
     if (s.channel === 'split') {

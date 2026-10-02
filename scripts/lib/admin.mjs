@@ -10,6 +10,7 @@ import { channels, ship, alreadyPosted } from './buffer.mjs';
 import * as store from './store.mjs';
 import * as hoot from './hootsuite.mjs';
 import * as sp from './socialpilot.mjs';
+import * as boxcom from './boxcom.mjs';
 import { stats as subStats, sendReportNow } from './subscribers.mjs';
 import { settings, saveSettings, readiness, publishBox, boxTargets, scheduleItems, addToSchedule, removeFromSchedule, runSchedule } from './publisher.mjs';
 import { active as analyticsActive, gtmSnippets, ga4Snippet } from './analytics.mjs';
@@ -246,16 +247,17 @@ async function adminApi(req, res, url, { json, html, state }) {
   const apps = state.apps;
 
   if (action === 'status') {
-    const [s, posted, hs, buf, log, kind, sched] = await Promise.all([settings(), store.list('posted:'), hootStatus(), settings().then((x) => (x.buffer ? bufferChannels() : { ok: true, off: true, list: [] })), store.recent(200), store.storeKind(), scheduleItems()]);
+    const [s, posted, hs, buf, log, kind, sched, inBox, boxQ, boxSt] = await Promise.all([settings(), store.list('posted:'), hootStatus(), settings().then((x) => (x.buffer ? bufferChannels() : { ok: true, off: true, list: [] })), store.recent(200), store.storeKind(), scheduleItems(), store.list('boxcom:'), boxcom.queue(), boxcom.status()]);
     const boxes = apps.map((a) => {
       const r = readiness(a), rec = posted['posted:' + a.slug];
       return { slug: a.slug, no: a.no, title: a.title, question: a.question, kind: a.kind, date: a.date, color: a.color, ready: r.ready, why: r.why || null,
         posted: rec ? postedSummary(rec) : null,
         scheduled: sched.find((x) => x.slug === a.slug) || null,
+        box: (() => { const b = inBox['boxcom:' + a.slug], q = boxQ.find((x) => x.slug === a.slug); return b?.files || q ? { at: b?.at || null, date: b?.date || null, files: b?.files?.length || 0, url: b?.folderId ? boxcom.folderUrl(b.folderId) : null, state: q?.state || null, error: q?.error || null } : null; })(),
         auto: s.auto && !s.baseline.includes(a.slug) };
     });
     const an = analyticsActive();
-    return json(200, { settings: { auto: s.auto, when: s.when, since: s.since, buffer: s.buffer, channel: s.channel, routes: s.routes || {} }, hootsuite: hs, socialpilot: { connected: await sp.connected().catch(() => false) }, buffer: buf, boxes, log, store: kind, subscribers: await subStats().catch(() => null), tracking: { gtm: an.gtm, ga4: an.ga4, clicktrust: an.clicktrust, snippets: { ...(gtmSnippets(an.gtm) || {}), ga4: ga4Snippet(an.ga4) } } }), true;
+    return json(200, { settings: { auto: s.auto, when: s.when, since: s.since, buffer: s.buffer, channel: s.channel, routes: s.routes || {}, box: s.box !== false }, box: { ...boxSt, saved: Object.values(inBox).filter((b) => b?.files).length, waiting: boxQ.filter((x) => x.state !== 'error').length }, hootsuite: hs, socialpilot: { connected: await sp.connected().catch(() => false) }, buffer: buf, boxes, log, store: kind, subscribers: await subStats().catch(() => null), tracking: { gtm: an.gtm, ga4: an.ga4, clicktrust: an.clicktrust, snippets: { ...(gtmSnippets(an.gtm) || {}), ga4: ga4Snippet(an.ga4) } } }), true;
   }
   if (action === 'settings' && req.method === 'POST') {
     let b; try { b = JSON.parse(await body(req, 4096)); } catch { return json(400, { error: 'bad JSON' }), true; }
@@ -305,6 +307,22 @@ async function adminApi(req, res, url, { json, html, state }) {
     } catch (e) { log('✗ ' + e.message); }
     return res.end(), true;
   }
+  if (action === 'box' && req.method === 'POST') {
+    let b; try { b = JSON.parse(await body(req, 64 * 1024)); } catch { return json(400, { error: 'bad JSON' }), true; }
+    if (!boxcom.configured()) return json(400, { error: 'Box is not set up on the server yet.' }), true;
+    if (arg === 'share') {
+      const email = String(b.email || '').trim();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) return json(400, { error: 'Type the email address of a Box account.' }), true;
+      try { return json(200, await boxcom.shareWith(email)), true; } catch (e) { return json(502, { error: e.message }), true; }
+    }
+    const slugs = (Array.isArray(b.slugs) ? b.slugs : []).filter((x) => { const box = apps.find((a) => a.slug === x); return box && readiness(box).ready; }).slice(0, 400);
+    if (!slugs.length) return json(400, { error: 'Choose at least one recorded box.' }), true;
+    await boxcom.enqueue(slugs);
+    await store.log(`${slugs.length} box(es) queued for Box`, { provider: 'box' });
+    boxcom.runQueue(() => state.apps).catch(() => {});
+    return json(200, { ok: true, queued: slugs.length }), true;
+  }
+  if (action === 'box' && req.method === 'DELETE') return json(200, { ok: true, items: await boxcom.dequeue(arg ? decodeURIComponent(arg) : null) }), true;
   if (action === 'socialpilot' && arg === 'connect' && req.method === 'POST') {
     try { return json(200, { url: await sp.connectUrl(origin(req) + '/__admin/socialpilot/callback') }), true; }
     catch (e) { return json(502, { error: e.message }), true; }
