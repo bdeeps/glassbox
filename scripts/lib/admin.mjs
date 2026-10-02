@@ -11,7 +11,7 @@ import * as store from './store.mjs';
 import * as hoot from './hootsuite.mjs';
 import * as sp from './socialpilot.mjs';
 import * as boxcom from './boxcom.mjs';
-import { stats as subStats, sendReportNow } from './subscribers.mjs';
+import { stats as subStats, sendReportNow, listSubs } from './subscribers.mjs';
 import { settings, saveSettings, readiness, publishBox, boxTargets, scheduleItems, addToSchedule, removeFromSchedule, runSchedule } from './publisher.mjs';
 import { active as analyticsActive, gtmSnippets, ga4Snippet } from './analytics.mjs';
 
@@ -263,6 +263,7 @@ async function adminApi(req, res, url, { json, html, state }) {
     let b; try { b = JSON.parse(await body(req, 4096)); } catch { return json(400, { error: 'bad JSON' }), true; }
     return json(200, await saveSettings(b, apps)), true;
   }
+  if (action === 'subscribers' && !arg && req.method === 'GET') return json(200, { list: await listSubs() }), true;
   if (action === 'subscribers' && arg === 'report' && req.method === 'POST') {
     try { return json(200, { ok: true, ...(await sendReportNow()) }), true; } catch (e) { return json(502, { error: e.message }), true; }
   }

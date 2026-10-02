@@ -171,3 +171,12 @@ body.planning .list-a > li.is-pub::after { display: none; }
 .bx .unq:hover { color: var(--text); background: rgba(255, 255, 255, .1); }
 #boxSub a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
 #boxRow .prov-btns { align-items: center; }
+
+/* Sign-ups list */
+.subs-wrap { max-height: 360px; overflow: auto; margin-top: 8px; border: 1px solid rgba(255, 255, 255, .1); border-radius: 10px; }
+.subs { width: 100%; border-collapse: collapse; font-size: 13px; }
+.subs th, .subs td { padding: 7px 10px; text-align: left; border-bottom: 1px solid rgba(255, 255, 255, .07); white-space: nowrap; }
+.subs th { position: sticky; top: 0; background: #10131b; color: var(--muted); font-weight: 500; }
+.subs td:last-child { white-space: normal; color: var(--muted); }
+.subs tr.active td:nth-child(2) { color: #5ce1a9; }
+.subs tr.unsub td { color: var(--muted); }

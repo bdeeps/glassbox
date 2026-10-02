@@ -23,6 +23,13 @@ const istDay = (t) => ist(t).toISOString().slice(0, 10);
 export const allSubs = async () => Object.values(await store.list('sub:'));
 export const allPush = async () => Object.entries(await store.list('pushsub:'));
 
+// Everyone who signed up, newest first, for the admin's list. Tokens are left out.
+export async function listSubs() {
+  const push = new Set((await allPush()).map(([, p]) => p.sub).filter(Boolean));
+  return Object.entries(await store.list('sub:')).map(([key, s]) => ({ email: s.email, status: s.status, at: s.at || null, source: s.source || '', confirmSentAt: s.confirmSentAt || null, confirmedAt: s.confirmedAt || null, unsubAt: s.unsubAt || null, push: push.has(key) }))
+    .sort((a, b) => String(b.at).localeCompare(String(a.at)));
+}
+
 export async function stats() {
   const subs = await allSubs(), today = istDay();
   const on = (iso) => iso && istDay(Date.parse(iso)) === today;
@@ -218,7 +225,7 @@ export async function sendReportNow() {
 // ---------------------------------------------------------------- scheduled jobs
 // Called every few minutes and after each sync. Each job claims its slot in the shared store,
 // so with several replicas it still runs exactly once.
-const FOREVER = 1e15;
+const FOREVER = 400 * 86400e3;   // Postgres cannot subtract a longer interval from now()
 const isReady = (a) => { try { return fs.existsSync(path.join(a.dir, 'glassbox', 'post.json')) && fs.existsSync(path.join(a.dir, 'glassbox', 'cover.jpg')); } catch { return false; } };
 
 let running = false;

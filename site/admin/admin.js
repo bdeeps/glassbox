@@ -281,6 +281,21 @@ $('#subReport').addEventListener('click', async (e) => {
   flash(r.ok ? `Report sent to ${j.to}.` : (j.error || 'Could not send the report.'), !r.ok);
   e.target.disabled = false;
 });
+// The full list of sign-ups, loaded when opened.
+let subs = [];
+const SUB_STATUS = { active: 'Confirmed', pending: 'Waiting to confirm', unsub: 'Unsubscribed' };
+async function loadSubs() {
+  const r = await api('subscribers'); const j = await r.json().catch(() => ({}));
+  subs = j.list || [];
+  $('#subCount').textContent = `${subs.length} sign-up${subs.length === 1 ? '' : 's'}, newest first`;
+  $('#subRows').innerHTML = subs.map((s) => `<tr class="${esc(s.status)}"><td>${esc(s.email)}</td><td>${esc(SUB_STATUS[s.status] || s.status)}</td><td>${s.at ? esc(when(s.at)) : ''}</td><td>${esc([s.push && 'browser notifications', s.status === 'pending' && (s.confirmSentAt ? 'confirm link sent ' + ago(s.confirmSentAt) : 'confirm link not sent yet'), s.unsubAt && 'left ' + when(s.unsubAt)].filter(Boolean).join(' · '))}</td></tr>`).join('') || '<tr><td colspan="4">Nobody has signed up yet.</td></tr>';
+}
+$('#subList').addEventListener('toggle', (e) => { if (e.target.open) loadSubs().catch((x) => flash(x.message, true)); });
+$('#subCsv').addEventListener('click', () => {
+  const q = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const csv = ['email,status,signed_up,confirmed,unsubscribed,browser_notifications,source', ...subs.map((s) => [s.email, s.status, s.at, s.confirmedAt, s.unsubAt, s.push ? 'yes' : 'no', s.source].map(q).join(','))].join('\n');
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); a.download = `glassbox-signups-${ymd(new Date())}.csv`; a.click(); URL.revokeObjectURL(a.href);
+});
 $('#q').addEventListener('input', renderList);
 $('#boxOn').addEventListener('change', async (e) => {
   await api('settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ box: e.target.checked }) });
