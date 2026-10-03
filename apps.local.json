@@ -163,6 +163,14 @@
     "../knobclear",
     "../clockclear",
     "../quartzclear",
-    "../digitalwatchclear"
+    "../digitalwatchclear",
+    "../fridgemagnetclear",
+    "../torchclear",
+    "../zipclear",
+    "../scissorsclear",
+    "../umbrellaclear",
+    "../tapclear",
+    "../commodeclear",
+    "../showerclear"
   ]
 }
