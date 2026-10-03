@@ -361,9 +361,12 @@ td { color: #c9cedb; }
 .foot-grid > div:not(.foot-brand) a:hover { color: var(--text); }
 .colophon { margin: 36px 0 0; padding-top: 20px; border-top: 1px solid var(--line); font-size: 13px; color: var(--dim); }
 @media (max-width: 760px) { .foot-grid { grid-template-columns: 1fr 1fr; } .foot-brand { grid-column: 1 / -1; } }
-.network { display: flex; align-items: center; gap: 10px; margin: 34px 0 0; padding: 14px 16px; border: 1px solid var(--line); border-radius: 14px; background: rgba(142, 240, 255, .05); color: var(--text); font-size: 14.5px; line-height: 1.45; }
-.network svg { flex: none; color: var(--glow, #8ef0ff); }
-.network b { font-weight: 600; }
+.foot .network { display: flex; gap: 16px; align-items: center; margin-top: 34px; padding: 18px 22px; border: 2px solid #ffb400; border-radius: 16px; color: #fff; }
+.foot .network svg { width: 40px; height: 40px; flex: none; color: #ffb400; }
+.foot .network p { margin: 0; line-height: 1.5; max-width: 62em; }
+.foot .network b { display: block; font-size: 1.12rem; font-weight: 800; }
+.foot .network a { display: inline; color: inherit; text-decoration: underline; text-underline-offset: 3px; }
+.foot .network + .colophon { margin-top: 20px; border-top: 0; padding-top: 0; }
 
 /* ---------------------------------------------------------------- search palette */
 .palette { position: fixed; inset: 0; z-index: 90; display: grid; justify-items: center; align-items: start; padding: 12vh 16px 16px; background: rgba(4, 5, 8, .72); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
