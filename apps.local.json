@@ -171,6 +171,18 @@
     "../umbrellaclear",
     "../tapclear",
     "../commodeclear",
-    "../showerclear"
+    "../showerclear",
+    "../coulombclear",
+    "../keplerclear",
+    "../dopplerclear",
+    "../resonanceclear",
+    "../photoelectricclear",
+    "../kirchhoffclear",
+    "../periodicclear",
+    "../bondclear",
+    "../acidbaseclear",
+    "../equilibriumclear",
+    "../redoxclear",
+    "../rateclear"
   ]
 }
