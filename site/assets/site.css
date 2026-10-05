@@ -886,3 +886,10 @@ td { color: #c9cedb; }
 .welcome .w-dots i.on { width: 18px; border-radius: 999px; background: var(--glow, #8ef0ff); }
 @media (max-width: 480px) { .welcome { padding: 28px 20px 18px; border-radius: 22px; } .welcome .w-row { flex-direction: column; } .welcome .w-go, .welcome .w-alt { width: 100%; } .welcome .w-actions .w-link { margin: 4px auto 0; } }
 @media (prefers-reduced-motion: reduce) { .welcome[open] { animation: none; } }
+
+/* The way in to the swipe feed (/swipe/) from every page, on a phone. */
+.swipe-pill { display: none; }
+@media (max-width: 760px) {
+  .swipe-pill { position: fixed; z-index: 20; left: 50%; bottom: calc(14px + env(safe-area-inset-bottom)); transform: translateX(-50%); display: inline-flex; align-items: center; gap: 8px; padding: 11px 18px; border-radius: 999px; background: #eef0f6; color: #07080c; font: 600 14.5px var(--sans); text-decoration: none; box-shadow: 0 10px 34px -8px rgba(0, 0, 0, .8), 0 0 0 1px rgba(255, 255, 255, .2); white-space: nowrap; }
+  .swipe-pill svg { width: 17px; height: 17px; }
+}

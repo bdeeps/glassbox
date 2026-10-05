@@ -19,6 +19,14 @@
     toast.t = setTimeout(() => toastEl.classList.remove('on'), 1800);
   };
 
+  // ---------------------------------------------------------------- swipe feed
+  // On a phone, a pill at the bottom of every page opens the full-screen swipe feed.
+  if (!$('.swipe-pill')) {
+    const pill = Object.assign(document.createElement('a'), { className: 'swipe-pill', href: '/swipe/' });
+    pill.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v16M6 9l6-5 6 5M6 15l6 5 6-5"/></svg>Swipe through every box';
+    document.body.appendChild(pill);
+  }
+
   // ---------------------------------------------------------------- search palette
   // Searches boxes, their concepts and the site's pages, using /apps.json from
   // this domain. Queries never leave the browser.

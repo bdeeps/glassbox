@@ -9,6 +9,7 @@ import * as L from './lib/legal.mjs';
 import { analyticsJs } from './lib/analytics.mjs';
 import * as HI from './lib/history.mjs';
 import * as SEO from './lib/seo.mjs';
+import { swipePage } from './lib/swipe.mjs';
 
 export function pages(all) {
   // Object boxes (one a day) and principle boxes (laws and principles) have separate shelves.
@@ -17,6 +18,7 @@ export function pages(all) {
   const out = {
     'index.html': R.home(apps, laws),
     'laws/index.html': R.lawsPage(laws, apps),
+    'swipe/index.html': swipePage(apps, laws),
     '404.html': R.notFound(),
     'feed.xml': R.feed(apps),
     'sitemap.xml': R.sitemap(all),
