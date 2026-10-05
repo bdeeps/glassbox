@@ -9,6 +9,7 @@ import { config, esc } from './apps.mjs';
 import { head, asset, LOGO, waHref, boxShareText } from './render.mjs';
 
 const mediaUrl = (a, f) => `/${a.slug}/glassbox/${f}`;
+const BLANK = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
 
 // The picture slides a box has on disk, title slide first.
 function slidesOf(a) {
@@ -26,9 +27,11 @@ const brief = (a) => { const s = String(a.hook || '').trim(); const m = s.match(
 
 function card(a, i) {
   const slides = slidesOf(a), law = a.kind === 'principle';
-  const eager = i < 2;
+  const eager = i === 0;
   const pics = slides.length
-    ? slides.map((f, k) => `<img src="${mediaUrl(a, f)}" alt="${esc(k ? `${a.question} Slide ${k + 1} of ${slides.length}.` : a.question)}" width="1080" height="1350" ${eager && k === 0 ? 'fetchpriority="high"' : 'loading="lazy"'} decoding="async" draggable="false">`).join('')
+    // Only the pictures near the card on screen are ever loaded (swipe.js fills and empties
+    // them): a phone cannot hold 1,800 full-size slides in memory, and reloads the page if asked to.
+    ? slides.map((f, k) => `<img src="${eager && k === 0 ? mediaUrl(a, f) : BLANK}" data-src="${mediaUrl(a, f)}" alt="${esc(k ? `${a.question} Slide ${k + 1} of ${slides.length}.` : a.question)}" width="1080" height="1350"${eager && k === 0 ? ' fetchpriority="high"' : ''} decoding="async" draggable="false">`).join('')
     : `<div class="sw-blank"><span>${esc(a.thumbText || a.title)}</span></div>`;
   const points = (a.explainer || []).slice(0, 3).map((b) => `<li>${esc(b.title)}</li>`).join('');
   return `<section class="sw-card" id="${esc(a.slug)}" style="--c:${esc(a.color)}" data-kind="${law ? 'law' : 'box'}" aria-label="${esc(a.question)}">
@@ -68,6 +71,7 @@ export function swipePage(apps, laws = []) {
   <a class="sw-close" href="/" aria-label="Back to the shelf"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 5h7v7H4zM13 5h7v7h-7zM4 14h7v5H4zM13 14h7v5h-7z"/></svg></a>
 </header>
 <main class="sw-feed" id="main" tabindex="-1">
+<noscript><p class="sw-nojs">The swipe view needs JavaScript for its pictures. <a href="/#shelf">Open the shelf instead.</a></p></noscript>
 ${all.map(card).join('\n')}
 <section class="sw-card sw-end" aria-label="The end">
   <div class="sw-endbox">

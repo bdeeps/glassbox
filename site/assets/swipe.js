@@ -15,15 +15,32 @@
   const first = want && document.getElementById(want);
   if (first) jump(first, false);
 
+  // Pictures: only the card on screen and its neighbours hold real images. A full-size slide
+  // takes about 6 MB of memory once decoded, and a phone reloads the page when a tab holds
+  // hundreds of them, so everything further away is emptied again.
+  const BLANK = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
+  const all = $$('.sw-card');
+  const slideAt = new Map();                       // card → index of the slide showing
+  const fill = (im) => { if (im && im.dataset.src && im.getAttribute('src') !== im.dataset.src) im.src = im.dataset.src; };
+  const empty = (im) => { if (im.dataset.src && im.getAttribute('src') !== BLANK) im.src = BLANK; };
+  function hold() {
+    const at = all.indexOf(current);
+    all.forEach((c, k) => {
+      const ims = $$('.sw-strip img', c), far = Math.abs(k - at);
+      if (far > 1) return ims.forEach(empty);
+      const on = slideAt.get(c) || 0;
+      // The card on screen keeps the slide showing and one each side; its neighbours just the one they will open on.
+      ims.forEach((im, n) => (Math.abs(n - on) <= (far ? 0 : 1) ? fill(im) : empty(im)));
+    });
+  }
+
   // Which card is on screen: the counter, the Boxes/Laws tabs, the address, and the video.
   let current = null;
   const seen = new IntersectionObserver((entries) => {
     for (const e of entries) {
       if (!e.isIntersecting || e.intersectionRatio < 0.6) continue;
       current = e.target;
-      // Load this card's first slides now, and the next card's title slide, so a swipe never lands on a blank.
-      const nextCard = current.nextElementSibling;
-      [...$$('img', current).slice(0, 2), nextCard && $('img', nextCard)].forEach((im) => { if (im && im.loading === 'lazy') im.loading = 'eager'; });
+      hold();
       const i = cards.indexOf(current);
       if (i >= 0) {
         // The active tab counts within its own kind: "Boxes 12/145".
@@ -31,13 +48,15 @@
         $$('.sw-top nav a small').forEach((sm) => { sm.textContent = sm.dataset.n ||= sm.textContent; });
         if (tab) tab.textContent = `${kin.indexOf(current) + 1}/${kin.length}`;
         count.textContent = `${current.getAttribute('aria-label')}: ${i + 1} of ${cards.length}`;
-        history.replaceState(null, '', '#' + current.id);
+        clearTimeout(seen.t); seen.t = setTimeout(() => { try { history.replaceState(null, '', '#' + current.id); } catch { /* some browsers limit how often */ } }, 400);
         put('glassbox.swipe', current.id);
         $$('.sw-top nav a').forEach((a) => a.classList.toggle('on', a.dataset.jump === current.dataset.kind));
       }
     }
   }, { root: feed, threshold: [0.6] });
   $$('.sw-card').forEach((c) => seen.observe(c));
+  // Fill the opening card straight away, without waiting for the observer's first report.
+  current = first || cards[0]; hold();
 
   // Slide dots follow the sideways scroll.
   for (const c of cards) {
@@ -51,6 +70,7 @@
         let best = 0, d = Infinity;
         $$('img', strip).forEach((im, k) => { const x = Math.abs(im.offsetLeft + im.offsetWidth / 2 - mid); if (x < d) { d = x; best = k; } });
         dots.forEach((dot, k) => dot.classList.toggle('on', k === best));
+        if (slideAt.get(c) !== best) { slideAt.set(c, best); if (c === current) hold(); }
       });
     }, { passive: true });
     // Tap the right or left third of a picture to move one slide (as on Instagram stories).
