@@ -183,6 +183,10 @@
     "../acidbaseclear",
     "../equilibriumclear",
     "../redoxclear",
-    "../rateclear"
+    "../rateclear",
+    "../gearboxclear",
+    "../clutchclear",
+    "../brakeclear",
+    "../sprinklerclear"
   ]
 }
