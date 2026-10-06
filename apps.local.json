@@ -192,6 +192,9 @@
     "../tadkaclear",
     "../teaclear",
     "../coffeeclear",
-    "../buttermilkclear"
+    "../buttermilkclear",
+    "../extensionboardclear",
+    "../autodoorclear",
+    "../accesscardclear"
   ]
 }
