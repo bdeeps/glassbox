@@ -195,6 +195,13 @@
     "../buttermilkclear",
     "../extensionboardclear",
     "../autodoorclear",
-    "../accesscardclear"
+    "../accesscardclear",
+    "../agarbatticlear",
+    "../diyaclear",
+    "../ringlightclear",
+    "../wallpaintclear",
+    "../candleclear",
+    "../matchstickclear",
+    "../mosquitocoilclear"
   ]
 }
