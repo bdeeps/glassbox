@@ -96,14 +96,21 @@ function digestMail(s, list, range) {
     headers: { 'List-Unsubscribe': `<${unsub}>`, 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click' },
   };
 }
-function reportMail(day, st, names) {
+// Everyone on the list, newest first, for the daily report: email, where they stand, and the day they signed up.
+const STATUS = { active: 'confirmed', pending: 'waiting to confirm', unsub: 'unsubscribed' };
+const REPORT_MAX = 500;
+function reportMail(day, st, names, subs = []) {
+  const shown = subs.slice(0, REPORT_MAX), more = subs.length - shown.length;
+  const when = (iso) => (iso ? istDay(Date.parse(iso)) : '');
   const rows = [['New sign-ups today', st.today.signups], ['Confirmed today', st.today.confirmed], ['Unsubscribed today', st.today.unsubscribed], ['Active subscribers in total', st.total], ['Waiting to confirm', st.pending], ['Browser notification subscribers', st.push]];
   return {
     subject: `${config.brand} registrations for ${day}: ${st.today.signups} new`,
     html: shell({ preheader: `${st.today.signups} new, ${st.total} active in total.`, body: `<h1 style="margin:0 0 14px;font:400 24px/1.2 Georgia,serif">Registrations for ${esc(day)}</h1>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0">${rows.map(([k, v]) => `<tr><td style="padding:8px 0;border-top:1px solid #232735;color:#c9cedb">${k}</td><td align="right" style="padding:8px 0;border-top:1px solid #232735;font:600 18px/1 ui-monospace,Menlo,monospace;color:#8ef0ff">${v}</td></tr>`).join('')}</table>
-${names.length ? `<p style="margin:16px 0 4px;color:#a8aebf;font-size:13.5px">Signed up today</p><p style="margin:0;font:13.5px/1.6 ui-monospace,Menlo,monospace;color:#c9cedb">${names.map(esc).join('<br>')}</p>` : ''}` }),
-    text: `Registrations for ${day}\n\n${rows.map(([k, v]) => `${k}: ${v}`).join('\n')}${names.length ? `\n\nSigned up today:\n${names.join('\n')}` : ''}`,
+${names.length ? `<p style="margin:16px 0 4px;color:#a8aebf;font-size:13.5px">Signed up today</p><p style="margin:0;font:13.5px/1.6 ui-monospace,Menlo,monospace;color:#c9cedb">${names.map(esc).join('<br>')}</p>` : ''}
+${shown.length ? `<p style="margin:20px 0 4px;color:#a8aebf;font-size:13.5px">Everyone on the list (${subs.length})</p>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font:13px/1.5 ui-monospace,Menlo,monospace">${shown.map((x) => `<tr><td style="padding:5px 8px 5px 0;border-top:1px solid #232735;color:#eef0f6;word-break:break-all">${esc(x.email)}</td><td style="padding:5px 8px 5px 0;border-top:1px solid #232735;color:${x.status === 'active' ? '#8ef0ff' : '#8b91a3'};white-space:nowrap">${esc(STATUS[x.status] || x.status || '')}</td><td align="right" style="padding:5px 0;border-top:1px solid #232735;color:#8b91a3;white-space:nowrap">${esc(when(x.at))}</td></tr>`).join('')}</table>${more > 0 ? `<p style="margin:8px 0 0;color:#8b91a3;font-size:13px">And ${more} more: see the full list in the admin.</p>` : ''}` : ''}` }),
+    text: `Registrations for ${day}\n\n${rows.map(([k, v]) => `${k}: ${v}`).join('\n')}${names.length ? `\n\nSigned up today:\n${names.join('\n')}` : ''}${shown.length ? `\n\nEveryone on the list (${subs.length}):\n${shown.map((x) => `${x.email}  ${STATUS[x.status] || x.status || ''}  ${when(x.at)}`).join('\n')}${more > 0 ? `\nAnd ${more} more: see the full list in the admin.` : ''}` : ''}`,
   };
 }
 
@@ -237,7 +244,7 @@ export async function resendConfirm(email = null) {
 export async function sendReportNow() {
   const day = istDay(), st = await stats();
   const names = (await allSubs()).filter((x) => x.at && istDay(Date.parse(x.at)) === day).map((x) => x.email);
-  await mailer.send({ to: REPORT_TO, ...reportMail(day, st, names) });
+  await mailer.send({ to: REPORT_TO, ...reportMail(day, st, names, await listSubs()) });
   return { to: REPORT_TO, day, signups: st.today.signups };
 }
 
@@ -292,7 +299,7 @@ export async function runJobs(getApps, log = console.log) {
     if (mins >= 23 * 60 + 30 && mailer.configured() && (await store.claim('job:daily:' + day, {}, FOREVER))) {
       const s = await stats();
       const names = (await allSubs()).filter((x) => x.at && istDay(Date.parse(x.at)) === day).map((x) => x.email);
-      try { await mailer.send({ to: REPORT_TO, ...reportMail(day, s, names) }); await store.log(`daily registrations report sent: ${s.today.signups} new, ${s.total} active`); }
+      try { await mailer.send({ to: REPORT_TO, ...reportMail(day, s, names, await listSubs()) }); await store.log(`daily registrations report sent: ${s.today.signups} new, ${s.total} active`); }
       catch (e) { await store.del('job:daily:' + day).catch(() => {}); log(`daily report failed: ${e.message}`); }
     }
 
