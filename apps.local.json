@@ -208,6 +208,8 @@
     "../rocketclear",
     "../aeroplaneclear",
     "../helicopterclear",
-    "../droneclear"
+    "../droneclear",
+    "../planetclear",
+    "../galaxyclear"
   ]
 }
