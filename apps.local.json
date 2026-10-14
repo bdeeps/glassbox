@@ -202,6 +202,12 @@
     "../wallpaintclear",
     "../candleclear",
     "../matchstickclear",
-    "../mosquitocoilclear"
+    "../mosquitocoilclear",
+    "../extinguisherclear",
+    "../extinguisherballclear",
+    "../rocketclear",
+    "../aeroplaneclear",
+    "../helicopterclear",
+    "../droneclear"
   ]
 }
