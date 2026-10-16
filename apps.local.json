@@ -210,6 +210,12 @@
     "../helicopterclear",
     "../droneclear",
     "../planetclear",
-    "../galaxyclear"
+    "../galaxyclear",
+    "../sipperclear",
+    "../thermosclear",
+    "../decoctionclear",
+    "../filtercoffeeclear",
+    "../pressurecookerclear",
+    "../inductionclear"
   ]
 }
