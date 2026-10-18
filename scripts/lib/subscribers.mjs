@@ -45,7 +45,7 @@ export async function stats() {
 const boxUrl = (a) => `${SITE}/e/${a.slug}/`;
 const coverOf = (a) => `${SITE}/${a.slug}/glassbox/cover.jpg`;
 
-function shell({ preheader, body, unsub }) {
+function shell({ preheader, body, unsub, pending = false }) {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="dark light"><title>${esc(config.brand)}</title></head>
 <body style="margin:0;background:#07080c;color:#eef0f6;font:16px/1.55 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif">
 <div style="display:none;max-height:0;overflow:hidden;opacity:0">${esc(preheader)}</div>
@@ -53,7 +53,7 @@ function shell({ preheader, body, unsub }) {
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px">
 <tr><td style="padding:0 6px 18px;font:600 18px/1 Georgia,serif;color:#eef0f6"><a href="${SITE}/" style="color:#eef0f6;text-decoration:none">◈ ${esc(config.brand)}</a></td></tr>
 <tr><td style="background:#10131b;border:1px solid #232735;border-radius:18px;padding:26px 24px">${body}</td></tr>
-<tr><td style="padding:18px 6px 0;color:#8b91a3;font-size:12.5px;line-height:1.6">${esc(config.brand)}: one interactive explainer a day. Free, no ads.<br>${unsub ? `You're getting this because you asked for new explainers at ${esc(config.domain)}. <a href="${unsub}" style="color:#8ef0ff">Unsubscribe</a> at any time.` : ''}</td></tr>
+<tr><td style="padding:18px 6px 0;color:#8b91a3;font-size:12.5px;line-height:1.6">${esc(config.brand)}: one interactive explainer a day. Free, no ads.<br>${unsub ? `${pending ? `You're getting this because this address was signed up for new explainers at ${esc(config.domain)} and hasn't been confirmed yet.` : `You're getting this because you asked for new explainers at ${esc(config.domain)}.`} <a href="${unsub}" style="color:#8ef0ff">Unsubscribe</a> at any time.` : ''}</td></tr>
 </table></td></tr></table></body></html>`;
 }
 const button = (href, label) => `<a href="${href}" style="display:inline-block;background:#8ef0ff;color:#07080c;font-weight:600;text-decoration:none;padding:12px 22px;border-radius:999px">${esc(label)}</a>`;
@@ -64,15 +64,27 @@ const boxCard = (a) => `<table role="presentation" width="100%" cellpadding="0" 
 <a href="${boxUrl(a)}" style="color:#8ef0ff;font-weight:600;text-decoration:none">Open the box →</a></td></tr></table>`;
 const boxLines = (list) => list.map((a) => `${a.question}\n${a.hook || ''}\n${boxUrl(a)}`).join('\n\n');
 
-function confirmMail(s) {
-  const link = `${SITE}/api/confirm?t=${s.token}`;
+// Pending addresses also get the explainer emails, so every mail to them leads with a way to
+// confirm, and a reminder goes out every few days (REMIND_EVERY_DAYS) until they confirm or unsubscribe.
+const REMIND_EVERY_DAYS = 3, REMIND_MAX = 5;
+const confirmUrl = (s) => `${SITE}/api/confirm?t=${s.token}`;
+const unsubUrl = (s) => `${SITE}/api/unsubscribe?t=${s.token}`;
+const unsubHeaders = (s) => ({ 'List-Unsubscribe': `<${unsubUrl(s)}>`, 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click' });
+const confirmBanner = (s) => s.status !== 'pending' ? '' : `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 20px"><tr><td style="padding:14px 16px;border:1px solid #8ef0ff;border-radius:12px;background:#0d1a20">
+<p style="margin:0 0 10px;color:#eef0f6;font-size:14.5px">You haven't confirmed your email yet. One click keeps these coming.</p>
+${button(confirmUrl(s), 'Confirm my email')}</td></tr></table>`;
+const confirmLine = (s) => s.status !== 'pending' ? '' : `You haven't confirmed your email yet. One click keeps these coming:\n${confirmUrl(s)}\n\n`;
+
+function confirmMail(s, reminder = false) {
+  const link = confirmUrl(s), unsub = unsubUrl(s);
   return {
-    subject: `Confirm your email for ${config.brand}`,
-    html: shell({ preheader: 'One click and you will hear about every new explainer.', body: `<h1 style="margin:0 0 10px;font:400 26px/1.2 Georgia,serif">One click to confirm</h1>
-<p style="margin:0 0 18px;color:#c9cedb">You asked to hear about new ${esc(config.brand)} explainers: interactive 3D models that show how things work. Confirm it's really you and we'll write when a new one is added, plus a short digest each week.</p>
+    subject: reminder ? `Reminder: confirm your email for ${config.brand}` : `Confirm your email for ${config.brand}`,
+    html: shell({ preheader: 'One click and you will hear about every new explainer.', unsub, pending: true, body: `<h1 style="margin:0 0 10px;font:400 26px/1.2 Georgia,serif">${reminder ? 'Still with us? One click to confirm' : 'One click to confirm'}</h1>
+<p style="margin:0 0 18px;color:#c9cedb">${reminder ? `This address was signed up for new ${esc(config.brand)} explainers but hasn't been confirmed yet.` : `You asked to hear about new ${esc(config.brand)} explainers: interactive 3D models that show how things work.`} Confirm it's really you and we'll keep writing when a new one is added, plus a short digest each week.</p>
 <p style="margin:0 0 18px">${button(link, 'Yes, keep me posted')}</p>
-<p style="margin:0;color:#8b91a3;font-size:13.5px">If you didn't ask for this, ignore this email and you won't hear from us again.</p>` }),
-    text: `Confirm your email for ${config.brand}\n\nYou asked to hear about new ${config.brand} explainers. Confirm here:\n${link}\n\nIf you didn't ask for this, ignore this email.`,
+<p style="margin:0;color:#8b91a3;font-size:13.5px">If you didn't ask for this, <a href="${unsub}" style="color:#8ef0ff">unsubscribe here</a> and you won't hear from us again.</p>` }),
+    text: `${reminder ? 'Reminder: confirm' : 'Confirm'} your email for ${config.brand}\n\n${reminder ? 'This address was signed up' : 'You asked'} to hear about new ${config.brand} explainers. Confirm here:\n${link}\n\nIf you didn't ask for this, unsubscribe here: ${unsub}`,
+    headers: unsubHeaders(s),
   };
 }
 function newBoxesMail(s, list) {
@@ -80,8 +92,8 @@ function newBoxesMail(s, list) {
   const one = list.length === 1;
   return {
     subject: one ? `New on ${config.brand}: ${list[0].question}` : `${list.length} new explainers on ${config.brand}`,
-    html: shell({ preheader: one ? list[0].hook || list[0].question : list.map((a) => a.question).join(' · '), unsub, body: `<h1 style="margin:0 0 16px;font:400 26px/1.2 Georgia,serif">${one ? 'A new box just opened' : `${list.length} new boxes just opened`}</h1>${list.slice(0, 8).map(boxCard).join('')}${list.length > 8 ? `<p style="margin:0"><a href="${SITE}/" style="color:#8ef0ff">And ${list.length - 8} more on the shelf →</a></p>` : ''}` }),
-    text: `${one ? 'A new box just opened' : `${list.length} new boxes just opened`} on ${config.brand}\n\n${boxLines(list)}\n\nUnsubscribe: ${unsub}`,
+    html: shell({ preheader: one ? list[0].hook || list[0].question : list.map((a) => a.question).join(' · '), unsub, pending: s.status === 'pending', body: `${confirmBanner(s)}<h1 style="margin:0 0 16px;font:400 26px/1.2 Georgia,serif">${one ? 'A new box just opened' : `${list.length} new boxes just opened`}</h1>${list.slice(0, 8).map(boxCard).join('')}${list.length > 8 ? `<p style="margin:0"><a href="${SITE}/" style="color:#8ef0ff">And ${list.length - 8} more on the shelf →</a></p>` : ''}` }),
+    text: `${confirmLine(s)}${one ? 'A new box just opened' : `${list.length} new boxes just opened`} on ${config.brand}\n\n${boxLines(list)}\n\nUnsubscribe: ${unsub}`,
     headers: { 'List-Unsubscribe': `<${unsub}>`, 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click' },
   };
 }
@@ -89,10 +101,10 @@ function digestMail(s, list, range) {
   const unsub = `${SITE}/api/unsubscribe?t=${s.token}`;
   return {
     subject: `This week on ${config.brand}: ${list.length} new explainer${list.length === 1 ? '' : 's'}`,
-    html: shell({ preheader: list.map((a) => a.question).slice(0, 4).join(' · '), unsub, body: `<h1 style="margin:0 0 6px;font:400 26px/1.2 Georgia,serif">Your week in glass boxes</h1>
+    html: shell({ preheader: list.map((a) => a.question).slice(0, 4).join(' · '), unsub, pending: s.status === 'pending', body: `${confirmBanner(s)}<h1 style="margin:0 0 6px;font:400 26px/1.2 Georgia,serif">Your week in glass boxes</h1>
 <p style="margin:0 0 18px;color:#a8aebf;font-size:14.5px">${esc(range)} · ${list.length} new explainer${list.length === 1 ? '' : 's'}. Pick one, play with it for five minutes, and share it with a curious friend.</p>${list.slice(0, 10).map(boxCard).join('')}${list.length > 10 ? `<p style="margin:0 0 14px"><a href="${SITE}/" style="color:#8ef0ff">And ${list.length - 10} more on the shelf →</a></p>` : ''}
 <p style="margin:6px 0 0">${button(SITE + '/', 'See the whole shelf')}</p>` }),
-    text: `Your week on ${config.brand} (${range})\n\n${boxLines(list)}\n\nThe whole shelf: ${SITE}/\n\nUnsubscribe: ${unsub}`,
+    text: `${confirmLine(s)}Your week on ${config.brand} (${range})\n\n${boxLines(list)}\n\nThe whole shelf: ${SITE}/\n\nUnsubscribe: ${unsub}`,
     headers: { 'List-Unsubscribe': `<${unsub}>`, 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click' },
   };
 }
@@ -124,7 +136,7 @@ async function sendTo(s, mail) {
   return false;
 }
 async function mailAll(build, log) {
-  const subs = (await allSubs()).filter((s) => s.status === 'active');
+  const subs = (await allSubs()).filter((s) => s.status === 'active' || s.status === 'pending');
   let ok = 0, bad = 0;
   for (const s of subs) {
     try { (await sendTo(s, build(s))) ? ok++ : bad++; } catch (e) { bad++; log(`mail to a subscriber failed: ${e.message}`); }
@@ -268,6 +280,17 @@ export async function runJobs(getApps, log = console.log) {
         if (s.status !== 'pending' || s.confirmSentAt) continue;
         if (!(await store.claim('job:confirm:' + key, {}, 30 * 60e3))) continue;
         try { if (await sendTo(s, confirmMail(s))) await store.set(key, { ...s, confirmSentAt: new Date().toISOString() }); } catch (e) { log(`confirm mail failed: ${e.message}`); }
+        await wait(600);
+      }
+      // 1b. Reminders to confirm, every few days, up to REMIND_MAX times. After that the confirm
+      //     banner in every explainer email keeps asking.
+      for (const [key, s] of Object.entries(await store.list('sub:'))) {
+        if (s.status !== 'pending' || !s.confirmSentAt || (s.reminders || 0) >= REMIND_MAX) continue;
+        if (Date.now() - Date.parse(s.confirmSentAt) < REMIND_EVERY_DAYS * 86400e3) continue;
+        if (!(await store.claim('job:remind:' + key, {}, 30 * 60e3))) continue;
+        try {
+          if (await sendTo(s, confirmMail(s, true))) await store.set(key, { ...s, confirmSentAt: new Date().toISOString(), reminders: (s.reminders || 0) + 1 });
+        } catch (e) { log(`confirm reminder failed: ${e.message}`); }
         await wait(600);
       }
     }
