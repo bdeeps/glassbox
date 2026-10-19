@@ -216,6 +216,8 @@
     "../decoctionclear",
     "../filtercoffeeclear",
     "../pressurecookerclear",
-    "../inductionclear"
+    "../inductionclear",
+    "../dewclear",
+    "../rainclear"
   ]
 }
