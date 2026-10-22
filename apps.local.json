@@ -218,6 +218,9 @@
     "../pressurecookerclear",
     "../inductionclear",
     "../dewclear",
-    "../rainclear"
+    "../rainclear",
+    "../steampressclear",
+    "../steamengineclear",
+    "../barbecueclear"
   ]
 }
