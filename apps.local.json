@@ -221,6 +221,8 @@
     "../rainclear",
     "../steampressclear",
     "../steamengineclear",
-    "../barbecueclear"
+    "../barbecueclear",
+    "../cometclear",
+    "../mountainclear"
   ]
 }
