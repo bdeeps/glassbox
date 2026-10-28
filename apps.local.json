@@ -225,6 +225,7 @@
     "../cometclear",
     "../mountainclear",
     "../riverclear",
-    "../volcanicislandclear"
+    "../volcanicislandclear",
+    "../escooterclear"
   ]
 }
