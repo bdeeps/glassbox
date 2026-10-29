@@ -226,6 +226,10 @@
     "../mountainclear",
     "../riverclear",
     "../volcanicislandclear",
-    "../escooterclear"
+    "../escooterclear",
+    "../racingcarclear",
+    "../submarineclear",
+    "../warshipclear",
+    "../ballisticmissileclear"
   ]
 }

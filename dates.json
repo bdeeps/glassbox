@@ -187,7 +187,11 @@
     "riverclear": "2026-10-26",
     "volcanicislandclear": "2026-10-27",
     "escooterclear": "2026-10-28",
-    "extinguisherclear": "2026-10-29",
-    "extinguisherballclear": "2026-10-30"
+    "ballisticmissileclear": "2026-10-29",
+    "extinguisherclear": "2026-10-30",
+    "extinguisherballclear": "2026-10-31",
+    "racingcarclear": "2026-11-01",
+    "submarineclear": "2026-11-02",
+    "warshipclear": "2026-11-03"
   }
 }
