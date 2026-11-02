@@ -233,6 +233,11 @@
     "../ballisticmissileclear",
     "../sprayclear",
     "../silkclear",
-    "../cottonclear"
+    "../cottonclear",
+    "../bicepsclear",
+    "../tricepsclear",
+    "../shouldersclear",
+    "../backclear",
+    "../calfclear"
   ]
 }
