@@ -241,6 +241,8 @@
     "../calfclear",
     "../adapterclear",
     "../bookbindingclear",
-    "../softtoyclear"
+    "../softtoyclear",
+    "../usbclear",
+    "../powerbankclear"
   ]
 }
