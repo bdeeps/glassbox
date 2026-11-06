@@ -243,6 +243,8 @@
     "../bookbindingclear",
     "../softtoyclear",
     "../usbclear",
-    "../powerbankclear"
+    "../powerbankclear",
+    "../birdflightclear",
+    "../fishswimclear"
   ]
 }
