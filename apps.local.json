@@ -245,6 +245,7 @@
     "../usbclear",
     "../powerbankclear",
     "../birdflightclear",
-    "../fishswimclear"
+    "../fishswimclear",
+    "../jellyfishclear"
   ]
 }
