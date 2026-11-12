@@ -247,6 +247,11 @@
     "../birdflightclear",
     "../fishswimclear",
     "../jellyfishclear",
-    "../chameleonclear"
+    "../chameleonclear",
+    "../octopusclear",
+    "../cuttlefishclear",
+    "../squidclear",
+    "../fireflyclear",
+    "../glowwormclear"
   ]
 }
