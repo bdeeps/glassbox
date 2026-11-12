@@ -246,6 +246,7 @@
     "../powerbankclear",
     "../birdflightclear",
     "../fishswimclear",
-    "../jellyfishclear"
+    "../jellyfishclear",
+    "../chameleonclear"
   ]
 }
