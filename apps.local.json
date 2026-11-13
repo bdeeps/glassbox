@@ -253,6 +253,7 @@
     "../squidclear",
     "../fireflyclear",
     "../glowwormclear",
-    "../silencerclear"
+    "../silencerclear",
+    "../hornclear"
   ]
 }
