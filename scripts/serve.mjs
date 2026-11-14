@@ -20,6 +20,8 @@ import { autoPublish, runSchedule } from './lib/publisher.mjs';
 import { runQueue as runBoxQueue } from './lib/boxcom.mjs';
 import { niceName } from './lib/buffer.mjs';
 import { injectBoxSeo } from './lib/seo.mjs';
+import { buildShared, sharedFile, prepareBoxPage } from './lib/boxpage.mjs';
+import { asset } from './lib/render.mjs';
 
 const PORT = Number(process.env.PORT || 8080);
 const BOXES = path.join(process.env.BOXES_DIR || path.join(ROOT, '.boxes'));
@@ -154,6 +156,7 @@ function rebuild() {
   for (const d of dirs) { try { apps.push(...appsFromDirs([d])); } catch (e) { log(`skip ${path.basename(d)}: ${e.message}`); } }
   apps.sort((a, b) => b.box - a.box);
   state = { ...state, apps, pages: pages(apps), tags: new Map(), synced: new Date().toISOString() };
+  try { buildShared(apps, SITE_DIR, asset('/assets/fonts/fonts.css')); } catch (e) { log('shared files:', e.message); }
   log(`serving ${apps.length} box(es): ${apps.map((a) => a.slug).join(', ') || 'none'}`);
 }
 
@@ -187,9 +190,9 @@ const hashOf = (buf) => `"${crypto.createHash('sha1').update(buf).digest('base64
 const IMMUTABLE = 'public, max-age=31536000, immutable';
 const notModified = (req, etag) => (req.headers['if-none-match'] || '').split(/\s*,\s*/).includes(etag);
 
-// A box page gets <link rel="modulepreload"> for its whole module graph, so the browser fetches
-// app.js, the chapters, the kit and three.js in parallel instead of one import at a time.
-// Its stylesheets and entry script get ?v=<content hash> and are cached for a year.
+// A box page is prepared by lib/boxpage.mjs: every module gets a content-hashed address that is
+// cached for a year, the whole module graph is preloaded in parallel, and three.js and the fonts
+// come from one address shared by all boxes. If that ever fails the page is sent as written.
 // It also gets the hub's title, description, canonical, share cards, JSON-LD and a
 // crawlable summary linking to its explainer (injectBoxSeo in lib/seo.mjs).
 const boxPages = new Map();
@@ -197,32 +200,7 @@ function boxPage(dir, file, st) {
   const k = `${file}:${st.mtimeMs}:${st.size}:${state.synced}`;
   if (boxPages.has(k)) return boxPages.get(k);
   let html = fs.readFileSync(file, 'utf8');
-  const base = path.dirname(file);
-  const ver = (rel) => { try { return hashOf(fs.readFileSync(path.join(base, rel))).slice(1, 11); } catch { return null; } };
-  html = html.replace(/(<link[^>]+rel="stylesheet"[^>]+href=")(?!https?:|\/)([^"?]+)"/g, (m, a, rel) => { const v = ver(rel); return v ? `${a}${rel}?v=${v}"` : m; });
-  let map = {};
-  try { map = JSON.parse(html.match(/<script type="importmap">([\s\S]*?)<\/script>/)?.[1] || '{}').imports || {}; } catch { /* no import map */ }
-  const resolve = (spec, from) => {
-    if (map[spec]) return path.posix.normalize(map[spec].replace(/^\.\//, ''));
-    const pre = Object.keys(map).find((k) => k.endsWith('/') && spec.startsWith(k));
-    if (pre) return path.posix.normalize(map[pre].replace(/^\.\//, '') + spec.slice(pre.length));
-    if (spec.startsWith('.')) return path.posix.normalize(path.posix.join(path.posix.dirname(from), spec));
-    return null;
-  };
-  const entries = [...html.matchAll(/<script type="module" src="(?!https?:|\/)([^"?]+)"/g)].map((m) => path.posix.normalize(m[1]));
-  const seen = new Set(), queue = [...entries];
-  while (queue.length && seen.size < 200) {
-    const rel = queue.shift();
-    if (seen.has(rel)) continue;
-    let src; try { src = fs.readFileSync(path.join(base, rel), 'utf8'); } catch { continue; }
-    seen.add(rel);
-    for (const m of src.matchAll(/(?:^|[;\n}])\s*(?:import|export)\s[^'"`;]*?from\s*['"]([^'"]+)['"]|(?:^|[;\n])\s*import\s*['"]([^'"]+)['"]/g)) {
-      const r = resolve(m[1] || m[2], rel);
-      if (r && !seen.has(r)) queue.push(r);
-    }
-  }
-  const pre = [...seen].filter((r) => !entries.includes(r)).map((r) => `<link rel="modulepreload" href="${r}">`).join('\n');
-  if (pre) html = html.replace(/<\/head>/, `${pre}\n</head>`);
+  try { html = prepareBoxPage(html, path.dirname(file)); } catch (e) { log(`page ${path.basename(dir)}: ${e.message}`); }
   try { html = injectBoxSeo(html, state.apps.find((a) => a.dir === dir)); } catch (e) { log(`seo ${path.basename(dir)}: ${e.message}`); }
   const out = { body: html, etag: hashOf(Buffer.from(html)) };
   if (boxPages.size > 200) boxPages.clear();
@@ -231,7 +209,8 @@ function boxPage(dir, file, st) {
 }
 
 function cacheFor(file) {
-  if (/\.(mp4|jpg|jpeg|png|webp|woff2|glb)$/.test(file)) return 'public, max-age=86400';
+  if (/\.woff2$/.test(file)) return 'public, max-age=2592000';   // font files keep their names; a new cut gets a new name
+  if (/\.(mp4|jpg|jpeg|png|webp|glb)$/.test(file)) return 'public, max-age=86400';
   if (/\/vendor\//.test(file)) return 'public, max-age=86400';
   // Pages, styles and scripts always revalidate (a cheap 304), so a box update can never
   // pair new HTML with a stale stylesheet.
@@ -251,7 +230,7 @@ function etagFor(file, st) {
   return t;
 }
 
-function serveFile(req, res, file, boxDir) {
+function serveFile(req, res, file, boxDir, forever) {
   let st;
   try { st = fs.statSync(file); } catch { return false; }
   if (st.isDirectory()) {
@@ -265,7 +244,7 @@ function serveFile(req, res, file, boxDir) {
     return send(req, res, 200, page.body, type, 'no-cache', { ETag: page.etag }), true;
   }
   const etag = etagFor(file, st);
-  const cache = /[?&]v=/.test(req.url) ? IMMUTABLE : cacheFor(file);
+  const cache = forever || /[?&]v=/.test(req.url) ? IMMUTABLE : cacheFor(file);
   if (notModified(req, etag)) { res.writeHead(304, { ETag: etag, 'Cache-Control': cache, ...SECURITY }); res.end(); return true; }
   const base = { 'Cache-Control': cache, ETag: etag, 'Accept-Ranges': 'bytes' };
   const range = req.headers.range?.match(/bytes=(\d*)-(\d*)/);
@@ -330,6 +309,14 @@ const server = http.createServer(async (req, res) => {
     }
     if (state.pages[key.replace(/index\.html$/, '').replace(/\/$/, '') + '/index.html'] && !p.endsWith('/')) {
       res.writeHead(301, { Location: p + '/', ...SECURITY }); return res.end();
+    }
+
+    // Files every box shares (three.js and its addons), at an address named after their content.
+    if (p.startsWith('/_s/')) {
+      const s = sharedFile(p);
+      if (s?.redirect) { res.writeHead(302, { Location: s.redirect, 'Cache-Control': 'public, max-age=600', ...SECURITY }); return res.end(); }
+      if (s && serveFile(req, res, s.file, null, true)) return;
+      return send(req, res, 404, 'Not found', TYPES['.txt'], 'no-store');
     }
 
     const seg = p.split('/')[1];
