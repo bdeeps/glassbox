@@ -287,6 +287,12 @@
     "../yawnclear",
     "../seasonsclear",
     "../moonphasesclear",
-    "../starclear"
+    "../starclear",
+    "../geckoclear",
+    "../catlandingclear",
+    "../flytrapclear",
+    "../anttrailclear",
+    "../termitemoundclear",
+    "../pearlclear"
   ]
 }
